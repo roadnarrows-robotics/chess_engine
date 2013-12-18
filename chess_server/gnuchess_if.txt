@@ -1,0 +1,249 @@
+ROS Chess Server & Visualizer
+-----------------------------
+
+Intro:
+------
+The ROS chess server chess_server is a ROS node that provides chess services to
+ROS-enabled robots to play chess.
+
+The ROS chess visualizer is a ROS node that subscribes to chess_server
+published data.
+
+Description:
+------------
+ROS chess_server uses the GNU Chess program gnuchess
+(http://www.gnu.org/software/chess) as the backend chess engine. The gnuchess 
+engine is unmodified (hence, apt-get installable).
+
+The gnuchess engine is placed in xboard mode on start-up. All interfaces
+between chess_server and gnuchess are piped xboard command and response
+text lines terminated with '\n'.
+
+The GNU Chess Versions tested are 5.07, 6.1.1.
+
+opponent (other_robot, human, virtual) - robot - chess_server
+                                               - chess_vis
+
+Illustration: Typical chess playing robot arrangement.
+
+The opponent's move is detected by the robot. The move is sent to the
+chess_server as the "player's" move. The gnuchess engine determines its move,
+which in fact, is the robot's move. The robot makes the move.
+
+The gnuchess xboard Interface:
+------------------------------
+
+# Start gnuchess with command-line options.
+exec: gnuchess --xboard
+
+# After startup, gnuchess will print one or more (irrelevant) lines.
+init_strings ::= LINES
+
+# Start a new game. Default is player is white (starts first).
+#
+# Note: difficulty seems to get reset to gnuchess default at start of new
+#       game, so set at start of each game.
+new_game ::= new_mep random_mep depth_mep
+
+# If player is black (i.e. gnuchess is white), then tell gnuchess to go first. 
+player_is_black ::= go_mep
+
+# Player makes a move
+make_a_move ::= move_mep
+
+# Get current game state.
+get_game_state ::= show_game_mep
+
+# Quit gnuchess
+quit_chess ::= quit_cmd
+
+
+# --
+# Message Exchange Patterns
+# --
+
+# New command-response message exchange pattern.
+#
+# Reset board to standard chess starting position. Set white to move. Remove
+# any previously set random and search depth limits.
+new_mep ::= new_cmd no_rsp
+
+# Random command-response message exchange pattern.
+#
+# Randomize engine to vary play (gnuchess versions < 6.0).
+#
+random_mep ::= random_cmd random_rsp
+
+# Depth command-response message exchange pattern.
+#
+# Sets the search depth to N plys (half-moves). Default is 2.
+depth_mep ::= depth_cmd depth_rsp
+
+# Go command-response message exchange pattern.
+# The go command tells gnuchess to make the move.
+go_mep ::= go_cmd go_rsp
+
+move_mep ::=
+    move_cmd move_rsp
+  | move_cmd bad_move_rsp
+
+
+# --
+# Commands
+# --
+
+# new command
+new_cmd ::= 'new\n'
+
+# random command
+random_cmd ::= 'random\n'
+
+# depth command
+depth_cmd ::= 'depth ' INT '\n'
+
+# go command
+go_cmd ::= 'go\n'
+
+# move command
+move_cmd ::= move
+
+# null command
+null_cmd ::= '\n'
+
+
+# --
+# Responses
+# --
+
+# Preface to responses. For gnuchess versions >= 6.0 there are the ridiculous
+# timelimit lines.
+pre_rsp ::= 
+    NONE
+  | timelimits_rsp
+  
+# No response. Some commands have no response.
+no_rsp ::= pre_rsp
+
+# random response
+random_rsp ::=
+    no_rsp
+  | no_support_rsp
+
+no_support_rsp ::=
+    pre_rsp 'Command \'' CMD '\' is currently not supported.\n'
+
+depth_rsp ::=
+  pre_rsp 'Search to a depth of ' INT '\n'
+
+# go response
+go_rsp ::=
+    pre_rsp play_go_rsp my_move_rsp
+
+move_rsp ::=
+  pre_rsp play_rsp my_move_rsp
+
+play_rsp ::=
+    play_rsp_white_rsp
+    play_rsp_black_rsp
+
+# gnuchess go play response
+play_go_rsp ::=
+  INT '. ... ' move '\n'
+
+# gnuchess playing white play response
+play_white_rsp ::=
+  INT   '. ' move '\n' INT+1 '. ... ' move '\n'
+
+# gnuchess playing black play response
+play_black_rsp ::=
+  INT '. ' move '\n' INT '. ... ' move '\n'
+
+# gnuchess my move response (version < 6.0, version >= 6.0)
+my_move_rsp ::=
+    'My move is: ' move '\n'
+  | 'My move is : ' move '\n'
+
+# bad move response (version < 6.0, version >= 6.0)
+bad_move_rsp ::=
+    'Illegal move: ' '\n'
+  | 'Illegal move: ' move '\n'
+  | 'Invalid move: ' '\n'
+  | 'Invalid move: ' move '\n'
+
+timelimits_rsp ::=
+    timelimit_rsp 
+  | timelimit_rsp timelimit_rsp
+
+timelimit_rsp ::=
+  'TimeLimit[' INT '] = ' FPN '\n'
+  
+
+# --
+# Move Algebraic and Coordinate Algebraic Notation
+# --
+
+move ::=
+    simple_move modifier
+    capture modifier
+  | castling modifier
+  | pawn_promotion modifier
+   
+simple_move ::=
+    file rank
+  | file rank file rank
+  | piece file rank
+
+capture ::=
+    piece 'x' file rank
+  | piece file 'x' file rank
+
+castling ::=
+    'e1g1'
+  | 'e1c1'
+  | 'e8g8'
+  | 'e8c8'
+  | 'O-O'
+  | 'O-O-O'
+
+pawn_promotion ::=
+  FILE {'2' | '7'} FILE {'1' | '8'} 'q'
+  FILE {'1' | '8'} 'q'
+  FILE {'1' | '8'} '=Q'
+
+file ::= 'a' - 'h'
+
+rank ::= '1' - '8'
+
+piece ::= 'k' | 'q' | 'r' | 'n' | 'b' | 'p'
+
+modifier ::=
+  NONE
+  check
+  resign
+  mate
+
+check ::= '+'
+
+draw ::=
+  '\n' '1/2-1/2'
+
+resign ::=
+  ''\n' resign'
+
+mate ::=
+    '#'
+  | '\n' '0-1 {Black mates}'
+  | '\n' '1-0 {White mates}'
+  | '\n' '0-1 {computer wins as black}'
+  | '\n' '1-0 {computer wins as white}'
+
+
+# --
+# Terminals
+# --
+
+INT   ::= integer
+FPN   ::= floating-point number
+CMD   ::= Last sent command string
+NONE  ::= no characters
+LINES ::= text '\n' [text '\n' ...]
