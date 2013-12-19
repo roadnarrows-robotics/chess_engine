@@ -77,12 +77,16 @@ catkin_package(
 
 include_directories(
   include 
+  ../include
   /prj/include 
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
 )
 
-add_executable(chess_server src/chess_server.cpp)
+add_executable(chess_server
+  src/chess_server.cpp
+  src/chess_backend_gnu.cpp
+)
 
 target_link_libraries(
   chess_server 

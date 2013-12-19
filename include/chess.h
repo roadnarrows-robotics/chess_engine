@@ -4,22 +4,16 @@
 //
 // Link:      https://github.com/roadnarrows-robotics/chess_engine
 //
-// ROS Node:  chess_server
+// ROS Nodes: chess_server, rqt_chess_viz
 //
-// File:      chess_server.h
+// File:      chess.h
 //
 /*! \file
  *
  * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
  * $Rev: 3334 $
  *
- * \brief The ROS chess_server node provides services and subscriptions to play 
- * chess using the GNU chess gnuchess as the backend engine.
- *
- * The gnuchess (http://www.gnu.org/software/chess) engine is unmodified
- * (and hence, apt-get installable).
- *
- * The GNU Chess Versions tested are 5.07, 6.1.1.
+ * \brief Defined the game of chess.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
@@ -59,38 +53,137 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _CHESS_SERVER_H
-#define _CHESS_SERVER_H
+#ifndef _CHESS_H
+#define _CHESS_H
 
 #ifndef SWIG
 namespace chess_engine
 {
 #endif // SWIG
 
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  const char None = 0;
 
   /*!
-   * \ingroup ce_h
-   * \defgroup ce_ecodes  RoadNarrows Chess Engine Error Codes
-   *
-   * Chess engine package-wide error codes.
-   *
-   * \{
+   * \brief Chess board file (column).
    */
-  static const int CE_OK                =  0; ///< not an error, success
+  enum ChessFile
+  {
+    NoFile      = None,
+    ChessFileA  = 'a',
+    ChessFileB  = 'b',
+    ChessFileC  = 'c',
+    ChessFileD  = 'd',
+    ChessFileE  = 'e',
+    ChessFileF  = 'f',
+    ChessFileG  = 'g',
+    ChessFileH  = 'h'
+  };
 
-  static const int CE_ECODE_GEN         =  1; ///< general, unspecified error
-  static const int CE_ECODE_SYS         =  2; ///< system (errno) error
-  static const int CE_ECODE_SUPP        =  3; ///< not supported
-  static const int CE_ECODE_TIMEDOUT    =  4; ///< operation timed out
-  static const int CE_ECODE_NO_EXEC     =  5; ///< cannot execute
-  static const int CE_ECODE_CHESS       =  6; ///< invalid move, command, etc
-  /* \} */
+  /*!
+   * \brief Chess board rank (row).
+   *
+   * Rank numbering is always relative to White starting from '1' to '8'.
+   */
+  enum ChessRank
+  {
+    NoRank      = None,
+    ChessRank1  = '1',
+    ChessRank2  = '2',
+    ChessRank3  = '3',
+    ChessRank4  = '4',
+    ChessRank5  = '5',
+    ChessRank6  = '6',
+    ChessRank7  = '7',
+    ChessRank8  = '8'
+  };
 
+  /*!
+   * \brief 
+   */
+  struct ChessSquare
+  {
+    char  m_file;
+    char  m_rank;
+  };
+
+  const ChessSquare NoMove = {NoFile, NoRank};
+
+  /*!
+   * \brief Chess Piece Color
+   */
+  enum ChessPieceColor
+  {
+    NoColor = None,
+    White   = 'w',
+    Black   = 'b'
+  };
+
+  /*!
+   * \brief Chess Piece Type
+   */
+  enum ChessPieceType
+  {
+    NoPiece = None,
+    King    = 'k',
+    Queen   = 'q',
+    Rook    = 'r',
+    Bishop  = 'b',
+    Knight  = 'n',
+    Pawn    = 'p'
+  };
+
+  /*!
+   * \brief Chess Castling
+   */
+  enum ChessCastling
+  {
+    NoCastling = None,
+    Kingside   = 'k',
+    Queenside  = 'q'
+  };
+
+  typedef ChessPieceType ChessPawnPromotion;
+
+  /*!
+   * \brief 
+   */
+  enum ChessCapture
+  {
+    NoCapture = None,
+    Capture   = 'x'
+  };
+
+  /*!
+   * \brief 
+   */
+  enum ChessMoveModifier
+  {
+    NoModifier  = None,
+    Check       = '+',
+    Checkmate   = '#',
+    Draw        = 'd',
+    Resign      = 'r'
+  };
+
+  class ChessMove
+  {
+  public:
+    int                 m_nMoveNum;
+    ChessPieceColor     m_colorPlayer;
+    ChessSquare         m_squareFrom;
+    ChessSquare         m_squareTo;
+    ChessCapture        m_capture;
+    ChessCastling       m_castling;
+    ChessPawnPromotion  m_promotion;
+    ChessMoveModifier   m_modifier;
+
+    ChessMove() { };
+    ~ChessMove() { };
+  };
 
 #ifndef SWIG
 } // namespace chess_engine
 #endif // SWIG
 
 
-#endif // _CHESS_SERVER_H
+#endif // _CHESS_H

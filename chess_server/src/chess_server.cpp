@@ -54,11 +54,64 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
+#include <string.h>
 
+#include "chess.h"
 #include "chess_server.h"
+#include "chess_backend_gnu.h"
+
+using namespace std;
+using namespace chess_engine;
 
 int main(int argc, char *argv[])
 {
+  ChessBackendGnu engine;
+  char line[80];
+  char  eol[80];
+  int n;
+
   printf("hello world\n");
+  printf("%c\n", White);
+
+  engine.openConnection();
+
+  while( 1 )
+  {
+    printf("> ");
+    if( fgets(line, 80, stdin) != NULL )
+    {
+      line[strlen(line)-1] = 0;
+      if( !strcmp(line, "quit") )
+      {
+        break;
+      }
+      else if( !strcmp(line, "close") )
+      {
+        if( engine.isOpen() )
+        {
+          engine.closeConnection();
+        }
+      }
+      else if( !strcmp(line, "open") )
+      {
+        if( !engine.isOpen() )
+        {
+          engine.openConnection();
+        }
+      }
+      else if( engine.isOpen() )
+      {
+        engine.writeline(line);
+        while( engine.readline(line, 80) > 0 )
+        {
+          printf("%s\n", line);
+        }
+      }
+      else
+      {
+      }
+    }
+  }
+
   return 0;
 }

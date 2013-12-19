@@ -41,7 +41,7 @@ init_strings ::= LINES
 
 # Start a new game. Default is player is white (starts first).
 #
-# Note: difficulty seems to get reset to gnuchess default at start of new
+# Note: Difficulty is reset to gnuchess default at start of new
 #       game, so set at start of each game.
 new_game ::= new_mep random_mep depth_mep
 
@@ -206,9 +206,9 @@ castling ::=
   | 'O-O-O'
 
 pawn_promotion ::=
-  FILE {'2' | '7'} FILE {'1' | '8'} 'q'
-  FILE {'1' | '8'} 'q'
-  FILE {'1' | '8'} '=Q'
+  FILE {'2' | '7'} FILE {'1' | '8'} piece
+  FILE {'1' | '8'} piece
+  FILE {'1' | '8'} '=' piece
 
 file ::= 'a' - 'h'
 
@@ -217,10 +217,11 @@ rank ::= '1' - '8'
 piece ::= 'k' | 'q' | 'r' | 'n' | 'b' | 'p'
 
 modifier ::=
-  NONE
-  check
-  resign
-  mate
+    NONE
+  | check
+  | draw
+  | mate
+  | resign
 
 check ::= '+'
 

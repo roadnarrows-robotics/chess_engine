@@ -57,4 +57,141 @@
 #ifndef _CHESS_BACKEND_H
 #define _CHESS_BACKEND_H
 
+#include <sys/types.h>
+
+#include "chess.h"
+#include "chess_server.h"
+
+namespace chess_engine
+{
+  class ChessBackend
+  {
+  public:
+    ChessBackend() : m_strVersion("?")
+    {
+      m_fDifficulty = 2.0; 
+      b_bInGame     = false;
+      m_colorPlayer = NoColor;
+      m_colorEngine = NoColor;
+      m_colorTurn   = NoColor;
+      m_nMoveNum    = 0;
+    }
+  
+    virtual ~ChessBackend() { }
+  
+    virtual int openConnection()
+    {
+      return -CE_ECODE_SUPP;
+    }
+  
+    virtual int closeConnection()
+    {
+      return -CE_ECODE_SUPP;
+    }
+  
+    virtual int readline(std::string &strLine)
+    {
+      return -CE_ECODE_SUPP;
+    }
+  
+    virtual int readline(char buf[], size_t sizeBuf)
+    {
+      return -CE_ECODE_SUPP;
+    }
+  
+    virtual int writeline(const std::string &strLine)
+    {
+      return -CE_ECODE_SUPP;
+    }
+  
+    virtual int writeline(const char buf[], size_t sizeBuf)
+    {
+      return -CE_ECODE_SUPP;
+    }
+  
+    virtual void flushInput() { }
+  
+    virtual bool isOpen()
+    {
+      return false;
+    }
+
+    virtual std::string engineGetVersion()
+    {
+      return m_strVersion;
+    }
+
+    virtual void engineSetGameDifficulty(float fDifficulty)
+    {
+      if( fDifficulty < 1.0 )
+      {
+        fDifficulty = 1.0;
+      }
+      else if( fDifficulty > 10.0 )
+      {
+        fDifficulty = 10.0;
+      }
+      m_fDifficulty = fDifficulty;
+    }
+
+    virtual int engineStartNewGame(int player=White)
+    {
+      if( player == White )
+      {
+        m_colorPlayer = White;
+        m_colorEngine = Black;
+      }
+      else
+      {
+        m_colorPlayer = Black;
+        m_colorEngine = White;
+      }
+      m_colorTurn   = White;
+      m_nMoveNum    = 0;
+      b_bInGame     = true;
+
+      return CE_OK;
+    }
+
+    virtual int engineMakeAMove(const ChessSquare &squareFrom,
+                                const ChessSquare &quareTo)
+    {
+      return -CE_ECODE_NO_EXEC;
+    }
+
+    virtual int resign()
+    {
+      return -CE_ECODE_NO_EXEC;
+    }
+
+    virtual int engineGetEnginesMove()
+    {
+    }
+
+    virtual int getWhoseTurn()
+    {
+      return m_colorTurn;
+    }
+
+    virtual int getWhoseTurn()
+    {
+      return m_colorTurn;
+    }
+
+    virtual int engineGetGameState()
+    {
+    }
+
+  protected:
+    std::string m_strVersion;   ///< backend engine version string
+    float       m_fDifficulty;  ///< game engine difficulty [1,10]
+    bool        b_bInGame;      ///< [not] currently playing a game
+    int         m_colorPlayer;  ///< color of player
+    int         m_colorEngine;  ///< color of backend engine
+    int         m_colorTurn;    ///< color to play
+    int         m_nMoveNum;     ///< number of full moves (2 plies/move)
+  };
+
+} // chess_engine
+
 #endif // _CHESS_BACKEND_H

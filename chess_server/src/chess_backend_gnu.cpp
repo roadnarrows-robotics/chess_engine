@@ -70,52 +70,69 @@
 
 #include "chess.h"
 #include "chess_server.h"
+#include "chess_backend_gnu.h"
 
 
 using namespace std;
+using namespace chess_engine;
 
 
 // ---------------------------------------------------------------------------
 // Private Interface 
 // ---------------------------------------------------------------------------
 
+//
+// GNU Chess Backend
+//
+
 // switch
-#define UCI_TRACE_ENABLE
+#define GCB_TRACE_ENABLE
 
-#ifdef UCI_TRACE_ENABLE
+#ifdef GCB_TRACE_ENABLE
 
-#define UCI_TRACE_FILE "ucitrace.log"
+#define GCB_TRACE_FILE "gcbtrace.log"
 
-static FILE *FpUciTrace = NULL;
+static FILE *FpGcbTrace = NULL;
 
-#define UCI_TRACE(fmt, ...) \
+#define GCB_TRACE(fmt, ...) \
   do \
   { \
-    if( FpUciTrace != NULL )\
+    if( FpGcbTrace != NULL )\
     { \
-      fprintf(FpUciTrace, fmt, ##__VA_ARGS__); \
-      fflush(FpUciTrace); \
+      fprintf(FpGcbTrace, fmt, ##__VA_ARGS__); \
+      fflush(FpGcbTrace); \
     } \
   } while(0)
 
-#define UCI_TRACE_OPEN() \
+#define GCB_TRACE_OPEN() \
   do \
   { \
-    if( (FpUciTrace = fopen(UCI_TRACE_FILE, "w")) != NULL ) \
+    if( (FpGcbTrace = fopen(GCB_TRACE_FILE, "w")) != NULL ) \
     { \
-      UCI_TRACE("### Start UCI Tracing.\n\n"); \
+      GCB_TRACE("### Start GNU Chess Backend (GCB) Tracing.\n\n"); \
+    } \
+  } while(0)
+
+#define GCB_TRACE_CLOSE() \
+  do \
+  { \
+    if( FpGcbTrace != NULL )\
+    { \
+      fclose(FpGcbTrace); \
+      GCB_TRACE("### End GNU Chess Backend (GCB) Tracing.\n\n"); \
     } \
   } while(0)
 
 #else
 
-#define UCI_TRACE(fmt, ...)
-#define UCI_TRACE_OPEN()
+#define GCB_TRACE(fmt, ...)
+#define GCB_TRACE_OPEN()
+#define GCB_TRACE_CLOSE()
 
-#endif // UCI_TRACE_ENABLE
+#endif // GCB_TRACE_ENABLE
 
 
-#define UCI_MAX_BUF_SIZE      80
+#define GCB_MAX_BUF_SIZE      80
 
 // (partial) response strings
 const char* const UciRspCheckMate   = "mates";
@@ -195,17 +212,17 @@ ChessBackendGnu::ChessBackendGnu()
   m_pipeFromChess[1]  = -1;
   m_pidChild          = -1;
 
-  bool   UciWaitingForEngineMoveRsp;
-  char   UciEngineMoveRspBuf[UCI_MAX_BUF_SIZE];
-  int    UciMovePairCnt;
+  //bool   UciWaitingForEngineMoveRsp;
+  //char   UciEngineMoveRspBuf[GCB_MAX_BUF_SIZE];
+  //int    UciMovePairCnt;
 }
 
 ChessBackendGnu::~ChessBackendGnu()
 {
-  close();
+  closeConnection();
 }
 
-int ChessBackendGnu::open(const string &strChessApp)
+int ChessBackendGnu::openConnection(const string &strChessApp)
 {
   char   *argv[8];
 
@@ -277,7 +294,8 @@ int ChessBackendGnu::open(const string &strChessApp)
       return -CE_ECODE_SYS;
     }
 
-    UCI_TRACE_OPEN();
+    GCB_TRACE_OPEN();
+    GCB_TRACE("Application: %s\n", m_strChessApp.c_str());
 
     sleep(1);
 
@@ -287,12 +305,68 @@ int ChessBackendGnu::open(const string &strChessApp)
   }
 }
 
-int ChessBackenGnu::close()
+int ChessBackendGnu::closeConnection()
 {
   if( m_pidChild > 0 )
   {
     killApp();
   }
+
+  // close pipe ends 
+  if( m_pipeToChess[1] >= 0 )
+  {
+    close(m_pipeToChess[1]);
+  }
+
+  if( m_pipeFromChess[0] >=  0 )
+  {
+    close(m_pipeFromChess[0]);
+  }
+
+  m_strChessApp.clear();
+
+  m_pipeToChess[0]    = -1;
+  m_pipeToChess[1]    = -1;
+  m_pipeFromChess[0]  = -1;
+  m_pipeFromChess[1]  = -1;
+  m_pidChild          = -1;
+
+  GCB_TRACE("closeConnection()\n");
+}
+
+void ChessBackendGnu::configure()
+{
+  char    bufRsp[GCB_MAX_BUF_SIZE];
+  int     n;
+
+  flushInput();
+
+  // determine version
+
+  // place in xboard mode
+  //StaleMateUciTrans(session, "xboard", NULL, 0);
+
+  //StaleMateUciTrans(session, "depth 4", bufRsp, sizeof(bufRsp));
+  //LOGDIAG3("depth rsp: %s", bufRsp);
+
+  // TODO other engine config here
+
+  return;
+}
+
+void ChessBackendGnu::killApp()
+{
+  int   status;
+
+  kill(m_pidChild, SIGTERM);
+  waitpid(m_pidChild, &status, WEXITED);
+
+  if( WIFEXITED(status) )
+  {
+    //fprintf(stderr, "DBG: good exit\n");
+  }
+
+  m_pidChild = -1;
 }
 
 int ChessBackendGnu::readline(char buf[], size_t sizeBuf)
@@ -335,6 +409,7 @@ int ChessBackendGnu::readline(char buf[], size_t sizeBuf)
         default:            // non-recoverable error
           buf[nBytes] = 0;
           LOGSYSERROR("select(%d,...)", fd);
+          GCB_TRACE("readline() %s\n", buf);
           return -CE_ECODE_SYS;
       }
     }
@@ -354,7 +429,8 @@ int ChessBackendGnu::readline(char buf[], size_t sizeBuf)
         case '\n':    // received a response line
           buf[nBytes] = 0;
           //LOGDIAG4("%s(): %zd bytes response line.", LOGFUNCNAME, nBytes);
-          return CE_OK;
+          GCB_TRACE("readline() %s\n", buf);
+          return (int)nBytes;
         case '\r':    // received a character, but ignore
           break;
         default:      // received a character
@@ -375,6 +451,7 @@ int ChessBackendGnu::readline(char buf[], size_t sizeBuf)
         default:            // non-recoverable error
           buf[nBytes] = 0;
           LOGSYSERROR("select(%d,...)", fd);
+          GCB_TRACE("readline() %s\n", buf);
           return -CE_ECODE_SYS;
       }
     }
@@ -390,30 +467,44 @@ int ChessBackendGnu::readline(char buf[], size_t sizeBuf)
   LOGDIAG4("%s(): %zd bytes partial response line.", LOGFUNCNAME, nBytes);
   
   buf[nBytes] = 0;
+  GCB_TRACE("readline() %s\n", buf);
 
   return -CE_ECODE_TIMEDOUT;
+}
+
+int ChessBackendGnu::writeline(const char buf[], size_t len)
+{
+  ssize_t m, n;
+
+  m = len > 0?  write(m_pipeToChess[1], buf, len): 0;
+  n = write(m_pipeToChess[1], "\n", 1);
+
+  GCB_TRACE("writeline(): %*s\n", len, buf);
+
+  return (m >= 0) && (n > 0)? m+n: -CE_ECODE_SYS;
 }
 
 void ChessBackendGnu::flushInput()
 {
   char    buf[256];
 
-  UCI_TRACE("UCI: Flush:\n", buf);
-  while( UciReadLine(buf, sizeof(buf)) == CE_OK )
+  GCB_TRACE("flushInput():\n", buf);
+  while( readline(buf, sizeof(buf)) > 0 )
   {
-    UCI_TRACE("%s", buf);
+    GCB_TRACE("%s\n", buf);
   }
-  UCI_TRACE("\nUCI: End Flush\n");
+  GCB_TRACE("flushInput() End\n");
 }
 
 
+#if 0 // RDK
 static int UciParseMoveRsp(const char  bufRsp[],
                            const char *sExpectedMove,
                            char        bufAlgSqFrom[],
                            char        bufAlgSqTo[])
 {
   int   n;
-  char  bufEcho[UCI_MAX_BUF_SIZE];
+  char  bufEcho[GCB_MAX_BUF_SIZE];
   
   bufAlgSqFrom[0] = 0;
   bufAlgSqTo[0] = 0;
@@ -464,20 +555,20 @@ static int UciParseMoveRsp(const char  bufRsp[],
   
   if( (n == 0) || (bufEcho[0] == 0) )
   {
-    LOGERROR("UCI: Bad response '%s'", bufRsp);
+    LOGERROR("CBG: Bad response '%s'", bufRsp);
     return -CE_ECODE_GEN;
   }
 
   else if( n != UciMovePairCnt ) 
   {
-    LOGERROR("UCI: Response move out-of-sequence: Expected %d, got %d.",
+    LOGERROR("CBG: Response move out-of-sequence: Expected %d, got %d.",
         UciMovePairCnt, n);
     return -CE_ECODE_GEN;
   }
 
   else if( (sExpectedMove != NULL) && strcasecmp(sExpectedMove, bufEcho) )
   {
-    LOGERROR("UCI: Response move unexpected: Expected '%s', got '%s'.",
+    LOGERROR("CBG: Response move unexpected: Expected '%s', got '%s'.",
         sExpectedMove, bufEcho);
     return -CE_ECODE_GEN;
   }
@@ -522,12 +613,6 @@ static int UciParseMoveRsp(const char  bufRsp[],
   return CE_OK;
 }
 
-void ChessBackendGnu::killApp()
-{
-  kill(m_pidChild, SIGTERM);
-  waitpid(m_pidChild, NULL, WEXITED);
-}
-
 int StaleMateUciTrans(StaleMateSession &session,
                       const char       *sReq,
                       char              bufRsp[],
@@ -546,11 +631,11 @@ int StaleMateUciTrans(StaleMateSession &session,
 
   if( sizeRspBuf > 0 )
   {
-    UCI_TRACE("UCI: Req: \"%s\"\n", sReq);
+    GCB_TRACE("CBG: Req: \"%s\"\n", sReq);
   }
   else
   {
-    UCI_TRACE("UCI: Cmd: \"%s\"\n", sReq);
+    GCB_TRACE("CBG: Cmd: \"%s\"\n", sReq);
   }
 
   n = write(UciPipeToChess[1], sReq, strlen(sReq));
@@ -566,7 +651,7 @@ int StaleMateUciTrans(StaleMateSession &session,
   if( sizeRspBuf > 0 )
   {
     rc = UciReadLine(bufRsp, sizeRspBuf);
-    UCI_TRACE("UCI: Rsp: \"%s\"\n", bufRsp);
+    GCB_TRACE("CBG: Rsp: \"%s\"\n", bufRsp);
     return rc;
   }
   else
@@ -575,29 +660,9 @@ int StaleMateUciTrans(StaleMateSession &session,
   }
 }
 
-void ChessBackendGnu::configure()
-{
-  char    bufRsp[UCI_MAX_BUF_SIZE];
-  int     n;
-
-  flushInput();
-
-  // determine version
-
-  // place in xboard mode
-  //StaleMateUciTrans(session, "xboard", NULL, 0);
-
-  //StaleMateUciTrans(session, "depth 4", bufRsp, sizeof(bufRsp));
-  LOGDIAG3("depth rsp: %s", bufRsp);
-
-  // TODO other engine config here
-
-  return;
-}
-
 void StaleMateUciNewGame(StaleMateSession &session)
 {
-  char    bufRsp[UCI_MAX_BUF_SIZE];
+  char    bufRsp[GCB_MAX_BUF_SIZE];
   int     rc;
 
   if( !session.m_game.bUseChessEngine )
@@ -629,12 +694,12 @@ bool StaleMateUciGetEnginesMove(StaleMateSession &session,
                                 char             bufAlgSqFrom[],
                                 char             bufAlgSqTo[])
 {
-  char  bufRsp[UCI_MAX_BUF_SIZE];
+  char  bufRsp[GCB_MAX_BUF_SIZE];
   int   rc;
 
   rc = UciReadLine(bufRsp, sizeof(bufRsp));
 
-  UCI_TRACE("UCI: Eng: \"%s\"\n", bufRsp);
+  GCB_TRACE("CBG: Eng: \"%s\"\n", bufRsp);
 
   switch( rc )
   {
@@ -672,10 +737,10 @@ int StaleMateUciPlayersMove(StaleMateSession &session,
                             const char       *sAlgSqTo,
                             char             *pUciCode)
 {
-  char  bufMove[UCI_MAX_BUF_SIZE];
-  char  bufRsp[UCI_MAX_BUF_SIZE];
-  char  bufAlgSqFrom[UCI_MOVE_BUF_SIZE];
-  char  bufAlgSqTo[UCI_MOVE_BUF_SIZE];
+  char  bufMove[GCB_MAX_BUF_SIZE];
+  char  bufRsp[GCB_MAX_BUF_SIZE];
+  char  bufAlgSqFrom[GCB_MOVE_BUF_SIZE];
+  char  bufAlgSqTo[GCB_MOVE_BUF_SIZE];
   int   rc;
 
   sprintf(bufMove, "%s%s", sAlgSqFrom, sAlgSqTo);
@@ -684,7 +749,7 @@ int StaleMateUciPlayersMove(StaleMateSession &session,
 
   if( rc != DYNA_OK )
   {
-    LOGERROR("UCI: No response to opponent's move %s.", bufMove);
+    LOGERROR("CBG: No response to opponent's move %s.", bufMove);
     return rc;
   }
 
@@ -726,7 +791,7 @@ void StaleMateUciSelfPlay(StaleMateSession &session, bool bIsNewGame)
 {
   static int nMoves;
 
-  char    bufRsp[UCI_MAX_BUF_SIZE];
+  char    bufRsp[GCB_MAX_BUF_SIZE];
 
   if( bIsNewGame )
   {
@@ -749,3 +814,4 @@ void StaleMateUciSelfPlay(StaleMateSession &session, bool bIsNewGame)
     ++UciMovePairCnt;
   }
 }
+#endif // RDK

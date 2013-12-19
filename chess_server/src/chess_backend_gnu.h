@@ -56,4 +56,66 @@
 #ifndef _CHESS_BACKEND_GNU_H
 #define _CHESS_BACKEND_GNU_H
 
+#include <sys/types.h>
+
+#include <string>
+
+#include "chess.h"
+#include "chess_backend.h"
+
+namespace chess_engine
+{
+
+  class ChessBackendGnu : public ChessBackend
+  {
+  public:
+    ChessBackendGnu();
+  
+    virtual ~ChessBackendGnu();
+  
+    virtual int openConnection(const std::string &strChessApp="gnuchess");
+  
+    virtual int closeConnection();
+  
+    virtual int readline(std::string &strLine)
+    {
+      char  buf[80];
+      int   n;
+
+      if( (n = readline(buf, sizeof(buf))) >= 0 )
+      {
+        strLine = buf;
+      }
+      return n;
+    }
+
+    virtual int readline(char buf[], size_t sizeBuf);
+
+    virtual int writeline(const std::string &strLine)
+    {
+      return writeline(strLine.c_str(), strLine.size());
+    }
+  
+    virtual int writeline(const char buf[], size_t len);
+
+    virtual void flushInput();
+  
+    virtual bool isOpen()
+    {
+      return m_pidChild > 0;
+    }
+
+  protected:
+    std::string m_strChessApp;
+    int         m_pipeToChess[2];
+    int         m_pipeFromChess[2];
+    pid_t       m_pidChild;
+
+    virtual void configure();
+  
+    virtual void killApp();
+  };
+
+} // chess_engine
+
 #endif // _CHESS_BACKEND_GNU_H
