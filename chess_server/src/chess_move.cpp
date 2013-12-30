@@ -215,6 +215,7 @@ void ChessMove::copy(const ChessMove &src)
   m_sqAccTo     = src.m_sqAccTo;
   m_promotion   = src.m_promotion;
   m_check       = src.m_check;
+  m_winner      = src.m_winner;
   m_result      = src.m_result;
 
   m_bCapture    = src.m_bCapture;
@@ -235,6 +236,7 @@ void ChessMove::clear()
   m_sqAccTo     = NoMove;
   m_promotion   = NoPiece;
   m_check       = false;
+  m_winner      = NoColor;
   m_result      = NoResult;
 
   m_bCapture    = false;

@@ -675,6 +675,9 @@ int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
 
 int ChessEngineGnu::resign()
 {
+  m_bIsPlaying = false;
+
+  return CE_OK;
 }
 
 

@@ -81,18 +81,46 @@ static map<int, string> NamePieces;   ///< name of pieces
 static map<int, string> NameCastling; ///< name of castle moves
 static map<int, string> NameResults;  ///< name of results
 
+static bool makeSAN(const string &strSAN, ChessMove &move)
+{
+  if( strSAN.size() < 4 )
+  {
+    return false;
+  }
+
+  // fake ROS request arguments
+  move.fromSAN(strSAN);
+
+  if( (move.m_sqFrom.m_file < ChessFileA) || 
+      (move.m_sqFrom.m_file > ChessFileH) )
+  {
+    return false;
+  }
+  if( (move.m_sqFrom.m_rank < ChessRank1) || 
+      (move.m_sqFrom.m_rank > ChessRank8) )
+  {
+    return false;
+  }
+
+  return true;
+}
+
 static void cli_test_help()
 {
-  printf("  auto\n");
-  printf("  close\n");
-  printf("  difficulty F\n");
-  printf("  help\n");
-  printf("  e[ngine]\n");
-  printf("  flush\n");
-  printf("  new [black|white]\n");
-  printf("  open [APP]\n");
-  printf("  p[layer] SAN\n");
-  printf("  quit\n");
+  printf("  auto              - auto play\n");
+  printf("  close             - close connection with chess engine\n");
+  printf("  diff F            - set diffictuly F\n");
+  printf("                        F : scale from 1.0 - 10.0\n");
+  printf("  help              - print this help\n");
+  printf("  flush             - flush input from chess engine\n");
+  printf("  get               - get engine's move\n");
+  printf("  new [COLOR]       - start new game with you playing COLOR\n");
+  printf("                    -   COLOR : white|black (default white)\n");
+  printf("  open [APP]        - open connection to chess engine\n");
+  printf("                    -   APP : GNU chess path (default gnuchess)\n");
+  printf("  SAN               - make your move\n");
+  printf("  quit              - quit test\n");
+  printf("  resign            - you resign (lose) from current game\n");
   printf("\n");
 }
 
@@ -198,7 +226,7 @@ static void cli_test(int argc, char *argv[])
     }
 
     // difficulty F
-    else if( !strcmp(cmdv[0], "difficulty") )
+    else if( !strcmp(cmdv[0], "diff") )
     {
       if( cmdc >= 2 )
       {
@@ -226,30 +254,8 @@ static void cli_test(int argc, char *argv[])
       }
     }
 
-    // simulate ROS request for player to make a move
-    else if( !strncmp(cmdv[0], "player", strlen(cmdv[0])) )
-    {
-      if( (cmdc > 1) && (strlen(cmdv[1]) >= 4) )
-      {
-        // fake ROS request arguments
-        move.fromSAN(cmdv[1]);
-        move.m_sqFrom.m_file = cmdv[1][0];
-        move.m_sqFrom.m_rank = cmdv[1][1];
-        move.m_sqTo.m_file   = cmdv[1][2];
-        move.m_sqTo.m_rank   = cmdv[1][3];
-
-        rc = engine.makePlayersMove(move);
-        cout << "e: " << move << endl;
-        if( rc == CE_OK )
-        {
-          rc = game.sync(move);
-          cout << "g: " << move << endl;
-        }
-      }
-    }
-
     // simulate ROS request for get engine's move
-    else if( !strncmp(cmdv[0], "engine", strlen(cmdv[0])) )
+    else if( !strcmp(cmdv[0], "get") )
     {
       rc = engine.getEnginesMove(move);
       cout << "e: " << move << endl;
@@ -275,6 +281,18 @@ static void cli_test(int argc, char *argv[])
     }
 
     // RDK: add other ROS requests here
+
+    // simulate ROS request for player to make a move
+    else if( makeSAN(cmdv[0], move) )
+    {
+        rc = engine.makePlayersMove(move);
+        cout << "e: " << move << endl;
+        if( rc == CE_OK )
+        {
+          rc = game.sync(move);
+          cout << "g: " << move << endl;
+        }
+    }
 
     else
     {
