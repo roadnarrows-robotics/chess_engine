@@ -53,65 +53,295 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 
+#include <string>
+#include <map>
+
 #include "chess.h"
+
+#include "chess_move.h"
+#include "chess_game.h"
+#include "chess_engine_gnu.h"
 #include "chess_server.h"
-#include "chess_backend_gnu.h"
 
 using namespace std;
 using namespace chess_engine;
 
-int main(int argc, char *argv[])
+
+//------------------------------------------------------------------------------
+// Private Interface
+//------------------------------------------------------------------------------
+
+static map<int, string> NameColors;   ///< name of colors
+static map<int, string> NamePieces;   ///< name of pieces
+static map<int, string> NameCastling; ///< name of castle moves
+static map<int, string> NameResults;  ///< name of results
+
+static void cli_test_help()
 {
-  ChessBackendGnu engine;
-  char line[80];
-  char  eol[80];
-  int n;
+  printf("  auto\n");
+  printf("  close\n");
+  printf("  difficulty F\n");
+  printf("  help\n");
+  printf("  e[ngine]\n");
+  printf("  flush\n");
+  printf("  new [black|white]\n");
+  printf("  open [APP]\n");
+  printf("  p[layer] SAN\n");
+  printf("  quit\n");
+  printf("\n");
+}
 
-  printf("hello world\n");
-  printf("%c\n", White);
+static void cli_test(int argc, char *argv[])
+{
+  const char     *app;
+  ChessEngineGnu  engine;
+  ChessGame       game;
+  ChessColor      colorPlayer;
+  ChessMove       move;
+  char            line[80];
+  int             cmdc;
+  char            cmdv[2][80];
+  int             rc;
 
-  engine.openConnection();
+  if( argc > 1 )
+  {
+    app = argv[1];
+  }
+  else
+  {
+    app = "gnuchess";
+  }
+
+  printf("chess_server:cli_test %s\n", app);
+
+  cli_test_help();
+
+  engine.openConnection(app);
 
   while( 1 )
   {
     printf("> ");
+
+    cmdc = 0;
+
     if( fgets(line, 80, stdin) != NULL )
     {
       line[strlen(line)-1] = 0;
-      if( !strcmp(line, "quit") )
+
+      cmdc = sscanf(line, "%s %s", cmdv[0], cmdv[1]);
+    }
+
+    // null command
+    if( cmdc < 1 )
+    {
+      continue;
+    }
+
+    // quit command-line test
+    else if( !strcmp(cmdv[0], "quit") )
+    {
+      break;
+    }
+
+    // help command-line test
+    else if( !strcmp(cmdv[0], "help") )
+    {
+      cli_test_help();
+    }
+
+    // close connection to backend chess engine
+    else if( !strcmp(cmdv[0], "close") )
+    {
+      if( engine.isConnected() )
       {
-        break;
-      }
-      else if( !strcmp(line, "close") )
-      {
-        if( engine.isOpen() )
-        {
-          engine.closeConnection();
-        }
-      }
-      else if( !strcmp(line, "open") )
-      {
-        if( !engine.isOpen() )
-        {
-          engine.openConnection();
-        }
-      }
-      else if( engine.isOpen() )
-      {
-        engine.writeline(line);
-        while( engine.readline(line, 80) > 0 )
-        {
-          printf("%s\n", line);
-        }
+        engine.closeConnection();
+        printf("Connection closed.\n");
       }
       else
       {
+        printf("Connection already closed.\n");
       }
     }
+
+    // open connection to backend chess engine
+    else if( !strcmp(cmdv[0], "open") )
+    {
+      if( cmdc >= 2 )
+      {
+        app = cmdv[1];
+      }
+      else
+      {
+        app = "gnuchess";
+      }
+      if( !engine.isConnected() )
+      {
+        rc = engine.openConnection(app);
+        printf("Connection to %s opened.\n", app);
+      }
+      else
+      {
+        printf("Connection already opened.\n");
+      }
+    }
+
+    // flush input from chess engine
+    else if( !strcmp(cmdv[0], "flush") )
+    {
+      engine.flushInput();
+      printf("Input flushed.\n");
+    }
+
+    // difficulty F
+    else if( !strcmp(cmdv[0], "difficulty") )
+    {
+      if( cmdc >= 2 )
+      {
+        engine.setGameDifficulty((float)atof(cmdv[1]));
+      }
+    }
+
+    // simulate ROS request to start a new game
+    else if( !strcmp(cmdv[0], "new") )
+    {
+      // fake ROS request arguments
+      if( (cmdc < 2) || !strcmp(cmdv[1], "white") )
+      {
+        colorPlayer = White;
+      }
+      else
+      {
+        colorPlayer = Black;
+      }
+
+      rc = engine.startNewGame(colorPlayer);
+      if( rc == CE_OK )
+      {
+        game.setupBoard();
+      }
+    }
+
+    // simulate ROS request for player to make a move
+    else if( !strncmp(cmdv[0], "player", strlen(cmdv[0])) )
+    {
+      if( (cmdc > 1) && (strlen(cmdv[1]) >= 4) )
+      {
+        // fake ROS request arguments
+        move.fromSAN(cmdv[1]);
+        move.m_sqFrom.m_file = cmdv[1][0];
+        move.m_sqFrom.m_rank = cmdv[1][1];
+        move.m_sqTo.m_file   = cmdv[1][2];
+        move.m_sqTo.m_rank   = cmdv[1][3];
+
+        rc = engine.makePlayersMove(move);
+        cout << "e: " << move << endl;
+        if( rc == CE_OK )
+        {
+          rc = game.sync(move);
+          cout << "g: " << move << endl;
+        }
+      }
+    }
+
+    // simulate ROS request for get engine's move
+    else if( !strncmp(cmdv[0], "engine", strlen(cmdv[0])) )
+    {
+      rc = engine.getEnginesMove(move);
+      cout << "e: " << move << endl;
+      if( rc == CE_OK )
+      {
+        rc = game.sync(move);
+        cout << "g: " << move << endl;
+      }
+    }
+
+    // simulate ROS request to auto-play. Node will publish
+    else if( !strcmp(cmdv[0], "auto") )
+    {
+      while( game.isPlaying() )
+      {
+        usleep(500000);
+        rc = engine.getEnginesMove(move, true);
+        cout << "e: " << move << endl;
+        rc = game.sync(move);
+        cout << "g: " << move << endl;
+        cout << endl;
+      }
+    }
+
+    // RDK: add other ROS requests here
+
+    else
+    {
+      printf("%s: unknown command.\n", cmdv[0]);
+    }
   }
+}
+
+static void init_name_maps()
+{
+  NameColors[NoColor]     = "nocolor";
+  NameColors[White]       = "white";
+  NameColors[Black]       = "black";
+
+  NamePieces[NoPiece]     = "nopiece";
+  NamePieces[King]        = "King";
+  NamePieces[Queen]       = "Queen";
+  NamePieces[Rook]        = "Rook";
+  NamePieces[Bishop]      = "Bishop";
+  NamePieces[Knight]      = "Knight";
+  NamePieces[Pawn]        = "Pawn";
+
+  NameCastling[NoCastle]  = "nocastle";
+  NameCastling[KingSide]  = "kingside";
+  NameCastling[QueenSide] = "queenside";
+
+  NameResults[NoResult]   = "noresult";
+  NameResults[Ok]         = "ok";
+  NameResults[BadMove]    = "badmove";
+  NameResults[OutOfTurn]  = "outofturn";
+  NameResults[Checkmate]  = "checkmate";
+  NameResults[Draw]       = "draw";
+  NameResults[Resign]     = "resign";
+  NameResults[NoGame]     = "nogame";
+  NameResults[GameFatal]  = "gamefatal";
+}
+
+
+//------------------------------------------------------------------------------
+// Public Interface
+//------------------------------------------------------------------------------
+
+string chess_engine::nameOfColor(ChessColor color)
+{
+  return NameColors[color];
+}
+
+string chess_engine::nameOfPiece(ChessPiece piece)
+{
+  return NamePieces[piece];
+}
+
+string chess_engine::nameOfCastling(ChessCastling side)
+{
+  return NameCastling[side];
+}
+
+string chess_engine::nameOfResult(ChessResult result)
+{
+  return NameResults[result];
+}
+
+int main(int argc, char *argv[])
+{
+  init_name_maps();
+
+  cli_test(argc, argv);
 
   return 0;
 }

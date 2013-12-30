@@ -7,7 +7,7 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_backend.h
+// File:      chess_engine.h
 //
 /*! \file
  *
@@ -54,74 +54,57 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _CHESS_BACKEND_H
-#define _CHESS_BACKEND_H
+#ifndef _CHESS_ENGINE_H
+#define _CHESS_ENGINE_H
 
 #include <sys/types.h>
 
+#include "rnr/rnrconfig.h"
+
 #include "chess.h"
+#include "chess_move.h"
 #include "chess_server.h"
 
 namespace chess_engine
 {
-  class ChessBackend
+  class ChessEngine
   {
   public:
-    ChessBackend() : m_strVersion("?")
+    ChessEngine() : m_strVersion("0.0.0")
     {
-      m_fDifficulty = 2.0; 
-      b_bInGame     = false;
+      m_bIsConn     = false;
+      m_bIsPlaying  = false;
+      m_fDifficulty = 1.0; 
       m_colorPlayer = NoColor;
       m_colorEngine = NoColor;
       m_colorTurn   = NoColor;
-      m_nMoveNum    = 0;
+      m_nMove       = 0;
+      m_eEoGReason  = NoGame;
     }
   
-    virtual ~ChessBackend() { }
+    virtual ~ChessEngine() { }
   
+
+    //..........................................................................
+    // High-Level Interface
+    //..........................................................................
+    
     virtual int openConnection()
     {
-      return -CE_ECODE_SUPP;
+      return -CE_ECODE_NO_SUPP;
     }
   
     virtual int closeConnection()
     {
-      return -CE_ECODE_SUPP;
+      return -CE_ECODE_NO_SUPP;
     }
   
-    virtual int readline(std::string &strLine)
-    {
-      return -CE_ECODE_SUPP;
-    }
-  
-    virtual int readline(char buf[], size_t sizeBuf)
-    {
-      return -CE_ECODE_SUPP;
-    }
-  
-    virtual int writeline(const std::string &strLine)
-    {
-      return -CE_ECODE_SUPP;
-    }
-  
-    virtual int writeline(const char buf[], size_t sizeBuf)
-    {
-      return -CE_ECODE_SUPP;
-    }
-  
-    virtual void flushInput() { }
-  
-    virtual bool isOpen()
-    {
-      return false;
-    }
-
-    virtual std::string engineGetVersion()
+    virtual std::string getVersion()
     {
       return m_strVersion;
     }
 
-    virtual void engineSetGameDifficulty(float fDifficulty)
+    virtual int setGameDifficulty(float fDifficulty)
     {
       if( fDifficulty < 1.0 )
       {
@@ -131,10 +114,13 @@ namespace chess_engine
       {
         fDifficulty = 10.0;
       }
+
       m_fDifficulty = fDifficulty;
+
+      return CE_OK;
     }
 
-    virtual int engineStartNewGame(int player=White)
+    virtual int startNewGame(int player=White)
     {
       if( player == White )
       {
@@ -146,15 +132,29 @@ namespace chess_engine
         m_colorPlayer = Black;
         m_colorEngine = White;
       }
+
+      m_bIsPlaying  = true;
       m_colorTurn   = White;
-      m_nMoveNum    = 0;
-      b_bInGame     = true;
+      m_nMove       = 1;
 
       return CE_OK;
     }
 
-    virtual int engineMakeAMove(const ChessSquare &squareFrom,
-                                const ChessSquare &quareTo)
+    virtual int endGame(ChessResult reason)
+    {
+      if( isPlayingAGame() )
+      {
+        m_bIsPlaying  = false;
+        m_eEoGReason  = reason;
+      }
+    }
+
+    virtual int makePlayersMove(ChessMove &move)
+    {
+      return -CE_ECODE_NO_EXEC;
+    }
+
+    virtual int getEnginesMove(ChessMove &move, bool bAuto=false)
     {
       return -CE_ECODE_NO_EXEC;
     }
@@ -164,34 +164,72 @@ namespace chess_engine
       return -CE_ECODE_NO_EXEC;
     }
 
-    virtual int engineGetEnginesMove()
-    {
-    }
-
-    virtual int getWhoseTurn()
+    virtual int whoseTurn()
     {
       return m_colorTurn;
     }
 
-    virtual int getWhoseTurn()
+    virtual void alternateTurns(ChessColor colorLast)
     {
-      return m_colorTurn;
+      if( isPlayingAGame() )
+      {
+        if( colorLast == Black )
+        {
+          ++m_nMove;
+        }
+        m_colorTurn = colorLast == White? Black: White;
+      }
     }
 
-    virtual int engineGetGameState()
+
+    //..........................................................................
+    // Low-Level I/O Interface
+    //..........................................................................
+    
+    virtual int readline(std::string &strLine, uint_t msec=100)
     {
+      return -CE_ECODE_NO_SUPP;
+    }
+  
+    virtual int readline(char buf[], size_t sizeBuf, uint_t msec=100)
+    {
+      return -CE_ECODE_NO_SUPP;
+    }
+  
+    virtual int writeline(const std::string &strLine)
+    {
+      return -CE_ECODE_NO_SUPP;
+    }
+  
+    virtual int writeline(const char buf[], size_t sizeBuf)
+    {
+      return -CE_ECODE_NO_SUPP;
+    }
+  
+    virtual void flushInput() { }
+  
+    virtual bool isConnected()
+    {
+      return m_bIsConn;
+    }
+
+    virtual bool isPlayingAGame()
+    {
+      return m_bIsPlaying;
     }
 
   protected:
-    std::string m_strVersion;   ///< backend engine version string
-    float       m_fDifficulty;  ///< game engine difficulty [1,10]
-    bool        b_bInGame;      ///< [not] currently playing a game
-    int         m_colorPlayer;  ///< color of player
-    int         m_colorEngine;  ///< color of backend engine
-    int         m_colorTurn;    ///< color to play
-    int         m_nMoveNum;     ///< number of full moves (2 plies/move)
+    std::string     m_strVersion;   ///< backend engine version string
+    bool            m_bIsConn;      ///< [not] connected to backend engine
+    bool            m_bIsPlaying;   ///< [no] active game in play
+    float           m_fDifficulty;  ///< game engine difficulty [1,10]
+    ChessColor      m_colorPlayer;  ///< color of player
+    ChessColor      m_colorEngine;  ///< color of backend engine
+    ChessColor      m_colorTurn;    ///< color to play
+    int             m_nMove;        ///< number of full moves (2 plies/move)
+    ChessResult     m_eEoGReason;   ///< reason for ending game
   };
 
 } // chess_engine
 
-#endif // _CHESS_BACKEND_H
+#endif // _CHESS_ENGINE_H

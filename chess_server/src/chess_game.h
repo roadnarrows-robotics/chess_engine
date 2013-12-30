@@ -56,97 +56,103 @@
 #ifndef _CHESS_GAME_H
 #define _CHESS_GAME_H
 
+#include <string>
+#include <vector>
+#include <map>
+
 #include "chess.h"
-#include "chess_backend.h"
-#include "chess_backend_gnu.h"
+
+#include "chess_move.h"
 #include "chess_server.h"
 
 namespace chess_engine
 {
+  struct ChessBoardElem
+  {
+    ChessColor  m_color;
+    ChessPiece  m_piece;
+  };
+
+  const ChessBoardElem EmptyElem = {NoColor, NoPiece};
+
+  const int NumOfFiles = 8;
+  const int NumOfRanks = 8;
+
   class ChessGame
   {
   public:
-    ChessGame() : m_strVersion("?")
-    {
-      m_fDifficulty = 2.0; 
-      b_bInGame     = false;
-      m_colorPlayer = NoColor;
-      m_colorEngine = NoColor;
-      m_colorTurn   = NoColor;
-      m_nMoveNum    = 0;
-    }
+    ChessGame();
   
     virtual ~ChessGame() { }
   
-    virtual int setupChess()
-    {
-    }
+    void setupBoard();
   
-    virtual std::string getEngineVersion()
+    int sync(ChessMove &move);
+
+    bool isPlaying()
     {
-      return m_strVersion;
+      return m_bIsPlaying;
     }
 
-    virtual void setGameDifficulty(float fDifficulty)
+    int getNumOfMoves()
     {
     }
 
-    virtual int startNewGame(int player=White)
+    int getGameHistory()
     {
-      if( player == White )
+    }
+
+    int toRow(int rank)
+    {
+      return NumOfRanks - (rank - (int)ChessRank1) - 1;
+    }
+
+    int toCol(int file)
+    {
+      return file - (int)ChessFileA;
+    }
+
+    int toRowCol(const ChessSquare &sq, int &row, int &col)
+    {
+      row = toRow(sq.m_rank);
+      col = toCol(sq.m_file);
+      if( (row < 0) || (row >= NumOfRanks) || (col < 0) || (col >= NumOfFiles) )
       {
-        m_colorPlayer = White;
-        m_colorEngine = Black;
+        return -CE_ECODE_CHESS_FATAL;
       }
       else
       {
-        m_colorPlayer = Black;
-        m_colorEngine = White;
+        return CE_OK;
       }
-      m_colorTurn   = White;
-      m_nMoveNum    = 0;
-      b_bInGame     = true;
-
-      return CE_OK;
     }
 
-    virtual int makeAMove(const ChessSquare &squareFrom,
-                          const ChessSquare &quareTo)
+    ChessBoardElem *elem(const ChessSquare &sq)
     {
-      return -CE_ECODE_NO_EXEC;
-    }
+      int row, col;
 
-    virtual int resign()
-    {
-      return -CE_ECODE_NO_EXEC;
-    }
-
-    virtual int getEnginesMove()
-    {
-    }
-
-    virtual int whoseTurn()
-    {
-    }
-
-    virtual int getNumOfMoves()
-    {
-    }
-
-    virtual int getGameHistory()
-    {
+      if( toRowCol(sq, row, col) == CE_OK )
+      {
+        return &m_board[row][col];
+      }
+      return NULL;
     }
 
   protected:
-    ChessBackendGnu   m_engine;
+    ChessBoardElem  m_board[NumOfRanks][NumOfFiles];  ///< board matrix
+    bool            m_bIsPlaying;
 
-    std::string m_strVersion;   ///< backend engine version string
-    float       m_fDifficulty;  ///< game engine difficulty [1,10]
-    bool        b_bInGame;      ///< [not] currently playing a game
-    int         m_colorPlayer;  ///< color of player
-    int         m_colorEngine;  ///< color of backend engine
-    int         m_colorTurn;    ///< color to play
-    int         m_nMoveNum;     ///< number of full moves (2 plies/move)
+    void movePiece(const ChessSquare &sqFrom, const ChessSquare &sqTo)
+    {
+      movePiece(elem(sqFrom), elem(sqTo));
+    }
+
+    void movePiece(ChessBoardElem *pSrc, ChessBoardElem *pDst)
+    {
+      *pDst = *pSrc;
+      *pSrc = EmptyElem;
+    }
+
+    void moveToBoneYard(ChessBoardElem *pDeadPiece);
   };
 
 } // chess_engine

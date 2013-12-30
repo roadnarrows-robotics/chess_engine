@@ -61,22 +61,22 @@ namespace chess_engine
 {
 #endif // SWIG
 
-  const char None = 0;
+  const char ChessValNone = '0';    ///< comman 'no value' value
 
   /*!
    * \brief Chess board file (column).
    */
   enum ChessFile
   {
-    NoFile      = None,
-    ChessFileA  = 'a',
-    ChessFileB  = 'b',
-    ChessFileC  = 'c',
-    ChessFileD  = 'd',
-    ChessFileE  = 'e',
-    ChessFileF  = 'f',
-    ChessFileG  = 'g',
-    ChessFileH  = 'h'
+    NoFile      = ChessValNone, ///< no file
+    ChessFileA  = 'a',          ///< file a, column 0
+    ChessFileB  = 'b',          ///< file b, column 1
+    ChessFileC  = 'c',          ///< file c, column 3
+    ChessFileD  = 'd',          ///< file d, column 3
+    ChessFileE  = 'e',          ///< file e, column 4
+    ChessFileF  = 'f',          ///< file f, column 5
+    ChessFileG  = 'g',          ///< file g, column 6
+    ChessFileH  = 'h'           ///< file h, column 7
   };
 
   /*!
@@ -86,99 +86,85 @@ namespace chess_engine
    */
   enum ChessRank
   {
-    NoRank      = None,
-    ChessRank1  = '1',
-    ChessRank2  = '2',
-    ChessRank3  = '3',
-    ChessRank4  = '4',
-    ChessRank5  = '5',
-    ChessRank6  = '6',
-    ChessRank7  = '7',
-    ChessRank8  = '8'
+    NoRank      = ChessValNone, ///< no rank
+    ChessRank1  = '1',          ///< rank 1, row 0
+    ChessRank2  = '2',          ///< rank 2, row 1
+    ChessRank3  = '3',          ///< rank 3, row 2
+    ChessRank4  = '4',          ///< rank 4, row 3
+    ChessRank5  = '5',          ///< rank 5, row 4
+    ChessRank6  = '6',          ///< rank 6, row 5
+    ChessRank7  = '7',          ///< rank 7, row 6
+    ChessRank8  = '8'           ///< rank 8, row 7
   };
 
   /*!
-   * \brief 
+   * \brief Chess square.
    */
   struct ChessSquare
   {
-    char  m_file;
-    char  m_rank;
+    char  m_file;   ///< file (column)
+    char  m_rank;   ///< rank (row)
   };
 
-  const ChessSquare NoMove = {NoFile, NoRank};
+  const ChessSquare NoMove = {NoFile, NoRank};  ///< no move or square
 
   /*!
-   * \brief Chess Piece Color
+   * \brief Chess player, piece, and move color.
    */
-  enum ChessPieceColor
+  enum ChessColor
   {
-    NoColor = None,
-    White   = 'w',
-    Black   = 'b'
+    NoColor = ChessValNone, ///< no color
+    White   = 'w',          ///< white
+    Black   = 'b'           ///< black
   };
 
   /*!
-   * \brief Chess Piece Type
+   * \brief Chess piece type.
    */
-  enum ChessPieceType
+  enum ChessPiece
   {
-    NoPiece = None,
-    King    = 'k',
-    Queen   = 'q',
-    Rook    = 'r',
-    Bishop  = 'b',
-    Knight  = 'n',
-    Pawn    = 'p'
+    NoPiece = ChessValNone, ///< no piece
+    King    = 'K',          ///< king
+    Queen   = 'Q',          ///< queen
+    Rook    = 'R',          ///< rook or castle
+    Bishop  = 'B',          ///< bishop
+    Knight  = 'N',          ///< knight
+    Pawn    = 'P'           ///< pawn
   };
 
   /*!
-   * \brief Chess Castling
+   * \brief Chess castling.
    */
   enum ChessCastling
   {
-    NoCastling = None,
-    Kingside   = 'k',
-    Queenside  = 'q'
-  };
-
-  typedef ChessPieceType ChessPawnPromotion;
-
-  /*!
-   * \brief 
-   */
-  enum ChessCapture
-  {
-    NoCapture = None,
-    Capture   = 'x'
+    NoCastle  = ChessValNone, ///< no castle
+    KingSide  = 'k',          ///< king side castle
+    QueenSide = 'q'           ///< queen side castle
   };
 
   /*!
-   * \brief 
+   * \brief Chess move modifier.
    */
-  enum ChessMoveModifier
+  enum ChessModifier
   {
-    NoModifier  = None,
-    Check       = '+',
-    Checkmate   = '#',
-    Draw        = 'd',
-    Resign      = 'r'
+    ModCheck      = '+',        ///< check
+    ModCheckmate  = '#'         ///< checkmate
   };
 
-  class ChessMove
+  /*!
+   * \brief Chess action result.
+   */
+  enum ChessResult
   {
-  public:
-    int                 m_nMoveNum;
-    ChessPieceColor     m_colorPlayer;
-    ChessSquare         m_squareFrom;
-    ChessSquare         m_squareTo;
-    ChessCapture        m_capture;
-    ChessCastling       m_castling;
-    ChessPawnPromotion  m_promotion;
-    ChessMoveModifier   m_modifier;
-
-    ChessMove() { };
-    ~ChessMove() { };
+    NoResult    = ChessValNone, ///< no result
+    Ok          = 'y',          ///< good move
+    BadMove     = 'n',          ///< invalid move attempt
+    OutOfTurn   = '?',          ///< out-of-turn move attempt
+    Checkmate   = '#',          ///< checkmate
+    Draw        = 'd',          ///< game is a draw
+    Resign      = 'r',          ///< player or engine resigned
+    NoGame      = '!',          ///< no active game
+    GameFatal   = '<'           ///< current game has unrecoverable errors
   };
 
 #ifndef SWIG

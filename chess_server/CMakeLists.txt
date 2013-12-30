@@ -85,7 +85,9 @@ include_directories(
 
 add_executable(chess_server
   src/chess_server.cpp
-  src/chess_backend_gnu.cpp
+  src/chess_engine_gnu.cpp
+  src/chess_game.cpp
+  src/chess_move.cpp
 )
 
 target_link_libraries(

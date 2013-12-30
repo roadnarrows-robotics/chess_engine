@@ -1,0 +1,44 @@
+request:
+  new game
+    player color
+response:
+  success/fail
+
+request:
+  make_a_move
+    from, to
+response:
+  move msg
+
+request:
+  get_engines_move
+response:
+  move msg
+
+request:
+  resign
+response:
+  move msg
+
+request:
+  whose_turn
+response:
+  none/white/black
+
+request:
+  get_avail_castling
+response:
+  kingside
+  queenside
+
+request:
+  is_playing
+response:
+  true/false
+
+request:
+  self_play
+    msec
+response:
+  success/fail
+

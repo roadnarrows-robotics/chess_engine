@@ -6,14 +6,14 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_backend_gnu.h
+// File:      chess_move.h
 //
 /*! \file
  *
  * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
  * $Rev: 3334 $
  *
- * \brief The GNU chess gnuchess backend engine interface.
+ * \brief Chess move class interface.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
@@ -53,69 +53,85 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _CHESS_BACKEND_GNU_H
-#define _CHESS_BACKEND_GNU_H
-
-#include <sys/types.h>
+#ifndef _CHESS_MOVE_H
+#define _CHESS_MOVE_H
 
 #include <string>
+#include <iostream>
 
 #include "chess.h"
-#include "chess_backend.h"
+
 
 namespace chess_engine
 {
-
-  class ChessBackendGnu : public ChessBackend
+  /*!
+   * \brief ChessMove Class.
+   *
+   * Each move or action during play if fully captured by instances of this
+   * class. The hope is that a robotic entity can play chess without having
+   * any deep knowledge of chess nor having to keep extensive game state
+   * information.
+   */
+  class ChessMove
   {
   public:
-    ChessBackendGnu();
-  
-    virtual ~ChessBackendGnu();
-  
-    virtual int openConnection(const std::string &strChessApp="gnuchess");
-  
-    virtual int closeConnection();
-  
-    virtual int readline(std::string &strLine)
-    {
-      char  buf[80];
-      int   n;
+    int             m_nMove;      ///< move number (2 plies/move)
+    ChessColor      m_color;      ///< move (and player) color
+    std::string     m_strAN;      ///< algebraic notation of move
+    ChessPiece      m_piece;      ///< moved piece
+    ChessSquare     m_sqFrom;     ///< moved piece starting from chess square
+    ChessSquare     m_sqTo;       ///< moved piece ending to chess square
+    ChessPiece      m_captured;   ///< captured piece, if any
+    bool            m_en_passant; ///< en passant move did [not] occur
+    ChessCastling   m_castle;     ///< [no] castle move
+    ChessSquare     m_sqAccAt;    ///< castle rook or en passant opponent square
+    ChessSquare     m_sqAccTo;    ///< castle rook destination chess square
+    ChessPiece      m_promotion;  ///< pawn promoted to this piece
+    bool            m_check;      ///< [not] in check
+    ChessResult     m_result;     ///< result of move
 
-      if( (n = readline(buf, sizeof(buf))) >= 0 )
-      {
-        strLine = buf;
-      }
-      return n;
+    ChessMove()
+    {
+      clear();
     }
 
-    virtual int readline(char buf[], size_t sizeBuf);
-
-    virtual int writeline(const std::string &strLine)
+    ChessMove(const ChessMove &src)
     {
-      return writeline(strLine.c_str(), strLine.size());
-    }
-  
-    virtual int writeline(const char buf[], size_t len);
-
-    virtual void flushInput();
-  
-    virtual bool isOpen()
-    {
-      return m_pidChild > 0;
+      copy(src);
     }
 
+    virtual ~ChessMove() { };
+
+    ChessMove operator=(const ChessMove &rhs)
+    {
+      copy(rhs);
+      return *this;
+    }
+  
+    std::string toSAN()
+    {
+      return toSAN(m_sqFrom, m_sqTo);
+    }
+
+    static std::string toSAN(const ChessSquare &sqFrom,
+                             const ChessSquare &sqTo);
+
+    void fromSAN(const std::string &strSAN);
+
+    void fromAN(const std::string &strAN);
+
+    void clear();
+
+    friend std::ostream &operator<<(std::ostream &os, const ChessMove &move);
+    
   protected:
-    std::string m_strChessApp;
-    int         m_pipeToChess[2];
-    int         m_pipeFromChess[2];
-    pid_t       m_pidChild;
+    bool  m_bCapture;     ///< some type of piece capture occurred
 
-    virtual void configure();
-  
-    virtual void killApp();
+    void copy(const ChessMove &src);
   };
 
-} // chess_engine
+  extern std::ostream &operator<<(std::ostream &os, const ChessMove &move);
+} // namespace chess_engine
 
-#endif // _CHESS_BACKEND_GNU_H
+
+#endif // _CHESS_MOVE_H

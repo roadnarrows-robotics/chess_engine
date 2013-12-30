@@ -62,10 +62,12 @@
 #ifndef _CHESS_SERVER_H
 #define _CHESS_SERVER_H
 
-#ifndef SWIG
+#include <string>
+
+#include "chess.h"
+
 namespace chess_engine
 {
-#endif // SWIG
 
   // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
@@ -77,20 +79,30 @@ namespace chess_engine
    *
    * \{
    */
-  static const int CE_OK                =  0; ///< not an error, success
+  static const int CE_OK                      =  0; ///< not an error, success
 
-  static const int CE_ECODE_GEN         =  1; ///< general, unspecified error
-  static const int CE_ECODE_SYS         =  2; ///< system (errno) error
-  static const int CE_ECODE_SUPP        =  3; ///< not supported
-  static const int CE_ECODE_TIMEDOUT    =  4; ///< operation timed out
-  static const int CE_ECODE_NO_EXEC     =  5; ///< cannot execute
-  static const int CE_ECODE_CHESS       =  6; ///< invalid move, command, etc
+  static const int CE_ECODE_GEN               =  1; ///< general error
+  static const int CE_ECODE_SYS               =  2; ///< system (errno) error
+  static const int CE_ECODE_NO_SUPP           =  3; ///< not supported
+  static const int CE_ECODE_TIMEDOUT          =  4; ///< operation timed out
+  static const int CE_ECODE_NO_EXEC           =  5; ///< cannot execute
+  static const int CE_ECODE_CHESS_NO_GAME     =  6; ///< no active chess game
+  static const int CE_ECODE_CHESS_MOVE        =  7; ///< invalid chess move
+  static const int CE_ECODE_CHESS_OUT_OF_TURN =  8; ///< out-of-turn chess move
+  static const int CE_ECODE_CHESS_RSP         =  9; ///< unexpected response
+  static const int CE_ECODE_CHESS_SYNC        = 10; ///< game in fatal condition
+  static const int CE_ECODE_CHESS_FATAL       = 11; ///< game in fatal condition
   /* \} */
 
+  extern std::string nameOfColor(ChessColor color);
 
-#ifndef SWIG
+  extern std::string nameOfPiece(ChessPiece piece);
+
+  extern std::string nameOfCastling(ChessCastling side);
+
+  extern std::string nameOfResult(ChessResult result);
+
 } // namespace chess_engine
-#endif // SWIG
 
 
 #endif // _CHESS_SERVER_H
