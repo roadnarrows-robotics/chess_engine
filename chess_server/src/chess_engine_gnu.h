@@ -140,6 +140,7 @@ namespace chess_engine
     std::string m_strNewSAN;        ///< read/target new SAN
     std::string m_strNewAN;         ///< read new AN
     ChessResult m_eNewResult;       ///< read engine result (resign, etc)
+    ChessColor  m_eNewWinner;       ///< read engine result winner
 
     inline bool isVer5() { return m_strVersion[0] == '5'; }
     inline bool isVer6() { return m_strVersion[0] == '6'; }
@@ -165,7 +166,7 @@ namespace chess_engine
     //
     // Responses
     //
-    virtual int rspEnginesMove();
+    virtual int rspEnginesMove(ChessColor colorMove);
 
     virtual int rspFirstLine(boost::regex             &reRsp,
                              std::vector<std::string> &matches,
@@ -186,6 +187,7 @@ namespace chess_engine
       m_strNewSAN.clear();
       m_strNewAN.clear();
       m_eNewResult = NoResult;
+      m_eNewWinner = NoColor;
     }
   };
 

@@ -618,7 +618,7 @@ int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
   clearParseVars();
 
   // wait for move response from engine
-  rc = rspEnginesMove();
+  rc = rspEnginesMove(colorMove);
 
   // results
   switch( rc )
@@ -635,6 +635,7 @@ int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
 
       // extra line indication engine's call of the game
       move.m_result = m_eNewResult;
+      move.m_winner = m_eNewWinner;
 
       // from-to move
       move.fromSAN(m_strNewSAN);
@@ -1082,7 +1083,7 @@ int ChessEngineGnu::cmdShowGame(int nMove, ChessColor color)
   return CE_OK;
 }
 
-int ChessEngineGnu::rspEnginesMove()
+int ChessEngineGnu::rspEnginesMove(ChessColor colorMove)
 {
   uint_t          msec = (uint_t)(m_nDepth * 4 * 1000);
   vector<string>  matches;
@@ -1119,6 +1120,7 @@ int ChessEngineGnu::rspEnginesMove()
   else if( rspNextLine(reResign, matches) == 1 )
   {
     m_eNewResult = Resign;
+    m_eNewWinner = opponent(colorMove);;
   }
   else if( rspNextLine(reDraw, matches) == 1 )
   {
@@ -1127,10 +1129,12 @@ int ChessEngineGnu::rspEnginesMove()
   else if( rspNextLine(reWhiteMates, matches) == 1 )
   {
     m_eNewResult = Checkmate;
+    m_eNewWinner = White;
   }
   else if( rspNextLine(reBlackMates, matches) == 1 )
   {
     m_eNewResult = Checkmate;
+    m_eNewWinner = Black;
   }
 
   return CE_OK;

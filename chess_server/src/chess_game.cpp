@@ -54,10 +54,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
+#include <ctype.h>
 
 #include <string>
 #include <vector>
 #include <map>
+
+#include "rnr/color.h"
 
 #include "chess.h"
 
@@ -72,6 +75,8 @@ using namespace chess_engine;
 ChessGame::ChessGame()
 {
   setupBoard();
+
+  m_bGui = false;
 }
 
 void ChessGame::setupBoard()
@@ -185,7 +190,9 @@ void ChessGame::setupBoard()
   m_board[row][col].m_color = Black;
   m_board[row][col].m_piece = Rook;
 
-  m_bIsPlaying = true;
+  m_bIsPlaying  = true;
+  m_endReason   = NoResult;
+  m_winner      = NoColor;
 }
 
 int ChessGame::sync(ChessMove &move)
@@ -213,15 +220,19 @@ int ChessGame::sync(ChessMove &move)
     case OutOfTurn:
       return -CE_ECODE_CHESS_OUT_OF_TURN;
     case NoGame:
-      m_bIsPlaying = false;
+      m_bIsPlaying  = false;
+      m_endReason   = move.m_result;
       return -CE_ECODE_CHESS_SYNC;
     case GameFatal:
-      m_bIsPlaying = false;
+      m_bIsPlaying  = false;
+      m_endReason   = move.m_result;
       return -CE_ECODE_CHESS_FATAL;
     case Checkmate:
     case Draw:
     case Resign:
-      m_bIsPlaying = false;
+      m_bIsPlaying  = false;
+      m_endReason   = move.m_result;
+      m_winner      = move.m_winner;
       // there is still a move to process
       break;
     case Ok:
@@ -378,9 +389,161 @@ int ChessGame::sync(ChessMove &move)
   //
   movePiece(pSrc, pDst);
 
+  recordHistory(move);
+
   return CE_OK;
+}
+
+void ChessGame::recordHistory(ChessMove &move)
+{
+  m_history.push_back(move);
 }
 
 void ChessGame::moveToBoneYard(ChessBoardElem *pDeadPiece)
 {
+  if( pDeadPiece->m_piece != NoPiece )
+  {
+    if( pDeadPiece->m_color == White )
+    {
+      m_boneYardWhite.push_back(pDeadPiece->m_piece);
+    }
+    else if( pDeadPiece->m_color == Black )
+    {
+      m_boneYardBlack.push_back(pDeadPiece->m_piece);
+    }
+  }
+
+  *pDeadPiece = EmptyElem;
+}
+
+ostream &chess_engine::operator<<(ostream &os, const ChessGame &game)
+{
+  int         file, rank;       // chess board file,rank
+  int         row, col;         // board matrix row,column
+  ChessPiece  piece;            // chess piece
+  string      strPiece;         // piece one-character name
+  ChessColor  colorPiece;       // color of piece (white or black)
+  ChessColor  colorSquare;      // color of square (white or black)
+  streamsize  w = os.width();   // save default width
+  string      strWW;            // white piece on white square
+  string      strBW;            // black piece on white square
+  string      strWB;            // white piece on black square
+  string      strBB;            // black piece on black square
+  string      strReset;         // reset colors
+
+  if( game.m_bGui )
+  {
+    // RDK: fix color.h
+    strWW = ANSI_COLOR_PRE "0;30;47m";
+    strBW = ANSI_COLOR_PRE "0;30;47m";
+    strWB = ANSI_COLOR_PRE "0;30;46m";
+    strBB = ANSI_COLOR_PRE "0;30;46m";
+
+    strReset = ANSI_COLOR_RESET;
+  }
+
+  for(rank = ChessRank8; rank >= ChessRank1; --rank)
+  {
+    if( !game.m_bGui )
+    {
+      os.width(NumOfFiles * 4 + 1);
+      os.fill('.');
+      os << '.';
+      os.width(w);
+      os << endl;
+    }
+
+    for(file = ChessFileA; file <= ChessFileH; ++file)
+    {
+      row = game.toRow(rank);
+      col = game.toCol(file);
+
+      colorSquare = game.getSquareColor(file, rank);
+      piece       = game.m_board[row][col].m_piece;
+      colorPiece  = game.m_board[row][col].m_color;
+
+      if( game.m_bGui )
+      {
+        if( piece == NoPiece )
+        {
+          //strPiece = "\U00002588";
+          strPiece = " ";
+          colorPiece  = colorSquare;
+        }
+        else
+        {
+          strPiece = figurineOfPiece(colorPiece, piece);
+        }
+      }
+      else
+      {
+        if( piece == NoPiece )
+        {
+          strPiece    = " ";
+          colorPiece  = colorSquare;
+        }
+        else if( colorPiece == White )
+        {
+          strPiece = (char)piece;
+        }
+        else
+        {
+          strPiece = (char)tolower(piece);
+        }
+      }
+
+      if( game.m_bGui )
+      {
+        if( colorSquare == White )
+        {
+          if( colorPiece == White )
+          {
+            os << strWW;
+          }
+          else
+          {
+            os << strBW;
+          }
+        }
+        else
+        {
+          if( colorPiece == White )
+          {
+            os << strWB;
+          }
+          else
+          {
+            os << strBB;
+          }
+        }
+
+        os << strPiece << " ";
+        os << strReset;
+      }
+      else
+      {
+        os << "|";
+        os << " " << strPiece << " ";
+      }
+    }
+
+    if( !game.m_bGui )
+    {
+      os << "|";
+    }
+
+    os << endl;
+  }
+
+  if( !game.m_bGui )
+  {
+    os.width(NumOfFiles * 4 + 1);
+    os.fill('-');
+    os << '-' << endl;
+    os.width(w);
+  }
+
+  os << endl;
+
+  return os;
 }

@@ -250,29 +250,40 @@ ostream &chess_engine::operator<<(ostream &os, const ChessMove &move)
             << move.m_sqTo.m_file << move.m_sqTo.m_rank;
   os << " " << move.m_strAN;
   os << " " << nameOfPiece(move.m_piece);
+
   if( move.m_captured != NoPiece )
   {
     os << " captured(" << nameOfPiece(move.m_captured) << ")";
   }
+
   if( move.m_en_passant )
   {
     os << " en_passant(xPawn="
        << move.m_sqAccAt.m_file << move.m_sqAccAt.m_rank << ")";
   }
+
   if( move.m_castle != NoCastle )
   {
     os << " castle(" << nameOfCastling(move.m_castle) << ", Rook=";
     os << move.m_sqAccAt.m_file << move.m_sqAccAt.m_rank
        << move.m_sqAccTo.m_file << move.m_sqAccTo.m_rank << ")";
   }
+
   if( move.m_promotion != NoPiece )
   {
     os << " promotion(" << nameOfPiece(move.m_promotion) << ")";
   }
+
   if( move.m_check )
   {
     os << " check";
   }
+
+  if( move.m_winner != NoColor )
+  {
+    os << " winner(" << nameOfColor(move.m_winner) << ")";
+  }
+
   if( move.m_result != NoResult )
   {
     os << " " << nameOfResult(move.m_result);

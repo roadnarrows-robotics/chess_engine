@@ -164,6 +164,16 @@ namespace chess_engine
       return -CE_ECODE_NO_EXEC;
     }
 
+    ChessColor getPlayersColor()
+    {
+      return m_colorPlayer;
+    }
+
+    ChessColor getEnginesColor()
+    {
+      return m_colorEngine;
+    }
+
     virtual int whoseTurn()
     {
       return m_colorTurn;
@@ -180,7 +190,6 @@ namespace chess_engine
         m_colorTurn = colorLast == White? Black: White;
       }
     }
-
 
     //..........................................................................
     // Low-Level I/O Interface

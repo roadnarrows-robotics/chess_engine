@@ -76,10 +76,12 @@ using namespace chess_engine;
 // Private Interface
 //------------------------------------------------------------------------------
 
-static map<int, string> NameColors;   ///< name of colors
-static map<int, string> NamePieces;   ///< name of pieces
-static map<int, string> NameCastling; ///< name of castle moves
-static map<int, string> NameResults;  ///< name of results
+static map<int, string> NameColors;           ///< name of colors
+static map<int, string> NamePieces;           ///< name of pieces
+static map<int, string> FigurineWhitePieces;  ///< white figurines
+static map<int, string> FigurineBlackPieces;  ///< black figurines
+static map<int, string> NameCastling;         ///< name of castle moves
+static map<int, string> NameResults;          ///< name of results
 
 static bool makeSAN(const string &strSAN, ChessMove &move)
 {
@@ -121,6 +123,8 @@ static void cli_test_help()
   printf("  SAN               - make your move\n");
   printf("  quit              - quit test\n");
   printf("  resign            - you resign (lose) from current game\n");
+  printf("  show [gui|plain]  - show game in graphic mode.\n");
+  printf("                    -   MODE : default is current mode.\n");
   printf("\n");
 }
 
@@ -280,6 +284,29 @@ static void cli_test(int argc, char *argv[])
       }
     }
 
+    else if( !strcmp(cmdv[0], "resign") )
+    {
+      engine.resign();
+      game.stopPlaying(Resign, opponent(engine.getPlayersColor()));
+    }
+
+    else if( !strcmp(cmdv[0], "show") )
+    {
+      // fake ROS request arguments
+      if( cmdc >= 2 )
+      {
+        if( !strcmp(cmdv[1], "gui") )
+        {
+          game.setGuiState(true);
+        }
+        else
+        {
+          game.setGuiState(false);
+        }
+      }
+      cout << game;
+    }
+
     // RDK: add other ROS requests here
 
     // simulate ROS request for player to make a move
@@ -315,6 +342,22 @@ static void init_name_maps()
   NamePieces[Knight]      = "Knight";
   NamePieces[Pawn]        = "Pawn";
 
+  FigurineWhitePieces[NoPiece]  = " ";
+  FigurineWhitePieces[King]     = "\U00002654";
+  FigurineWhitePieces[Queen]    = "\U00002655";
+  FigurineWhitePieces[Rook]     = "\U00002656";
+  FigurineWhitePieces[Bishop]   = "\U00002657";
+  FigurineWhitePieces[Knight]   = "\U00002658";
+  FigurineWhitePieces[Pawn]     = "\U00002659";
+
+  FigurineBlackPieces[NoPiece]  = " ";
+  FigurineBlackPieces[King]     = "\U0000265A";
+  FigurineBlackPieces[Queen]    = "\U0000265B";
+  FigurineBlackPieces[Rook]     = "\U0000265C";
+  FigurineBlackPieces[Bishop]   = "\U0000265D";
+  FigurineBlackPieces[Knight]   = "\U0000265E";
+  FigurineBlackPieces[Pawn]     = "\U0000265F";
+
   NameCastling[NoCastle]  = "nocastle";
   NameCastling[KingSide]  = "kingside";
   NameCastling[QueenSide] = "queenside";
@@ -343,6 +386,11 @@ string chess_engine::nameOfColor(ChessColor color)
 string chess_engine::nameOfPiece(ChessPiece piece)
 {
   return NamePieces[piece];
+}
+
+string chess_engine::figurineOfPiece(ChessColor color, ChessPiece piece)
+{
+  return color == White? FigurineWhitePieces[piece]: FigurineBlackPieces[piece];
 }
 
 string chess_engine::nameOfCastling(ChessCastling side)

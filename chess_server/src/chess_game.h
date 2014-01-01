@@ -56,9 +56,9 @@
 #ifndef _CHESS_GAME_H
 #define _CHESS_GAME_H
 
+#include <iostream>
 #include <string>
 #include <vector>
-#include <map>
 
 #include "chess.h"
 
@@ -94,25 +94,37 @@ namespace chess_engine
       return m_bIsPlaying;
     }
 
+    bool stopPlaying(ChessResult reason, ChessColor winner=NoColor)
+    {
+      m_bIsPlaying  = false;
+      m_endReason   = reason;
+      m_winner      = winner;
+    }
+
     int getNumOfMoves()
     {
+      return ((int)m_history.size() + 1) / 2;
     }
 
     int getGameHistory()
     {
     }
 
-    int toRow(int rank)
+    int getBoneYard(ChessColor color)
+    {
+    }
+
+    static int toRow(int rank)
     {
       return NumOfRanks - (rank - (int)ChessRank1) - 1;
     }
 
-    int toCol(int file)
+    static int toCol(int file)
     {
       return file - (int)ChessFileA;
     }
 
-    int toRowCol(const ChessSquare &sq, int &row, int &col)
+    static int toRowCol(const ChessSquare &sq, int &row, int &col)
     {
       row = toRow(sq.m_rank);
       col = toCol(sq.m_file);
@@ -126,6 +138,26 @@ namespace chess_engine
       }
     }
 
+    static ChessColor getSquareColor(int file, int rank)
+    {
+      return ((file - ChessFileA) + (rank - ChessRank1)) % 2 == 0? Black: White;
+    }
+
+    void setGuiState(bool on_off)
+    {
+      m_bGui = on_off;
+    }
+
+  protected:
+    ChessBoardElem          m_board[NumOfRanks][NumOfFiles]; ///< board matrix
+    bool                    m_bIsPlaying;     ///< is [not] playing a game
+    ChessResult             m_endReason;      ///< end of game reason
+    ChessColor              m_winner;         ///< end of game winner, if any
+    std::vector<ChessMove>  m_history;        ///< game history
+    std::vector<ChessPiece> m_boneYardWhite;  ///< captured white pieces
+    std::vector<ChessPiece> m_boneYardBlack;  ///< captured black pieces
+    bool                    m_bGui;           ///< [not] gui stream output
+
     ChessBoardElem *elem(const ChessSquare &sq)
     {
       int row, col;
@@ -136,10 +168,6 @@ namespace chess_engine
       }
       return NULL;
     }
-
-  protected:
-    ChessBoardElem  m_board[NumOfRanks][NumOfFiles];  ///< board matrix
-    bool            m_bIsPlaying;
 
     void movePiece(const ChessSquare &sqFrom, const ChessSquare &sqTo)
     {
@@ -152,8 +180,14 @@ namespace chess_engine
       *pSrc = EmptyElem;
     }
 
+    void recordHistory(ChessMove &move);
+
     void moveToBoneYard(ChessBoardElem *pDeadPiece);
+
+    friend std::ostream &operator<<(std::ostream &os, const ChessGame &game);
   };
+
+  extern std::ostream &operator<<(std::ostream &os, const ChessGame &game);
 
 } // chess_engine
 

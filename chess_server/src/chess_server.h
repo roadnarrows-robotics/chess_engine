@@ -94,9 +94,16 @@ namespace chess_engine
   static const int CE_ECODE_CHESS_FATAL       = 11; ///< game in fatal condition
   /* \} */
 
+  inline ChessColor opponent(ChessColor color)
+  {
+    return color == White? Black: White;
+  }
+
   extern std::string nameOfColor(ChessColor color);
 
   extern std::string nameOfPiece(ChessPiece piece);
+
+  extern std::string figurineOfPiece(ChessColor color, ChessPiece piece);
 
   extern std::string nameOfCastling(ChessCastling side);
 
