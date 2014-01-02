@@ -99,6 +99,9 @@ namespace chess_engine
 
     virtual int resign();
 
+    virtual int getCastlingOptons(std::string &strWhiteCastling,
+                                  std::string &strBlackCastling);
+
 
     //..........................................................................
     // Low-Level I/O Interface
@@ -162,6 +165,7 @@ namespace chess_engine
     virtual int cmdGo(bool bIsFirstGo=false);
     virtual int cmdMove(const std::string &strSAN);
     virtual int cmdShowGame(int nMove, ChessColor color);
+    virtual int cmdShowBoard(std::string &strCastling);
 
     //
     // Responses

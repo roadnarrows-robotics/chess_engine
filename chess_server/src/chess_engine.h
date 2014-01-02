@@ -164,6 +164,12 @@ namespace chess_engine
       return -CE_ECODE_NO_EXEC;
     }
 
+    virtual int getCastlingOptons(std::string &strWhiteCastling,
+                                  std::string &strBlackCastling)
+    {
+      return -CE_ECODE_NO_EXEC;
+    }
+
     ChessColor getPlayersColor()
     {
       return m_colorPlayer;
@@ -179,16 +185,9 @@ namespace chess_engine
       return m_colorTurn;
     }
 
-    virtual void alternateTurns(ChessColor colorLast)
+    virtual bool isPlayingAGame()
     {
-      if( isPlayingAGame() )
-      {
-        if( colorLast == Black )
-        {
-          ++m_nMove;
-        }
-        m_colorTurn = colorLast == White? Black: White;
-      }
+      return m_bIsPlaying;
     }
 
     //..........................................................................
@@ -222,11 +221,6 @@ namespace chess_engine
       return m_bIsConn;
     }
 
-    virtual bool isPlayingAGame()
-    {
-      return m_bIsPlaying;
-    }
-
   protected:
     std::string     m_strVersion;   ///< backend engine version string
     bool            m_bIsConn;      ///< [not] connected to backend engine
@@ -237,6 +231,18 @@ namespace chess_engine
     ChessColor      m_colorTurn;    ///< color to play
     int             m_nMove;        ///< number of full moves (2 plies/move)
     ChessResult     m_eEoGReason;   ///< reason for ending game
+
+    virtual void alternateTurns(ChessColor colorLast)
+    {
+      if( isPlayingAGame() )
+      {
+        if( colorLast == Black )
+        {
+          ++m_nMove;
+        }
+        m_colorTurn = colorLast == White? Black: White;
+      }
+    }
   };
 
 } // chess_engine

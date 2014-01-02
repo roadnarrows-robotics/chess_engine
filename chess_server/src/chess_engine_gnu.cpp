@@ -158,10 +158,10 @@ boost::regex reAny("(.*)");
 /*! pre-response: 'timelime...' (for version >= 6) */
 boost::regex reTimeLimit("(^timelimit.*)");
 
-/*! version response: 'gnu chess VERSION' */
+/*! 'version' response: 'gnu chess VERSION' */
 boost::regex reVersion("^gnu chess (.*)");
 
-/*! depth DEPTH response: 'search to a depth of DEPTH' */
+/*! 'depth DEPTH' response: 'search to a depth of DEPTH' */
 boost::regex reDepth("^search to a depth of ([0-9]+)");
 
 /*! engine's numbered move response: 'N. ... AN' */
@@ -173,26 +173,29 @@ boost::regex reNumMovePlayer("^([0-9]+)\\.\\s+(\\S+)");
 /*! engines move response: 'my move is : SAN' */
 boost::regex reEngineMove("^my move is\\s*:\\s*([a-h][1-8][a-h][1-8]\\S*)");
 
-/*! engine resigns */
+/*! engine resigns: 'resign ...' */
 boost::regex reResign("(resign).*");
 
-/*! engine determines a draw */
+/*! engine determines a draw: '1/2-1/2 ...' */
 boost::regex reDraw("(1/2-1/2).*");
 
-/*! white checkmats */
+/*! white checkmates: '1-0 ...' */
 boost::regex reWhiteMates("(1-0).*");
 
-/*! black checkmates */
+/*! black checkmates: '0-1 ...' */
 boost::regex reBlackMates("(0-1).*");
 
-/*! show game state header */
+/*! 'show game' response header: 'white black ...' */
 boost::regex reWhiteBlackHdr("\\s*(white)\\s+(black)\\s*");
 
-/*! show game state 1 move */
+/*! 'show game' response 1 move: 'N. AN' */
 boost::regex reWhiteBlackMove1("\\s*([0-9]+)\\.\\s+(\\S+)\\s*");
 
-/*! show game state 2 move */
+/*! 'show game' response 2 moves: 'N. AN AN' */
 boost::regex reWhiteBlackMove2("\\s*([0-9]+)\\.\\s+(\\S+)\\s+(\\S+)\\s*");
+
+/*! 'show board' response status line: 'COLOR [CASTLING] ...' */
+boost::regex reCastling("\\s*(\\S+)\\s+([KQkq]*)\\s*");
 
 /*! bad move response: 'invalid move: SAN' or 'illegal move: SAN' */
 boost::regex reInvalidMove("^(invalid move:|illegal move:)\\s+(.*)");
@@ -681,6 +684,11 @@ int ChessEngineGnu::resign()
   return CE_OK;
 }
 
+int ChessEngineGnu::getCastlingOptons(string &strWhiteCastling,
+                                      string &strBlackCastling)
+{
+}
+
 
 //..............................................................................
 // Low-Level Public I/O Interface
@@ -1081,6 +1089,41 @@ int ChessEngineGnu::cmdShowGame(int nMove, ChessColor color)
   }
 
   return CE_OK;
+}
+
+int ChessEngineGnu::cmdShowBoard(string &strCastling)
+{
+  static const char *cmd = "show board";
+
+  vector<string>  matches;
+  int             rc = CE_OK;
+
+  strCastling.clear();
+
+  writeline(cmd);
+
+  // null line
+  if( rspFirstLine(reNull, matches) != 2 )
+  {
+    rc = -CE_ECODE_CHESS_RSP;
+  }
+
+  // COLOR [CASTLING] ...
+  else if( rspNextLine(reCastling, matches, false) != 2 )
+  {
+    rc = -CE_ECODE_CHESS_RSP;
+  }
+
+  else
+  {
+    strCastling = matches[1];
+    rc = CE_OK;
+  }
+
+  // flush board grid
+  flushInput();
+
+  return rc;
 }
 
 int ChessEngineGnu::rspEnginesMove(ChessColor colorMove)
