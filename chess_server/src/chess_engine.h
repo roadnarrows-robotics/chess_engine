@@ -151,6 +151,11 @@ namespace chess_engine
 
     virtual int makePlayersMove(ChessMove &move)
     {
+      return makeAMove(m_colorPlayer, move);
+    }
+
+    virtual int makeAMove(ChessColor colorMove, ChessMove &move)
+    {
       return -CE_ECODE_NO_EXEC;
     }
 
@@ -164,8 +169,8 @@ namespace chess_engine
       return -CE_ECODE_NO_EXEC;
     }
 
-    virtual int getCastlingOptons(std::string &strWhiteCastling,
-                                  std::string &strBlackCastling)
+    virtual int getCastlingOptions(std::string &strWhiteCastling,
+                                   std::string &strBlackCastling)
     {
       return -CE_ECODE_NO_EXEC;
     }

@@ -87,7 +87,7 @@ namespace chess_engine
     ChessSquare     m_sqAccAt;    ///< castle rook or en passant opponent square
     ChessSquare     m_sqAccTo;    ///< castle rook destination chess square
     ChessPiece      m_promotion;  ///< pawn promoted to this piece
-    bool            m_check;      ///< [not] in check
+    bool            m_check;      ///< opponent [not] placed in check
     ChessColor      m_winner;     ///< winner of the game, if any
     ChessResult     m_result;     ///< result of move
 

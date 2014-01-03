@@ -93,14 +93,14 @@ namespace chess_engine
 
     virtual int startNewGame(int colorPlayer=White);
 
-    virtual int makePlayersMove(ChessMove &move);
+    virtual int makeAMove(ChessColor colorMove, ChessMove &move);
 
     virtual int getEnginesMove(ChessMove &move, bool bAuto=false);
 
     virtual int resign();
 
-    virtual int getCastlingOptons(std::string &strWhiteCastling,
-                                  std::string &strBlackCastling);
+    virtual int getCastlingOptions(std::string &strWhiteCastling,
+                                   std::string &strBlackCastling);
 
 
     //..........................................................................

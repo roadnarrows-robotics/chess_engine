@@ -26,37 +26,22 @@ find_library(
 
 #catkin_python_setup()
 
-#add_message_files(
-#  DIRECTORY msg
-#  FILES 
-#    HekOpState.msg 
-#    ProductInfo.msg 
-#    HekJointStateExtended.msg 
-#    HekRobotStatusExtended.msg
-#    ServoHealth.msg
-#)
+add_message_files(
+  DIRECTORY msg
+  FILES 
+    ChessCastling.msg
+    ChessColor.msg
+    ChessMove.msg
+    ChessPiece.msg
+    ChessResult.msg 
+    ChessSquare.msg
+)
 
-#add_service_files(
-#  DIRECTORY srv
-#  FILES
-#    Calibrate.srv 
-#    ClearAlarms.srv 
-#    CloseGripper.srv 
-#    EStop.srv 
-#    Freeze.srv 
-#    GetProductInfo.srv 
-#    GotoBalancedPos.srv 
-#    GotoParkedPos.srv 
-#    GotoZeroPt.srv 
-#    IsAlarmed.srv 
-#    IsCalibrated.srv 
-#    IsDescLoaded.srv
-#    OpenGripper.srv
-#    Release.srv
-#    ResetEStop.srv 
-#    SetRobotMode.srv
-#    Stop.srv
-#)
+add_service_files(
+  DIRECTORY srv
+  FILES
+    MakeAMove.srv
+)
 
 #add_action_files(
 #  DIRECTORY action 
@@ -65,11 +50,11 @@ find_library(
 #)
 
 ## Generate added messages/services/actions with any dependencies listed here
-#generate_messages(
-#  DEPENDENCIES
-#  actionlib_msgs
-#  std_msgs
-#)
+generate_messages(
+  DEPENDENCIES
+  actionlib_msgs
+  std_msgs
+)
 
 catkin_package(
   CATKIN_DEPENDS actionlib_msgs

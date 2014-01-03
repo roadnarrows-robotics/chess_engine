@@ -138,8 +138,8 @@ namespace chess_engine
   enum ChessCastling
   {
     NoCastle  = ChessValNone, ///< no castle
-    KingSide  = 'k',          ///< king side castle
-    QueenSide = 'q'           ///< queen side castle
+    KingSide  = 'K',          ///< king side castle
+    QueenSide = 'Q'           ///< queen side castle
   };
 
   /*!
@@ -163,8 +163,8 @@ namespace chess_engine
     Checkmate   = '#',          ///< checkmate
     Draw        = 'd',          ///< game is a draw
     Resign      = 'r',          ///< player or engine resigned
-    NoGame      = '!',          ///< no active game
-    GameFatal   = '<'           ///< current game has unrecoverable errors
+    NoGame      = '$',          ///< no active game
+    GameFatal   = '!'           ///< current game has unrecoverable errors
   };
 
 #ifndef SWIG

@@ -64,12 +64,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include <string>
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
+
+#include "ros/ros.h"
 
 #include "rnr/rnrconfig.h"
 #include "rnr/log.h"
@@ -461,7 +464,7 @@ int ChessEngineGnu::startNewGame(int colorPlayer)
   return rc;
 }
 
-int ChessEngineGnu::makePlayersMove(ChessMove &move)
+int ChessEngineGnu::makeAMove(ChessColor colorMove, ChessMove &move)
 {
   ChessSquare sqFrom;
   ChessSquare sqTo;
@@ -476,7 +479,7 @@ int ChessEngineGnu::makePlayersMove(ChessMove &move)
 
   // initialize known move data
   move.m_nMove  = m_nMove;
-  move.m_color  = m_colorPlayer;
+  move.m_color  = colorMove;
   move.m_sqFrom = sqFrom;
   move.m_sqTo   = sqTo;
 
@@ -497,7 +500,7 @@ int ChessEngineGnu::makePlayersMove(ChessMove &move)
     return -CE_ECODE_CHESS_NO_GAME;
   }
 
-  if( whoseTurn() != m_colorPlayer )
+  if( whoseTurn() != colorMove )
   {
     printf("ROSLOG: Error: out-of-turn.\n");
     move.m_result = OutOfTurn;
@@ -529,7 +532,7 @@ int ChessEngineGnu::makePlayersMove(ChessMove &move)
             m_strNewAN.c_str(), m_strNewSAN.c_str());
       }
 
-      rc = cmdShowGame(m_nMove, m_colorPlayer);
+      rc = cmdShowGame(m_nMove, colorMove);
 
       if( rc != CE_OK )
       {
@@ -542,7 +545,7 @@ int ChessEngineGnu::makePlayersMove(ChessMove &move)
       move.fromAN(m_strNewAN);
 
       // alternate turns
-      alternateTurns(m_colorPlayer);
+      alternateTurns(colorMove);
 
       return CE_OK;
 
@@ -595,7 +598,7 @@ int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
 
   if( !isPlayingAGame() ) 
   { 
-    printf("ROSLOG: Error: no game.\n");
+    ROS_ERROR("ROSLOG: Error: no game.\n");
     move.m_result = NoGame;
     return -CE_ECODE_CHESS_NO_GAME;
   }
@@ -679,14 +682,74 @@ int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
 
 int ChessEngineGnu::resign()
 {
+  //
+  // Pre-checks
+  //
+  if( !isConnected() ) 
+  { 
+    printf("ROSLOG: Error: not connected.\n");
+    return -CE_ECODE_NO_EXEC;
+  }
+
+  if( !isPlayingAGame() ) 
+  { 
+    printf("ROSLOG: Error: no game.\n");
+    return -CE_ECODE_CHESS_NO_GAME;
+  }
+
   m_bIsPlaying = false;
 
   return CE_OK;
 }
 
-int ChessEngineGnu::getCastlingOptons(string &strWhiteCastling,
-                                      string &strBlackCastling)
+int ChessEngineGnu::getCastlingOptions(string &strWhiteCastling,
+                                       string &strBlackCastling)
 {
+  string  strOptions;
+  int     rc;
+
+  strWhiteCastling.clear();
+  strBlackCastling.clear();
+
+  //
+  // Pre-checks
+  //
+  if( !isConnected() ) 
+  { 
+    printf("ROSLOG: Error: not connected.\n");
+    return -CE_ECODE_NO_EXEC;
+  }
+
+  if( !isPlayingAGame() ) 
+  { 
+    printf("ROSLOG: Error: no game.\n");
+    return -CE_ECODE_CHESS_NO_GAME;
+  }
+
+  if( (rc = cmdShowBoard(strOptions)) == CE_OK )
+  {
+    for(size_t i=0; i<strOptions.size(); ++i)
+    {
+      switch( strOptions[i] )
+      {
+        // white
+        case 'K':
+        case 'Q':
+          strWhiteCastling.push_back(strOptions[i]);
+          break;
+        // black
+        case 'k':
+        case 'q':
+          strBlackCastling.push_back(toupper(strOptions[i]));
+          break;
+        // ignore
+        default:
+          break;
+      }
+    }
+  }
+
+  return rc;
 }
 
 
@@ -1103,7 +1166,7 @@ int ChessEngineGnu::cmdShowBoard(string &strCastling)
   writeline(cmd);
 
   // null line
-  if( rspFirstLine(reNull, matches) != 2 )
+  if( rspFirstLine(reNull, matches) != 1 )
   {
     rc = -CE_ECODE_CHESS_RSP;
   }

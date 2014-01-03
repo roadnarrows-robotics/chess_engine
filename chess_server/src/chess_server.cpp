@@ -61,12 +61,18 @@
 #include <string>
 #include <map>
 
+#include "ros/ros.h"
+
+#include "chess_server/ChessSquare.h"
+#include "chess_server/MakeAMove.h"
+
 #include "chess.h"
 
 #include "chess_move.h"
 #include "chess_game.h"
 #include "chess_engine_gnu.h"
 #include "chess_server.h"
+// RDK #include "chess_server_srv.h"
 
 using namespace std;
 using namespace chess_engine;
@@ -109,7 +115,10 @@ static bool makeSAN(const string &strSAN, ChessMove &move)
 
 static void cli_test_help()
 {
-  printf("  auto              - auto play\n");
+  printf("  auto [MOVES]      - auto play for MOVE moves\n");
+  printf("                        MOVES : maximum number of moves\n");
+  printf("                                Default: 0 (go to end of game)\n");
+  printf("  castling          - get available castling options\n");
   printf("  close             - close connection with chess engine\n");
   printf("  diff F            - set diffictuly F\n");
   printf("                        F : scale from 1.0 - 10.0\n");
@@ -117,14 +126,17 @@ static void cli_test_help()
   printf("  flush             - flush input from chess engine\n");
   printf("  get               - get engine's move\n");
   printf("  new [COLOR]       - start new game with you playing COLOR\n");
-  printf("                    -   COLOR : white|black (default white)\n");
+  printf("                    -   COLOR : white | black\n");
+  printf("                                Default: white\n");
   printf("  open [APP]        - open connection to chess engine\n");
-  printf("                    -   APP : GNU chess path (default gnuchess)\n");
+  printf("                    -   APP : GNU chess path\n");
+  printf("                              Default: gnuchess\n");
   printf("  SAN               - make your move\n");
   printf("  quit              - quit test\n");
   printf("  resign            - you resign (lose) from current game\n");
-  printf("  show [gui|plain]  - show game in graphic mode.\n");
-  printf("                    -   MODE : default is current mode.\n");
+  printf("  show [gui|plain]  - show game board.\n");
+  printf("                    -   MODE : gui | plain\n");
+  printf("                               Default: current mode\n");
   printf("\n");
 }
 
@@ -186,6 +198,22 @@ static void cli_test(int argc, char *argv[])
       cli_test_help();
     }
 
+    // get castiling options
+    else if( !strcmp(cmdv[0], "castling") )
+    {
+      string  strWhite, strBlack;
+
+      if( (rc = engine.getCastlingOptions(strWhite, strBlack)) == CE_OK )
+      {
+        printf("white: %s\n", strWhite.c_str());
+        printf("black: %s\n", strBlack.c_str());
+      }
+      else
+      {
+        printf("Error: %d\n", rc);
+      }
+    }
+
     // close connection to backend chess engine
     else if( !strcmp(cmdv[0], "close") )
     {
@@ -213,8 +241,14 @@ static void cli_test(int argc, char *argv[])
       }
       if( !engine.isConnected() )
       {
-        rc = engine.openConnection(app);
-        printf("Connection to %s opened.\n", app);
+        if( (rc = engine.openConnection(app)) == CE_OK )
+        {
+          printf("Connection to %s opened.\n", app);
+        }
+        else
+        {
+          printf("Error: %d\n", rc);
+        }
       }
       else
       {
@@ -251,10 +285,13 @@ static void cli_test(int argc, char *argv[])
         colorPlayer = Black;
       }
 
-      rc = engine.startNewGame(colorPlayer);
-      if( rc == CE_OK )
+      if( (rc = engine.startNewGame(colorPlayer)) == CE_OK )
       {
         game.setupBoard();
+      }
+      else
+      {
+        printf("Error: %d\n", rc);
       }
     }
 
@@ -273,7 +310,11 @@ static void cli_test(int argc, char *argv[])
     // simulate ROS request to auto-play. Node will publish
     else if( !strcmp(cmdv[0], "auto") )
     {
-      while( game.isPlaying() )
+      int nMoves, n = 0;
+
+      nMoves = cmdc < 2? 0: atoi(cmdv[1]);
+
+      while( game.isPlaying() && ((nMoves == 0) || (n < nMoves)) )
       {
         usleep(500000);
         rc = engine.getEnginesMove(move, true);
@@ -281,6 +322,10 @@ static void cli_test(int argc, char *argv[])
         rc = game.sync(move);
         cout << "g: " << move << endl;
         cout << endl;
+        if( move.m_color == Black )
+        {
+          ++n;
+        }
       }
     }
 
@@ -299,7 +344,7 @@ static void cli_test(int argc, char *argv[])
         {
           game.setGuiState(true);
         }
-        else
+        else if( !strcmp(cmdv[1], "plain") )
         {
           game.setGuiState(false);
         }
@@ -407,6 +452,12 @@ int main(int argc, char *argv[])
 {
   init_name_maps();
 
+  ros::init(argc, argv, "chess_server");
+  ros::NodeHandle n("chess_server");
+
+  //RDK ros::ServiceServer make_a_move = n.advertiseService("make_a_move",
+  //RDK                                                     function here)
+ 
   cli_test(argc, argv);
 
   return 0;
