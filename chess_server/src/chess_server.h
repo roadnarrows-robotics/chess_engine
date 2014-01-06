@@ -63,6 +63,11 @@
 #include "chess_server/MakeAMove.h"
 #include "chess_server/MakeAMoveSAN.h"
 #include "chess_server/GetEnginesMove.h"
+#include "chess_server/Resign.h"
+#include "chess_server/AutoPlay.h"
+#include "chess_server/SetDifficulty.h"
+#include "chess_server/GetPlayHistory.h"
+#include "chess_server/GetBoardState.h"
 
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceMove.h"
@@ -120,6 +125,21 @@ namespace chess_engine
 
     bool getEnginesMove(chess_server::GetEnginesMove::Request  &req,
                         chess_server::GetEnginesMove::Response &rsp);
+
+    bool resign(chess_server::Resign::Request  &req,
+                chess_server::Resign::Response &rsp);
+
+    bool autoplay(chess_server::AutoPlay::Request  &req,
+                  chess_server::AutoPlay::Response &rsp);
+
+    bool setDifficulty(chess_server::SetDifficulty::Request  &req,
+                       chess_server::SetDifficulty::Response &rsp);
+
+    bool getPlayHistory(chess_server::GetPlayHistory::Request  &req,
+                        chess_server::GetPlayHistory::Response &rsp);
+
+    bool getBoardState(chess_server::GetBoardState::Request  &req,
+                       chess_server::GetBoardState::Response &rsp);
 
     //
     // Support

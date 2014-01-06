@@ -67,6 +67,11 @@
 #include "chess_server/MakeAMove.h"
 #include "chess_server/MakeAMoveSAN.h"
 #include "chess_server/GetEnginesMove.h"
+#include "chess_server/Resign.h"
+#include "chess_server/AutoPlay.h"
+#include "chess_server/SetDifficulty.h"
+#include "chess_server/GetPlayHistory.h"
+#include "chess_server/GetBoardState.h"
 
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceError.h"
@@ -105,6 +110,31 @@ void ChessServer::advertiseServices(ros::NodeHandle &nh)
   strSvc = "get_engines_move";
   m_services[strSvc] = nh.advertiseService(strSvc,
                                           &ChessServer::getEnginesMove,
+                                          &(*this));
+
+  strSvc = "resign";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::resign,
+                                          &(*this));
+
+  strSvc = "autoplay";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::autoplay,
+                                          &(*this));
+
+  strSvc = "set_difficulty";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::setDifficulty,
+                                          &(*this));
+
+  strSvc = "get_play_history";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::getPlayHistory,
+                                          &(*this));
+
+  strSvc = "get_board_state";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::getBoardState,
                                           &(*this));
 }
 
@@ -248,6 +278,119 @@ bool ChessServer::getEnginesMove(chess_server::GetEnginesMove::Request  &req,
   }
 }
 
+bool ChessServer::resign(chess_server::Resign::Request  &req,
+                         chess_server::Resign::Response &rsp)
+{
+  ROS_DEBUG("resign");
+
+  m_engine.resign();
+
+  m_game.stopPlaying(Resign, opponent(m_engine.getPlayersColor()));
+
+  ROS_INFO_STREAM(nameOfColor(m_engine.getPlayersColor()) << " resigned.");
+
+  rsp.rc = CE_OK;
+
+  return true;
+}
+
+bool ChessServer::autoplay(chess_server::AutoPlay::Request  &req,
+                           chess_server::AutoPlay::Response &rsp)
+{
+  ROS_DEBUG("autoplay");
+
+  return true;
+}
+
+bool ChessServer::setDifficulty(chess_server::SetDifficulty::Request  &req,
+                                chess_server::SetDifficulty::Response &rsp)
+{
+  float   difficulty;
+
+  ROS_DEBUG("set_difficulty");
+
+  difficulty = req.difficulty;
+
+  m_engine.setGameDifficulty(difficulty);
+
+  ROS_INFO("Game difficulty set to %4.1f.", difficulty);
+
+  rsp.rc = CE_OK;
+
+  return true;
+}
+
+bool ChessServer::getPlayHistory(chess_server::GetPlayHistory::Request  &req,
+                                 chess_server::GetPlayHistory::Response &rsp)
+{
+  std::vector<Move>           &move = m_game.getGameHistory();
+  std::vector<Move>::iterator iter;
+  ChessColor                  colorPlayer = White;
+  
+  ROS_DEBUG("get_play_history");
+
+  for(iter = move.begin(); iter != move.end(); ++iter)
+  {
+    if( colorPlayer == White )
+    {
+      rsp.whiteAN.push_back(iter->m_strAN);
+    }
+    else
+    {
+      rsp.blackAN.push_back(iter->m_strAN);
+    }
+    colorPlayer = opponent(colorPlayer);
+  }
+
+  ROS_INFO("Retrieved chess play history.");
+
+  return true;
+}
+
+bool ChessServer::getBoardState(chess_server::GetBoardState::Request  &req,
+                                chess_server::GetBoardState::Response &rsp)
+{
+  int           file;
+  int           rank;
+  BoardElem    *pElem;
+  ChessSquare   sq;
+
+  chess_server::ChessSquare msgSquare;
+  chess_server::ChessColor  msgColor;
+  chess_server::ChessPiece  msgPiece;
+
+  ROS_DEBUG("get_board_state");
+
+  for(rank = ChessRank1; rank <= ChessRank8; ++rank)
+  {
+    for(file = ChessFileA; file <= ChessFileH; ++file)
+    {
+      pElem = m_game.getBoardElem((ChessFile)file, (ChessRank)rank);
+      if( pElem != NULL )
+      {
+        msgSquare.file = (uint8_t)file;
+        msgSquare.rank = (uint8_t)rank;
+        rsp.square.push_back(msgSquare);
+
+        msgColor.color = (uint8_t)pElem->m_color;
+        rsp.whose.push_back(msgColor);
+
+        msgPiece.piece = (uint8_t)pElem->m_piece;
+        rsp.what.push_back(msgPiece);
+      }
+      else
+      {
+        ROS_ERROR("No chess square found out %c%c.", (char)file, (char)rank);
+        return false;
+      }
+    }
+  }
+
+  ROS_INFO("Retrieved chess board state.");
+
+  return true;
+}
+
 void ChessServer::toMsgMove(const Move &move, chess_server::ChessMove &msgMove)
 {
   msgMove.move_num         = move.m_nMove;
@@ -261,13 +404,12 @@ void ChessServer::toMsgMove(const Move &move, chess_server::ChessMove &msgMove)
   msgMove.captured.piece   = move.m_captured;
   msgMove.en_passant       = move.m_en_passant;
   msgMove.castle.side      = move.m_castle;
-  msgMove.aux_at.file      = move.m_sqAuxAt.m_file;
-  msgMove.aux_at.rank      = move.m_sqAuxAt.m_rank;
-  msgMove.aux_to.file      = move.m_sqAuxTo.m_file;
-  msgMove.aux_to.rank      = move.m_sqAuxTo.m_rank;
+  msgMove.aux_src.file     = move.m_sqAuxAt.m_file;
+  msgMove.aux_src.rank     = move.m_sqAuxAt.m_rank;
+  msgMove.aux_dst.file     = move.m_sqAuxTo.m_file;
+  msgMove.aux_dst.rank     = move.m_sqAuxTo.m_rank;
   msgMove.promotion.piece  = move.m_promotion;
   msgMove.check            = move.m_check;
   msgMove.winner.color     = move.m_winner;
   msgMove.result.code      = move.m_result;
 }
-

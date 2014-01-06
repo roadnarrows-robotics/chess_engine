@@ -1,4 +1,6 @@
-ChessSquare src
-ChessSquare dst
+### Make a move using chess square source and destination notation
+
+ChessSquare src   # {file}{rank}
+ChessSquare dst   # {file}{rank}
 ---
-ChessMove move
+ChessMove move    # the actual move, fully quantified

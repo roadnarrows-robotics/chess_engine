@@ -41,9 +41,14 @@ add_message_files(
 add_service_files(
   DIRECTORY srv
   FILES
+    AutoPlay.srv
+    GetBoardState.srv
     GetEnginesMove.srv
-    MakeAMove.srv
+    GetPlayHistory.srv
     MakeAMoveSAN.srv
+    MakeAMove.srv
+    Resign.srv
+    SetDifficulty.srv
     StartNewGame.srv
 )
 

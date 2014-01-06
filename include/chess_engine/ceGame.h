@@ -103,12 +103,24 @@ namespace chess_engine
       return ((int)m_history.size() + 1) / 2;
     }
 
-    int getGameHistory()
+    std::vector<Move> &getGameHistory()
     {
+      return m_history;
     }
 
-    int getBoneYard(ChessColor color)
+    BoardElem *getBoardElem(ChessFile file, ChessRank rank)
     {
+      ChessSquare sq;
+
+      sq.m_file = file;
+      sq.m_rank = rank;
+
+      return elem(sq);
+    }
+
+    std::vector<ChessPiece> &getBoneYard(ChessColor color)
+    {
+      return color == White? m_boneYardWhite: m_boneYardBlack;
     }
 
     static int toRow(int rank)

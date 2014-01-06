@@ -1,2 +1,4 @@
+### Resign from current game. You Lose!
+
 ---
 int8 rc   # 0 = ok, <0 = error

@@ -1,0 +1,6 @@
+### Retrieve current board state
+
+---
+ChessSquare[] square    # {file}{rank}. Standard board has 64 squares
+ChessColor[]  whose     # whose piece
+ChessPiece[]  what      # what piece

@@ -1,0 +1,5 @@
+### Retrieve game play history
+
+---
+string[]  whiteAN     # white moves in Algebraic Notation
+string[]  blackAN     # black moves in Algebraic Notation
