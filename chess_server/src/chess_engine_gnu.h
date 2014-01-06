@@ -65,13 +65,14 @@
 
 #include "rnr/rnrconfig.h"
 
-#include "chess.h"
-#include "chess_move.h"
-#include "chess_engine.h"
+#include "chess_engine/ceChess.h"
+#include "chess_engine/ceMove.h"
+
+#include "chess_engine_be.h"
 
 namespace chess_engine
 {
-  class ChessEngineGnu : public ChessEngine
+  class ChessEngineGnu : public ChessEngineBe
   {
   public:
     static const int MaxLineSize = 80;
@@ -82,7 +83,7 @@ namespace chess_engine
   
 
     //..........................................................................
-    // High-Level Interface
+    // High-Level Game Interface
     //..........................................................................
   
     virtual int openConnection(const std::string &strChessApp="gnuchess");
@@ -93,14 +94,19 @@ namespace chess_engine
 
     virtual int startNewGame(int colorPlayer=White);
 
-    virtual int makeAMove(ChessColor colorMove, ChessMove &move);
+    virtual int makeAMove(ChessColor colorMove, Move &move);
 
-    virtual int getEnginesMove(ChessMove &move, bool bAuto=false);
+    virtual int getEnginesMove(Move &move, bool bAuto=false);
 
     virtual int resign();
 
     virtual int getCastlingOptions(std::string &strWhiteCastling,
                                    std::string &strBlackCastling);
+
+    std::string getChessApp() const
+    {
+      return m_strChessApp;
+    }
 
 
     //..........................................................................

@@ -7,14 +7,14 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_engine.h
+// File:      chess_engine_be.h
 //
 /*! \file
  *
  * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
  * $Rev: 3334 $
  *
- * \brief The backend engine base class.
+ * \brief The chess engine backend base class.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
@@ -54,23 +54,22 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _CHESS_ENGINE_H
-#define _CHESS_ENGINE_H
+#ifndef _CHESS_ENGINE_BE_H
+#define _CHESS_ENGINE_BE_H
 
 #include <sys/types.h>
 
 #include "rnr/rnrconfig.h"
 
-#include "chess.h"
-#include "chess_move.h"
-#include "chess_server.h"
+#include "chess_engine/ceChess.h"
+#include "chess_engine/ceMove.h"
 
 namespace chess_engine
 {
-  class ChessEngine
+  class ChessEngineBe
   {
   public:
-    ChessEngine() : m_strVersion("0.0.0")
+    ChessEngineBe() : m_strVersion("0.0.0")
     {
       m_bIsConn     = false;
       m_bIsPlaying  = false;
@@ -82,11 +81,11 @@ namespace chess_engine
       m_eEoGReason  = NoGame;
     }
   
-    virtual ~ChessEngine() { }
+    virtual ~ChessEngineBe() { }
   
 
     //..........................................................................
-    // High-Level Interface
+    // High-Level Game Interface
     //..........................................................................
     
     virtual int openConnection()
@@ -149,17 +148,17 @@ namespace chess_engine
       }
     }
 
-    virtual int makePlayersMove(ChessMove &move)
+    virtual int makePlayersMove(Move &move)
     {
       return makeAMove(m_colorPlayer, move);
     }
 
-    virtual int makeAMove(ChessColor colorMove, ChessMove &move)
+    virtual int makeAMove(ChessColor colorMove, Move &move)
     {
       return -CE_ECODE_NO_EXEC;
     }
 
-    virtual int getEnginesMove(ChessMove &move, bool bAuto=false)
+    virtual int getEnginesMove(Move &move, bool bAuto=false)
     {
       return -CE_ECODE_NO_EXEC;
     }
@@ -175,22 +174,22 @@ namespace chess_engine
       return -CE_ECODE_NO_EXEC;
     }
 
-    ChessColor getPlayersColor()
+    ChessColor getPlayersColor() const
     {
       return m_colorPlayer;
     }
 
-    ChessColor getEnginesColor()
+    ChessColor getEnginesColor() const
     {
       return m_colorEngine;
     }
 
-    virtual int whoseTurn()
+    virtual int whoseTurn() const
     {
       return m_colorTurn;
     }
 
-    virtual bool isPlayingAGame()
+    virtual bool isPlayingAGame() const
     {
       return m_bIsPlaying;
     }
@@ -252,4 +251,4 @@ namespace chess_engine
 
 } // chess_engine
 
-#endif // _CHESS_ENGINE_H
+#endif // _CHESS_ENGINE_BE_H

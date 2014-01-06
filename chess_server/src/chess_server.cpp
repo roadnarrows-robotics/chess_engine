@@ -6,14 +6,14 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_server.cpp
+// File:      chess_service_srv.cpp
 //
 /*! \file
  *
  * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
  * $Rev: 3334 $
  *
- * \brief The chess_server main.
+ * \brief The ROS chess_server node supported services.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
@@ -63,402 +63,211 @@
 
 #include "ros/ros.h"
 
-#include "chess_server/ChessSquare.h"
+#include "chess_server/StartNewGame.h"
 #include "chess_server/MakeAMove.h"
+#include "chess_server/MakeAMoveSAN.h"
+#include "chess_server/GetEnginesMove.h"
 
-#include "chess.h"
+#include "chess_engine/ceChess.h"
+#include "chess_engine/ceError.h"
+#include "chess_engine/ceUtils.h"
+#include "chess_engine/ceMove.h"
+#include "chess_engine/ceGame.h"
 
-#include "chess_move.h"
-#include "chess_game.h"
+#include "rnr/rnrconfig.h"
+
 #include "chess_engine_gnu.h"
 #include "chess_server.h"
-// RDK #include "chess_server_srv.h"
 
 using namespace std;
 using namespace chess_engine;
 
 
-//------------------------------------------------------------------------------
-// Private Interface
-//------------------------------------------------------------------------------
-
-static map<int, string> NameColors;           ///< name of colors
-static map<int, string> NamePieces;           ///< name of pieces
-static map<int, string> FigurineWhitePieces;  ///< white figurines
-static map<int, string> FigurineBlackPieces;  ///< black figurines
-static map<int, string> NameCastling;         ///< name of castle moves
-static map<int, string> NameResults;          ///< name of results
-
-static bool makeSAN(const string &strSAN, ChessMove &move)
+void ChessServer::advertiseServices(ros::NodeHandle &nh)
 {
-  if( strSAN.size() < 4 )
-  {
-    return false;
-  }
+  string  strSvc;
 
-  // fake ROS request arguments
-  move.fromSAN(strSAN);
+  strSvc = "start_new_game";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::startNewGame,
+                                          &(*this));
 
-  if( (move.m_sqFrom.m_file < ChessFileA) || 
-      (move.m_sqFrom.m_file > ChessFileH) )
-  {
-    return false;
-  }
-  if( (move.m_sqFrom.m_rank < ChessRank1) || 
-      (move.m_sqFrom.m_rank > ChessRank8) )
-  {
-    return false;
-  }
+  strSvc = "make_a_move_san";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::makeAMoveSAN,
+                                          &(*this));
 
-  return true;
+  strSvc = "make_a_move";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::makeAMove,
+                                          &(*this));
+
+  strSvc = "get_engines_move";
+  m_services[strSvc] = nh.advertiseService(strSvc,
+                                          &ChessServer::getEnginesMove,
+                                          &(*this));
 }
 
-static void cli_test_help()
+/*!
+ *  \brief Request calibrate.
+ */
+bool ChessServer::startNewGame(chess_server::StartNewGame::Request  &req,
+                               chess_server::StartNewGame::Response &rsp)
 {
-  printf("  auto [MOVES]      - auto play for MOVE moves\n");
-  printf("                        MOVES : maximum number of moves\n");
-  printf("                                Default: 0 (go to end of game)\n");
-  printf("  castling          - get available castling options\n");
-  printf("  close             - close connection with chess engine\n");
-  printf("  diff F            - set diffictuly F\n");
-  printf("                        F : scale from 1.0 - 10.0\n");
-  printf("  help              - print this help\n");
-  printf("  flush             - flush input from chess engine\n");
-  printf("  get               - get engine's move\n");
-  printf("  new [COLOR]       - start new game with you playing COLOR\n");
-  printf("                    -   COLOR : white | black\n");
-  printf("                                Default: white\n");
-  printf("  open [APP]        - open connection to chess engine\n");
-  printf("                    -   APP : GNU chess path\n");
-  printf("                              Default: gnuchess\n");
-  printf("  SAN               - make your move\n");
-  printf("  quit              - quit test\n");
-  printf("  resign            - you resign (lose) from current game\n");
-  printf("  show [gui|plain]  - show game board.\n");
-  printf("                    -   MODE : gui | plain\n");
-  printf("                               Default: current mode\n");
-  printf("\n");
+  ChessColor  colorPlayer;
+  int         rc;
+
+  ROS_DEBUG("start_new_game");
+
+  colorPlayer = (ChessColor)req.player.color;
+
+  if( (rc = m_engine.startNewGame(colorPlayer)) == CE_OK )
+  {
+    m_game.setupBoard();
+    ROS_INFO_STREAM("start_new_game: player=" << nameOfColor(colorPlayer));
+  }
+
+  else
+  {
+    ROS_ERROR_STREAM("start_new_game: "
+        << chess_engine::strerror(rc) << "(" << rc << ")");
+  }
+
+  rsp.rc = (int8_t)rc;
+
+  return rc == CE_OK? true: false;
 }
 
-static void cli_test(int argc, char *argv[])
+bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
+                               chess_server::MakeAMoveSAN::Response &rsp)
 {
-  const char     *app;
-  ChessEngineGnu  engine;
-  ChessGame       game;
-  ChessColor      colorPlayer;
-  ChessMove       move;
-  char            line[80];
-  int             cmdc;
-  char            cmdv[2][80];
-  int             rc;
+  Move  move;
+  int   rc;
 
-  if( argc > 1 )
+  ROS_DEBUG("make_a_move_san");
+
+  move.fromSAN(req.SAN);
+
+  rc = m_engine.makePlayersMove(move);
+
+  ROS_DEBUG_STREAM("e: " << move << endl);
+
+  if( rc == CE_OK )
   {
-    app = argv[1];
+    rc = m_game.sync(move);
+    ROS_DEBUG_STREAM("g: " << move << endl);
+  }
+
+  toMsgMove(move, rsp.move);
+
+  if( rc == CE_OK )
+  {
+    ROS_INFO_STREAM(move.m_nMove << ". " << nameOfColor(move.m_player) << ": "
+        << move.m_strAN);
+    return true;
   }
   else
   {
-    app = "gnuchess";
+    ROS_ERROR_STREAM("make_a_move: "
+        << chess_engine::strerror(rc) << "(" << rc << ")");
+    return false;
   }
+}
 
-  printf("chess_server:cli_test %s\n", app);
 
-  cli_test_help();
+bool ChessServer::makeAMove(chess_server::MakeAMove::Request  &req,
+                            chess_server::MakeAMove::Response &rsp)
+{
+  Move  move;
+  int   rc;
 
-  engine.openConnection(app);
+  ROS_DEBUG("make_a_move");
 
-  while( 1 )
+  move.m_sqFrom.m_file = req.src.file;
+  move.m_sqFrom.m_rank = req.src.rank;
+  move.m_sqTo.m_file   = req.dst.file;
+  move.m_sqTo.m_rank   = req.dst.rank;
+
+  rc = m_engine.makePlayersMove(move);
+
+  ROS_DEBUG_STREAM("e: " << move << endl);
+
+  if( rc == CE_OK )
   {
-    printf("> ");
+    rc = m_game.sync(move);
+    ROS_DEBUG_STREAM("g: " << move << endl);
+  }
 
-    cmdc = 0;
+  toMsgMove(move, rsp.move);
 
-    if( fgets(line, 80, stdin) != NULL )
-    {
-      line[strlen(line)-1] = 0;
-
-      cmdc = sscanf(line, "%s %s", cmdv[0], cmdv[1]);
-    }
-
-    // null command
-    if( cmdc < 1 )
-    {
-      continue;
-    }
-
-    // quit command-line test
-    else if( !strcmp(cmdv[0], "quit") )
-    {
-      break;
-    }
-
-    // help command-line test
-    else if( !strcmp(cmdv[0], "help") )
-    {
-      cli_test_help();
-    }
-
-    // get castiling options
-    else if( !strcmp(cmdv[0], "castling") )
-    {
-      string  strWhite, strBlack;
-
-      if( (rc = engine.getCastlingOptions(strWhite, strBlack)) == CE_OK )
-      {
-        printf("white: %s\n", strWhite.c_str());
-        printf("black: %s\n", strBlack.c_str());
-      }
-      else
-      {
-        printf("Error: %d\n", rc);
-      }
-    }
-
-    // close connection to backend chess engine
-    else if( !strcmp(cmdv[0], "close") )
-    {
-      if( engine.isConnected() )
-      {
-        engine.closeConnection();
-        printf("Connection closed.\n");
-      }
-      else
-      {
-        printf("Connection already closed.\n");
-      }
-    }
-
-    // open connection to backend chess engine
-    else if( !strcmp(cmdv[0], "open") )
-    {
-      if( cmdc >= 2 )
-      {
-        app = cmdv[1];
-      }
-      else
-      {
-        app = "gnuchess";
-      }
-      if( !engine.isConnected() )
-      {
-        if( (rc = engine.openConnection(app)) == CE_OK )
-        {
-          printf("Connection to %s opened.\n", app);
-        }
-        else
-        {
-          printf("Error: %d\n", rc);
-        }
-      }
-      else
-      {
-        printf("Connection already opened.\n");
-      }
-    }
-
-    // flush input from chess engine
-    else if( !strcmp(cmdv[0], "flush") )
-    {
-      engine.flushInput();
-      printf("Input flushed.\n");
-    }
-
-    // difficulty F
-    else if( !strcmp(cmdv[0], "diff") )
-    {
-      if( cmdc >= 2 )
-      {
-        engine.setGameDifficulty((float)atof(cmdv[1]));
-      }
-    }
-
-    // simulate ROS request to start a new game
-    else if( !strcmp(cmdv[0], "new") )
-    {
-      // fake ROS request arguments
-      if( (cmdc < 2) || !strcmp(cmdv[1], "white") )
-      {
-        colorPlayer = White;
-      }
-      else
-      {
-        colorPlayer = Black;
-      }
-
-      if( (rc = engine.startNewGame(colorPlayer)) == CE_OK )
-      {
-        game.setupBoard();
-      }
-      else
-      {
-        printf("Error: %d\n", rc);
-      }
-    }
-
-    // simulate ROS request for get engine's move
-    else if( !strcmp(cmdv[0], "get") )
-    {
-      rc = engine.getEnginesMove(move);
-      cout << "e: " << move << endl;
-      if( rc == CE_OK )
-      {
-        rc = game.sync(move);
-        cout << "g: " << move << endl;
-      }
-    }
-
-    // simulate ROS request to auto-play. Node will publish
-    else if( !strcmp(cmdv[0], "auto") )
-    {
-      int nMoves, n = 0;
-
-      nMoves = cmdc < 2? 0: atoi(cmdv[1]);
-
-      while( game.isPlaying() && ((nMoves == 0) || (n < nMoves)) )
-      {
-        usleep(500000);
-        rc = engine.getEnginesMove(move, true);
-        cout << "e: " << move << endl;
-        rc = game.sync(move);
-        cout << "g: " << move << endl;
-        cout << endl;
-        if( move.m_color == Black )
-        {
-          ++n;
-        }
-      }
-    }
-
-    else if( !strcmp(cmdv[0], "resign") )
-    {
-      engine.resign();
-      game.stopPlaying(Resign, opponent(engine.getPlayersColor()));
-    }
-
-    else if( !strcmp(cmdv[0], "show") )
-    {
-      // fake ROS request arguments
-      if( cmdc >= 2 )
-      {
-        if( !strcmp(cmdv[1], "gui") )
-        {
-          game.setGuiState(true);
-        }
-        else if( !strcmp(cmdv[1], "plain") )
-        {
-          game.setGuiState(false);
-        }
-      }
-      cout << game;
-    }
-
-    // RDK: add other ROS requests here
-
-    // simulate ROS request for player to make a move
-    else if( makeSAN(cmdv[0], move) )
-    {
-        rc = engine.makePlayersMove(move);
-        cout << "e: " << move << endl;
-        if( rc == CE_OK )
-        {
-          rc = game.sync(move);
-          cout << "g: " << move << endl;
-        }
-    }
-
-    else
-    {
-      printf("%s: unknown command.\n", cmdv[0]);
-    }
+  if( rc == CE_OK )
+  {
+    ROS_INFO_STREAM(move.m_nMove << ". " << nameOfColor(move.m_player) << ": "
+        << move.m_strAN);
+    return true;
+  }
+  else
+  {
+    ROS_ERROR_STREAM("make_a_move: "
+        << chess_engine::strerror(rc) << "(" << rc << ")");
+    return false;
   }
 }
 
-static void init_name_maps()
+bool ChessServer::getEnginesMove(chess_server::GetEnginesMove::Request  &req,
+                                 chess_server::GetEnginesMove::Response &rsp)
 {
-  NameColors[NoColor]     = "nocolor";
-  NameColors[White]       = "white";
-  NameColors[Black]       = "black";
+  Move  move;
+  int   rc;
 
-  NamePieces[NoPiece]     = "nopiece";
-  NamePieces[King]        = "King";
-  NamePieces[Queen]       = "Queen";
-  NamePieces[Rook]        = "Rook";
-  NamePieces[Bishop]      = "Bishop";
-  NamePieces[Knight]      = "Knight";
-  NamePieces[Pawn]        = "Pawn";
+  ROS_DEBUG("get_engines_move");
 
-  FigurineWhitePieces[NoPiece]  = " ";
-  FigurineWhitePieces[King]     = "\U00002654";
-  FigurineWhitePieces[Queen]    = "\U00002655";
-  FigurineWhitePieces[Rook]     = "\U00002656";
-  FigurineWhitePieces[Bishop]   = "\U00002657";
-  FigurineWhitePieces[Knight]   = "\U00002658";
-  FigurineWhitePieces[Pawn]     = "\U00002659";
+  rc = m_engine.getEnginesMove(move);
 
-  FigurineBlackPieces[NoPiece]  = " ";
-  FigurineBlackPieces[King]     = "\U0000265A";
-  FigurineBlackPieces[Queen]    = "\U0000265B";
-  FigurineBlackPieces[Rook]     = "\U0000265C";
-  FigurineBlackPieces[Bishop]   = "\U0000265D";
-  FigurineBlackPieces[Knight]   = "\U0000265E";
-  FigurineBlackPieces[Pawn]     = "\U0000265F";
+  ROS_DEBUG_STREAM("e: " << move << endl);
 
-  NameCastling[NoCastle]  = "nocastle";
-  NameCastling[KingSide]  = "kingside";
-  NameCastling[QueenSide] = "queenside";
+  if( rc == CE_OK )
+  {
+    rc = m_game.sync(move);
+    ROS_DEBUG_STREAM("g: " << move << endl);
+  }
 
-  NameResults[NoResult]   = "noresult";
-  NameResults[Ok]         = "ok";
-  NameResults[BadMove]    = "badmove";
-  NameResults[OutOfTurn]  = "outofturn";
-  NameResults[Checkmate]  = "checkmate";
-  NameResults[Draw]       = "draw";
-  NameResults[Resign]     = "resign";
-  NameResults[NoGame]     = "nogame";
-  NameResults[GameFatal]  = "gamefatal";
+  toMsgMove(move, rsp.move);
+
+  if( rc == CE_OK )
+  {
+    ROS_INFO_STREAM(move.m_nMove << ". " << nameOfColor(move.m_player) << ": "
+        << move.m_strAN);
+    return true;
+  }
+  else
+  {
+    ROS_ERROR_STREAM("get_engines_move: "
+        << chess_engine::strerror(rc) << "(" << rc << ")");
+    return false;
+  }
 }
 
-
-//------------------------------------------------------------------------------
-// Public Interface
-//------------------------------------------------------------------------------
-
-string chess_engine::nameOfColor(ChessColor color)
+void ChessServer::toMsgMove(const Move &move, chess_server::ChessMove &msgMove)
 {
-  return NameColors[color];
+  msgMove.move_num         = move.m_nMove;
+  msgMove.player.color     = move.m_player;
+  msgMove.AN               = move.m_strAN;
+  msgMove.moved.piece      = move.m_piece;
+  msgMove.src.file         = move.m_sqFrom.m_file;
+  msgMove.src.rank         = move.m_sqFrom.m_rank;
+  msgMove.dst.file         = move.m_sqTo.m_file;
+  msgMove.dst.rank         = move.m_sqTo.m_rank;
+  msgMove.captured.piece   = move.m_captured;
+  msgMove.en_passant       = move.m_en_passant;
+  msgMove.castle.side      = move.m_castle;
+  msgMove.aux_at.file      = move.m_sqAuxAt.m_file;
+  msgMove.aux_at.rank      = move.m_sqAuxAt.m_rank;
+  msgMove.aux_to.file      = move.m_sqAuxTo.m_file;
+  msgMove.aux_to.rank      = move.m_sqAuxTo.m_rank;
+  msgMove.promotion.piece  = move.m_promotion;
+  msgMove.check            = move.m_check;
+  msgMove.winner.color     = move.m_winner;
+  msgMove.result.code      = move.m_result;
 }
 
-string chess_engine::nameOfPiece(ChessPiece piece)
-{
-  return NamePieces[piece];
-}
-
-string chess_engine::figurineOfPiece(ChessColor color, ChessPiece piece)
-{
-  return color == White? FigurineWhitePieces[piece]: FigurineBlackPieces[piece];
-}
-
-string chess_engine::nameOfCastling(ChessCastling side)
-{
-  return NameCastling[side];
-}
-
-string chess_engine::nameOfResult(ChessResult result)
-{
-  return NameResults[result];
-}
-
-int main(int argc, char *argv[])
-{
-  init_name_maps();
-
-  ros::init(argc, argv, "chess_server");
-  ros::NodeHandle n("chess_server");
-
-  //RDK ros::ServiceServer make_a_move = n.advertiseService("make_a_move",
-  //RDK                                                     function here)
- 
-  cli_test(argc, argv);
-
-  return 0;
-}

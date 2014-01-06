@@ -13,13 +13,7 @@
  * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
  * $Rev: 3334 $
  *
- * \brief The ROS chess_server node provides services and subscriptions to play 
- * chess using the GNU chess gnuchess as the backend engine.
- *
- * The gnuchess (http://www.gnu.org/software/chess) engine is unmodified
- * (and hence, apt-get installable).
- *
- * The GNU Chess Versions tested are 5.07, 6.1.1.
+ * \brief The ROS chess_server node class interface.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
@@ -63,51 +57,75 @@
 #define _CHESS_SERVER_H
 
 #include <string>
+#include "ros/ros.h"
 
-#include "chess.h"
+#include "chess_server/StartNewGame.h"
+#include "chess_server/MakeAMove.h"
+#include "chess_server/MakeAMoveSAN.h"
+#include "chess_server/GetEnginesMove.h"
+
+#include "chess_engine/ceChess.h"
+#include "chess_engine/ceMove.h"
+#include "chess_engine/ceGame.h"
+
+#include "chess_engine_gnu.h"
 
 namespace chess_engine
 {
-
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-  /*!
-   * \ingroup ce_h
-   * \defgroup ce_ecodes  RoadNarrows Chess Engine Error Codes
-   *
-   * Chess engine package-wide error codes.
-   *
-   * \{
-   */
-  static const int CE_OK                      =  0; ///< not an error, success
-
-  static const int CE_ECODE_GEN               =  1; ///< general error
-  static const int CE_ECODE_SYS               =  2; ///< system (errno) error
-  static const int CE_ECODE_NO_SUPP           =  3; ///< not supported
-  static const int CE_ECODE_TIMEDOUT          =  4; ///< operation timed out
-  static const int CE_ECODE_NO_EXEC           =  5; ///< cannot execute
-  static const int CE_ECODE_CHESS_NO_GAME     =  6; ///< no active chess game
-  static const int CE_ECODE_CHESS_MOVE        =  7; ///< invalid chess move
-  static const int CE_ECODE_CHESS_OUT_OF_TURN =  8; ///< out-of-turn chess move
-  static const int CE_ECODE_CHESS_RSP         =  9; ///< unexpected response
-  static const int CE_ECODE_CHESS_SYNC        = 10; ///< game in fatal condition
-  static const int CE_ECODE_CHESS_FATAL       = 11; ///< game in fatal condition
-  /* \} */
-
-  inline ChessColor opponent(ChessColor color)
+  class ChessServer
   {
-    return color == White? Black: White;
-  }
+  public:
+    ChessServer()
+    {
+    }
 
-  extern std::string nameOfColor(ChessColor color);
+    virtual ~ChessServer()
+    {
+      disconnect();
+    }
 
-  extern std::string nameOfPiece(ChessPiece piece);
+    virtual int connect(const std::string &strChessApp="gnuchess")
+    {
+      return m_engine.openConnection(strChessApp);
+    }
 
-  extern std::string figurineOfPiece(ChessColor color, ChessPiece piece);
+    virtual int disconnect()
+    {
+      return m_engine.closeConnection();
+    }
 
-  extern std::string nameOfCastling(ChessCastling side);
+    virtual void advertiseServices(ros::NodeHandle &nh);
 
-  extern std::string nameOfResult(ChessResult result);
+    const ChessEngineGnu &getEngine()
+    {
+      return m_engine;
+    }
+
+  protected:
+    ChessEngineGnu  m_engine;
+    Game            m_game;
+    std::map<std::string, ros::ServiceServer> m_services;
+
+    //
+    // Service callbacks
+    //
+    bool startNewGame(chess_server::StartNewGame::Request  &req,
+                      chess_server::StartNewGame::Response &rsp);
+
+    bool makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
+                      chess_server::MakeAMoveSAN::Response &rsp);
+
+    bool makeAMove(chess_server::MakeAMove::Request  &req,
+                   chess_server::MakeAMove::Response &rsp);
+
+    bool getEnginesMove(chess_server::GetEnginesMove::Request  &req,
+                        chess_server::GetEnginesMove::Response &rsp);
+
+    //
+    // Support
+    //
+    void toMsgMove(const Move &move, chess_server::ChessMove &msgMove);
+  };
 
 } // namespace chess_engine
 

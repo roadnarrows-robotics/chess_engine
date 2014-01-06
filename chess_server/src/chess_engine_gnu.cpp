@@ -77,8 +77,9 @@
 #include "rnr/rnrconfig.h"
 #include "rnr/log.h"
 
-#include "chess.h"
-#include "chess_server.h"
+#include "chess_engine/ceChess.h"
+#include "chess_engine/ceError.h"
+
 #include "chess_engine_gnu.h"
 
 using namespace std;
@@ -153,65 +154,61 @@ static FILE *FpGcTrace = NULL;        ///< tracing output file pointer
 //
 
 /*! null response */
-boost::regex reNull("(^$)");
+static boost::regex reNull("(^$)");
 
 /*! any response */
-boost::regex reAny("(.*)");
+static boost::regex reAny("(.*)");
 
 /*! pre-response: 'timelime...' (for version >= 6) */
-boost::regex reTimeLimit("(^timelimit.*)");
+static boost::regex reTimeLimit("(^timelimit.*)");
 
 /*! 'version' response: 'gnu chess VERSION' */
-boost::regex reVersion("^gnu chess (.*)");
+static boost::regex reVersion("^gnu chess (.*)");
 
 /*! 'depth DEPTH' response: 'search to a depth of DEPTH' */
-boost::regex reDepth("^search to a depth of ([0-9]+)");
+static boost::regex reDepth("^search to a depth of ([0-9]+)");
 
 /*! engine's numbered move response: 'N. ... AN' */
-boost::regex reNumMoveEngine("^([0-9]+)\\.\\s+\\.\\.\\.\\s+(\\S+)");
+static boost::regex reNumMoveEngine("^([0-9]+)\\.\\s+\\.\\.\\.\\s+(\\S+)");
 
 /*! players's numbered move response: 'N. AN' */
-boost::regex reNumMovePlayer("^([0-9]+)\\.\\s+(\\S+)");
+static boost::regex reNumMovePlayer("^([0-9]+)\\.\\s+(\\S+)");
 
 /*! engines move response: 'my move is : SAN' */
-boost::regex reEngineMove("^my move is\\s*:\\s*([a-h][1-8][a-h][1-8]\\S*)");
+static boost::regex reEngineMove("^my move is\\s*:\\s*"
+                                 "([a-h][1-8][a-h][1-8]\\S*)");
 
 /*! engine resigns: 'resign ...' */
-boost::regex reResign("(resign).*");
+static boost::regex reResign("(resign).*");
 
 /*! engine determines a draw: '1/2-1/2 ...' */
-boost::regex reDraw("(1/2-1/2).*");
+static boost::regex reDraw("(1/2-1/2).*");
 
 /*! white checkmates: '1-0 ...' */
-boost::regex reWhiteMates("(1-0).*");
+static boost::regex reWhiteMates("(1-0).*");
 
 /*! black checkmates: '0-1 ...' */
-boost::regex reBlackMates("(0-1).*");
+static boost::regex reBlackMates("(0-1).*");
 
 /*! 'show game' response header: 'white black ...' */
-boost::regex reWhiteBlackHdr("\\s*(white)\\s+(black)\\s*");
+static boost::regex reWhiteBlackHdr("\\s*(white)\\s+(black)\\s*");
 
 /*! 'show game' response 1 move: 'N. AN' */
-boost::regex reWhiteBlackMove1("\\s*([0-9]+)\\.\\s+(\\S+)\\s*");
+static boost::regex reWhiteBlackMove1("\\s*([0-9]+)\\.\\s+(\\S+)\\s*");
 
 /*! 'show game' response 2 moves: 'N. AN AN' */
-boost::regex reWhiteBlackMove2("\\s*([0-9]+)\\.\\s+(\\S+)\\s+(\\S+)\\s*");
+static boost::regex reWhiteBlackMove2("\\s*([0-9]+)\\.\\s+"
+                                      "(\\S+)\\s+(\\S+)\\s*");
 
 /*! 'show board' response status line: 'COLOR [CASTLING] ...' */
-boost::regex reCastling("\\s*(\\S+)\\s+([KQkq]*)\\s*");
+static boost::regex reCastling("\\s*(\\S+)\\s+([KQkq]*)\\s*");
 
 /*! bad move response: 'invalid move: SAN' or 'illegal move: SAN' */
-boost::regex reInvalidMove("^(invalid move:|illegal move:)\\s+(.*)");
+static boost::regex reInvalidMove("^(invalid move:|illegal move:)\\s+(.*)");
 
 /*! unsupported command response: 'command 'CMD' is currently not supported.' */
-boost::regex reNotSupported("^command '(.*)' is currently not supported.");
-
-
-// (partial) response strings
-const char* const UciRspCheckMate   = "mates";
-const char* const UciRspDraw        = "1/2";
-const char* const UciRspResign      = "resign";
-const char* const UciRspInvalidMove = "Invalid move";
+static boost::regex reNotSupported("^command '(.*)' "
+                                   "is currently not supported.");
 
 
 PRAGMA_IGNORED(sign-conversion)
@@ -427,7 +424,7 @@ int ChessEngineGnu::closeConnection()
 
 int ChessEngineGnu::setGameDifficulty(float fDifficulty)
 {
-  ChessEngine::setGameDifficulty(fDifficulty);
+  ChessEngineBe::setGameDifficulty(fDifficulty);
 
   m_nDepth = (int)(2.0 * m_fDifficulty);
 
@@ -458,13 +455,13 @@ int ChessEngineGnu::startNewGame(int colorPlayer)
   {
     cmdDepth(m_nDepth);
     //cmdRandom(); // N.B. not supported in v6 and poorly in v5
-    ChessEngine::startNewGame(colorPlayer);
+    ChessEngineBe::startNewGame(colorPlayer);
   }
 
   return rc;
 }
 
-int ChessEngineGnu::makeAMove(ChessColor colorMove, ChessMove &move)
+int ChessEngineGnu::makeAMove(ChessColor colorMove, Move &move)
 {
   ChessSquare sqFrom;
   ChessSquare sqTo;
@@ -479,7 +476,7 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, ChessMove &move)
 
   // initialize known move data
   move.m_nMove  = m_nMove;
-  move.m_color  = colorMove;
+  move.m_player = colorMove;
   move.m_sqFrom = sqFrom;
   move.m_sqTo   = sqTo;
 
@@ -488,21 +485,21 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, ChessMove &move)
   //
   if( !isConnected() ) 
   { 
-    printf("ROSLOG: Error: not connected.\n");
+    ROS_ERROR("Not connected.");
     move.m_result = GameFatal;
     return -CE_ECODE_NO_EXEC;
   }
 
   if( !isPlayingAGame() ) 
   { 
-    printf("ROSLOG: Error: no game.\n");
+    ROS_ERROR("No game.");
     move.m_result = NoGame;
     return -CE_ECODE_CHESS_NO_GAME;
   }
 
   if( whoseTurn() != colorMove )
   {
-    printf("ROSLOG: Error: out-of-turn.\n");
+    ROS_ERROR("Move out-of-turn.");
     move.m_result = OutOfTurn;
     return -CE_ECODE_CHESS_OUT_OF_TURN;
   }
@@ -521,22 +518,23 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, ChessMove &move)
       // out-of-sync with chess engine
       if( m_nNewMove != m_nMove )
       {
-        printf("ROSLOG: Error: newmove=%d != move=%d.\n", m_nNewMove, m_nMove);
+        ROS_ERROR("Response: Move %d != expected move %d.",
+            m_nNewMove, m_nMove);
         move.m_result = GameFatal;
         return -CE_ECODE_CHESS_FATAL;
       }
 
       if( m_strNewAN != m_strNewSAN )
       {
-        printf("ROSLOG: Warning: %s != %s.\n",
-            m_strNewAN.c_str(), m_strNewSAN.c_str());
+        ROS_WARN("Response to move: '%s' != '%s'.",
+            m_strNewSAN.c_str(), m_strNewAN.c_str());
       }
 
       rc = cmdShowGame(m_nMove, colorMove);
 
       if( rc != CE_OK )
       {
-        printf("ROSLOG: Error: failed to parse game state.\n");
+        ROS_ERROR("Failed to parse game state.");
         move.m_result = GameFatal;
         return -CE_ECODE_CHESS_FATAL;
       }
@@ -563,7 +561,7 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, ChessMove &move)
   }
 }
 
-int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
+int ChessEngineGnu::getEnginesMove(Move &move, bool bAuto)
 {
   ChessColor  colorMove;
   int         rc;
@@ -584,28 +582,28 @@ int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
 
   // initialize known move data
   move.m_nMove  = m_nMove;
-  move.m_color  = colorMove;
+  move.m_player = colorMove;
 
   //
   // Pre-checks
   //
   if( !isConnected() ) 
   { 
-    printf("ROSLOG: Error: not connected.\n");
+    ROS_ERROR("Not connected.");
     move.m_result = GameFatal;
     return -CE_ECODE_NO_EXEC;
   }
 
   if( !isPlayingAGame() ) 
   { 
-    ROS_ERROR("ROSLOG: Error: no game.\n");
+    ROS_ERROR("No game.");
     move.m_result = NoGame;
     return -CE_ECODE_CHESS_NO_GAME;
   }
 
   if( whoseTurn() != colorMove )
   {
-    printf("ROSLOG: Error: out-of-turn.\n");
+    ROS_ERROR("Move out-of-turn.");
     move.m_result = OutOfTurn;
     return -CE_ECODE_CHESS_OUT_OF_TURN;
   }
@@ -634,7 +632,8 @@ int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
       // out-of-sync with chess engine
       if( m_nNewMove != m_nMove )
       {
-        printf("ROSLOG: Error: newmove=%d != move=%d.\n", m_nNewMove, m_nMove);
+        ROS_ERROR("Response: Move %d != expected move %d.",
+            m_nNewMove, m_nMove);
         move.m_result = GameFatal;
         return -CE_ECODE_CHESS_FATAL;
       }
@@ -648,15 +647,15 @@ int ChessEngineGnu::getEnginesMove(ChessMove &move, bool bAuto)
 
       if( m_strNewAN != m_strNewSAN )
       {
-        printf("ROSLOG: Warning: %s != %s.\n",
-            m_strNewAN.c_str(), m_strNewSAN.c_str());
+        ROS_WARN("Engine move response: '%s' != '%s'.",
+            m_strNewSAN.c_str(), m_strNewAN.c_str());
       }
 
       rc = cmdShowGame(m_nMove, colorMove);
 
       if( rc != CE_OK )
       {
-        printf("ROSLOG: Error: failed to parse game state.\n");
+        ROS_ERROR("Response: Failed to parse game state.");
         move.m_result = GameFatal;
         return -CE_ECODE_CHESS_FATAL;
       }
@@ -687,13 +686,13 @@ int ChessEngineGnu::resign()
   //
   if( !isConnected() ) 
   { 
-    printf("ROSLOG: Error: not connected.\n");
+    ROS_ERROR("Not connected.");
     return -CE_ECODE_NO_EXEC;
   }
 
   if( !isPlayingAGame() ) 
   { 
-    printf("ROSLOG: Error: no game.\n");
+    ROS_ERROR("No game.");
     return -CE_ECODE_CHESS_NO_GAME;
   }
 
@@ -716,13 +715,13 @@ int ChessEngineGnu::getCastlingOptions(string &strWhiteCastling,
   //
   if( !isConnected() ) 
   { 
-    printf("ROSLOG: Error: not connected.\n");
+    ROS_ERROR("Not connected.");
     return -CE_ECODE_NO_EXEC;
   }
 
   if( !isPlayingAGame() ) 
   { 
-    printf("ROSLOG: Error: no game.\n");
+    ROS_ERROR("No game.");
     return -CE_ECODE_CHESS_NO_GAME;
   }
 
@@ -1133,7 +1132,8 @@ int ChessEngineGnu::cmdShowGame(int nMove, ChessColor color)
 
   if( n != nMove )
   {
-    printf("ROSLOG: Error: show game: game=%d != move=%d.\n", n, m_nMove);
+    ROS_ERROR("Response to 'show game': last move %d != expected move %d.",
+        n, m_nMove);
     return -CE_ECODE_CHESS_RSP;
   }
 
@@ -1147,7 +1147,7 @@ int ChessEngineGnu::cmdShowGame(int nMove, ChessColor color)
   }
   else
   {
-    printf("ROSLOG: Error: show game: bad move line."); 
+    ROS_ERROR("Response to 'show game': Bad move line."); 
     return -CE_ECODE_CHESS_RSP;
   }
 
@@ -1329,323 +1329,3 @@ int ChessEngineGnu::match(const string   &str,
 
   return (int)matches.size();
 }
-
-
-#if 0 // RDK
-static int UciParseMoveRsp(const char  bufRsp[],
-                           const char *sExpectedMove,
-                           char        bufAlgSqFrom[],
-                           char        bufAlgSqTo[])
-{
-  int   n;
-  char  bufEcho[GC_MAX_BUF_SIZE];
-  
-  bufAlgSqFrom[0] = 0;
-  bufAlgSqTo[0] = 0;
-
-  n = 0;
-  bufEcho[0] = 0;
-
-  if( strcasestr(bufRsp, UciRspCheckMate) != NULL )
-  {
-    bufAlgSqFrom[0] = UciCodeCheckMate;
-    bufAlgSqFrom[1] = 0;
-    bufAlgSqTo[0]   = UciCodeCheckMate;
-    bufAlgSqTo[1]   = 0;
-
-    return CE_OK;
-  }
-
-  else if( !strncasecmp(bufRsp, UciRspResign, strlen(UciRspResign)) )
-  {
-    bufAlgSqFrom[0] = UciCodeResign;
-    bufAlgSqFrom[1] = 0;
-    bufAlgSqTo[0]   = UciCodeResign;
-    bufAlgSqTo[1]   = 0;
-
-    return CE_OK;
-  }
-
-  else if( !strncasecmp(bufRsp, UciRspDraw, strlen(UciRspDraw)) )
-  {
-    bufAlgSqFrom[0] = UciCodeDraw;
-    bufAlgSqFrom[1] = 0;
-    bufAlgSqTo[0]   = UciCodeDraw;
-    bufAlgSqTo[1]   = 0;
-
-    return CE_OK;
-  }
-
-  else if( !strncasecmp(UciEngineMoveRspBuf, UciRspInvalidMove,
-                                              strlen(UciRspInvalidMove)) )
-  {
-    bufAlgSqFrom[0] = UciCodeInvalid;
-    bufAlgSqFrom[1] = 0;
-    bufAlgSqTo[0]   = UciCodeInvalid;
-    bufAlgSqTo[1]   = 0;
-  }
-
-  sscanf(bufRsp, "%d. %s", &n, bufEcho);
-  
-  if( (n == 0) || (bufEcho[0] == 0) )
-  {
-    LOGERROR("CBG: Bad response '%s'", bufRsp);
-    return -CE_ECODE_GEN;
-  }
-
-  else if( n != UciMovePairCnt ) 
-  {
-    LOGERROR("CBG: Response move out-of-sequence: Expected %d, got %d.",
-        UciMovePairCnt, n);
-    return -CE_ECODE_GEN;
-  }
-
-  else if( (sExpectedMove != NULL) && strcasecmp(sExpectedMove, bufEcho) )
-  {
-    LOGERROR("CBG: Response move unexpected: Expected '%s', got '%s'.",
-        sExpectedMove, bufEcho);
-    return -CE_ECODE_GEN;
-  }
-
-  else if( !strncasecmp(UciEngineMoveRspBuf, UciRspResign,
-                                              strlen(UciRspResign)) )
-  {
-      bufAlgSqFrom[0] = UciCodeResign;
-      bufAlgSqFrom[1] = 0;
-      bufAlgSqTo[0]   = UciCodeResign;
-      bufAlgSqTo[1]   = 0;
-  }
-
-  else if( !strncasecmp(UciEngineMoveRspBuf, UciRspDraw, strlen(UciRspDraw)) )
-  {
-    bufAlgSqFrom[0] = UciCodeDraw;
-    bufAlgSqFrom[1] = 0;
-    bufAlgSqTo[0]   = UciCodeDraw;
-    bufAlgSqTo[1]   = 0;
-  }
-
-  else if( !strncasecmp(UciEngineMoveRspBuf, UciRspInvalidMove,
-                                              strlen(UciRspInvalidMove)) )
-  {
-    bufAlgSqFrom[0] = UciCodeInvalid;
-    bufAlgSqFrom[1] = 0;
-    bufAlgSqTo[0]   = UciCodeInvalid;
-    bufAlgSqTo[1]   = 0;
-  }
-
-  else
-  {
-    bufAlgSqFrom[0] = bufEcho[0];
-    bufAlgSqFrom[1] = bufEcho[1];
-    bufAlgSqFrom[2] = 0;
-
-    bufAlgSqTo[0]   = bufEcho[2];
-    bufAlgSqTo[1]   = bufEcho[3];
-    bufAlgSqTo[2]   = 0;
-  }
-
-  return CE_OK;
-}
-
-int StaleMateUciTrans(StaleMateSession &session,
-                      const char       *sReq,
-                      char              bufRsp[],
-                      size_t            sizeRspBuf)
-{
-  ssize_t   n;
-  size_t    i;
-  int       rc;
-
-  if( !session.m_game.bUseChessEngine )
-  {
-    return CE_OK;
-  }
-
-  //UciFlushIn();
-
-  if( sizeRspBuf > 0 )
-  {
-    GC_TRACE("CBG: Req: \"%s\"\n", sReq);
-  }
-  else
-  {
-    GC_TRACE("CBG: Cmd: \"%s\"\n", sReq);
-  }
-
-  n = write(UciPipeToChess[1], sReq, strlen(sReq));
-  n = write(UciPipeToChess[1], "\n", 1);
-
-  if( n < 0 )
-  {
-    LOGSYSERROR("write(%d, \"%s\", %uz)",
-                        UciPipeToChess[1], sReq, strlen(sReq));
-    return -CE_ECODE_SYS;
-  }
-
-  if( sizeRspBuf > 0 )
-  {
-    rc = UciReadLine(bufRsp, sizeRspBuf);
-    GC_TRACE("CBG: Rsp: \"%s\"\n", bufRsp);
-    return rc;
-  }
-  else
-  {
-    return CE_OK;
-  }
-}
-
-void StaleMateUciNewGame(StaleMateSession &session)
-{
-  char    bufRsp[GC_MAX_BUF_SIZE];
-  int     rc;
-
-  if( !session.m_game.bUseChessEngine )
-  {
-    return;
-  }
-
-  StaleMateUciTrans(session, "new", NULL, 0);
-
-  UciMovePairCnt = 1;
-
-  // hekateros is white, make the first move.
-  if( session.m_game.bHekHasWhite )
-  {
-    UciWaitingForEngineMoveRsp = true;
-    UciEngineMoveRspBuf[0] = 0;
-    StaleMateUciTrans(session, "go", NULL, 0);
-  }
-  else
-  {
-    UciWaitingForEngineMoveRsp = false;
-  }
-
-  UciFlushIn();
-}
-
-// get move response from engine
-bool StaleMateUciGetEnginesMove(StaleMateSession &session,
-                                char             bufAlgSqFrom[],
-                                char             bufAlgSqTo[])
-{
-  char  bufRsp[GC_MAX_BUF_SIZE];
-  int   rc;
-
-  rc = UciReadLine(bufRsp, sizeof(bufRsp));
-
-  GC_TRACE("CBG: Eng: \"%s\"\n", bufRsp);
-
-  switch( rc )
-  {
-    case CE_OK:
-      strcat(UciEngineMoveRspBuf, bufRsp);
-      LOGDIAG3("Engine's Response Move: '%s'.", UciEngineMoveRspBuf);
-
-      rc = UciParseMoveRsp(UciEngineMoveRspBuf, NULL, bufAlgSqFrom, bufAlgSqTo);
-
-      if( rc == CE_OK )
-      {
-        // hekateros is black - advace the move pair count
-        if( !session.m_game.bHekHasWhite )
-        {
-          UciMovePairCnt++;
-        }
-
-        UciWaitingForEngineMoveRsp = false;
-      }
-      return true;
-
-    case CE_ECODE_TIMEDOUT:
-      strcat(UciEngineMoveRspBuf, bufRsp);
-      LOGDIAG3("Engine's Response Move (partial): '%s'.", UciEngineMoveRspBuf);
-      return false;
-
-    default:
-      UciEngineMoveRspBuf[0] = 0;
-      return false;
-  }
-}
-
-int StaleMateUciPlayersMove(StaleMateSession &session,
-                            const char       *sAlgSqFrom,
-                            const char       *sAlgSqTo,
-                            char             *pUciCode)
-{
-  char  bufMove[GC_MAX_BUF_SIZE];
-  char  bufRsp[GC_MAX_BUF_SIZE];
-  char  bufAlgSqFrom[GC_MOVE_BUF_SIZE];
-  char  bufAlgSqTo[GC_MOVE_BUF_SIZE];
-  int   rc;
-
-  sprintf(bufMove, "%s%s", sAlgSqFrom, sAlgSqTo);
-
-  rc = StaleMateUciTrans(session, bufMove, bufRsp, sizeof(bufRsp));
-
-  if( rc != DYNA_OK )
-  {
-    LOGERROR("CBG: No response to opponent's move %s.", bufMove);
-    return rc;
-  }
-
-  rc = UciParseMoveRsp(bufRsp, bufMove, bufAlgSqFrom, bufAlgSqTo);
-
-  if( rc == CE_OK )
-  {
-    // move was not a valid move
-    switch( bufAlgSqFrom[0] )
-    {
-      case UciCodeInvalid:
-      case UciCodeError:
-        *pUciCode = UciCodeInvalid;
-        return -CE_ECODE_NO_EXEC;
-      case UciCodeDraw:
-      case UciCodeResign:
-      case UciCodeCheckMate:
-        *pUciCode = bufAlgSqFrom[0];
-      default:
-        *pUciCode = 0;
-        break;
-    }
-
-    // opponent is black - advace the move pair count
-    if( session.m_game.bHekHasWhite )
-    {
-      UciMovePairCnt++;
-    }
-
-    // heks move - wait for engine's response
-    UciWaitingForEngineMoveRsp = true;
-    UciEngineMoveRspBuf[0] = 0;
-  }
-
-  return rc;
-}
-
-void StaleMateUciSelfPlay(StaleMateSession &session, bool bIsNewGame)
-{
-  static int nMoves;
-
-  char    bufRsp[GC_MAX_BUF_SIZE];
-
-  if( bIsNewGame )
-  {
-    session.m_game.bHekHasWhite = true;
-    StaleMateUciTrans(session, "new", NULL, 0);
-    StaleMateUciTrans(session, "depth 4", bufRsp, sizeof(bufRsp));
-    UciMovePairCnt = 0;
-    nMoves = 0;
-    UciFlushIn();
-  }
-
-  UciWaitingForEngineMoveRsp = true;
-  UciEngineMoveRspBuf[0] = 0;
-
-  StaleMateUciTrans(session, "go", NULL, 0);
-
-  ++nMoves;
-  if( nMoves & 0x01 )
-  {
-    ++UciMovePairCnt;
-  }
-}
-#endif // RDK

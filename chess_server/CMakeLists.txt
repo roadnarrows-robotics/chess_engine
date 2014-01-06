@@ -18,6 +18,7 @@ find_package(Boost REQUIRED COMPONENTS system)
 # find_package(rnr
 #   REQUIRED COMPONENTS hekateros Dynamixel botsense netmsgs rnr_appkit rnr
 # )
+
 find_library(
   rnr_LIBRARIES
   NAMES rnr
@@ -40,7 +41,10 @@ add_message_files(
 add_service_files(
   DIRECTORY srv
   FILES
+    GetEnginesMove.srv
     MakeAMove.srv
+    MakeAMoveSAN.srv
+    StartNewGame.srv
 )
 
 #add_action_files(
@@ -69,14 +73,14 @@ include_directories(
 )
 
 add_executable(chess_server
-  src/chess_server.cpp
+  src/chess_server_main.cpp
   src/chess_engine_gnu.cpp
-  src/chess_game.cpp
-  src/chess_move.cpp
+  src/chess_server.cpp
 )
 
 target_link_libraries(
   chess_server 
+  chessengine
   ${rnr_LIBRARIES}
   ${catkin_LIBRARIES}
 )

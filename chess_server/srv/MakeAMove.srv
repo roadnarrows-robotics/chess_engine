@@ -1,4 +1,4 @@
-ChessSquare from
-ChessSquare to
+ChessSquare src
+ChessSquare dst
 ---
 ChessMove move
