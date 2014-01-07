@@ -1,5 +1,0 @@
-### Make a move using Standard Algebraic Notation
-
-string SAN        # {file}{rank}{file}{rank} example "a2a4"
----
-ChessMove move    # the actual move, fully quantified

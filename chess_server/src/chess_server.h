@@ -59,15 +59,15 @@
 #include <string>
 #include "ros/ros.h"
 
-#include "chess_server/StartNewGame.h"
-#include "chess_server/MakeAMove.h"
-#include "chess_server/MakeAMoveSAN.h"
-#include "chess_server/GetEnginesMove.h"
-#include "chess_server/Resign.h"
-#include "chess_server/AutoPlay.h"
-#include "chess_server/SetDifficulty.h"
-#include "chess_server/GetPlayHistory.h"
-#include "chess_server/GetBoardState.h"
+#include "chess_server/StartNewGameSvc.h"
+#include "chess_server/MakeAMoveSvc.h"
+#include "chess_server/MakeAMoveSANSvc.h"
+#include "chess_server/GetEnginesMoveSvc.h"
+#include "chess_server/ResignSvc.h"
+#include "chess_server/AutoPlaySvc.h"
+#include "chess_server/SetDifficultySvc.h"
+#include "chess_server/GetPlayHistorySvc.h"
+#include "chess_server/GetBoardStateSvc.h"
 
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceMove.h"
@@ -114,37 +114,37 @@ namespace chess_engine
     //
     // Service callbacks
     //
-    bool startNewGame(chess_server::StartNewGame::Request  &req,
-                      chess_server::StartNewGame::Response &rsp);
+    bool startNewGame(chess_server::StartNewGameSvc::Request  &req,
+                      chess_server::StartNewGameSvc::Response &rsp);
 
-    bool makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
-                      chess_server::MakeAMoveSAN::Response &rsp);
+    bool makeAMoveSAN(chess_server::MakeAMoveSANSvc::Request  &req,
+                      chess_server::MakeAMoveSANSvc::Response &rsp);
 
-    bool makeAMove(chess_server::MakeAMove::Request  &req,
-                   chess_server::MakeAMove::Response &rsp);
+    bool makeAMove(chess_server::MakeAMoveSvc::Request  &req,
+                   chess_server::MakeAMoveSvc::Response &rsp);
 
-    bool getEnginesMove(chess_server::GetEnginesMove::Request  &req,
-                        chess_server::GetEnginesMove::Response &rsp);
+    bool getEnginesMove(chess_server::GetEnginesMoveSvc::Request  &req,
+                        chess_server::GetEnginesMoveSvc::Response &rsp);
 
-    bool resign(chess_server::Resign::Request  &req,
-                chess_server::Resign::Response &rsp);
+    bool resign(chess_server::ResignSvc::Request  &req,
+                chess_server::ResignSvc::Response &rsp);
 
-    bool autoplay(chess_server::AutoPlay::Request  &req,
-                  chess_server::AutoPlay::Response &rsp);
+    bool autoplay(chess_server::AutoPlaySvc::Request  &req,
+                  chess_server::AutoPlaySvc::Response &rsp);
 
-    bool setDifficulty(chess_server::SetDifficulty::Request  &req,
-                       chess_server::SetDifficulty::Response &rsp);
+    bool setDifficulty(chess_server::SetDifficultySvc::Request  &req,
+                       chess_server::SetDifficultySvc::Response &rsp);
 
-    bool getPlayHistory(chess_server::GetPlayHistory::Request  &req,
-                        chess_server::GetPlayHistory::Response &rsp);
+    bool getPlayHistory(chess_server::GetPlayHistorySvc::Request  &req,
+                        chess_server::GetPlayHistorySvc::Response &rsp);
 
-    bool getBoardState(chess_server::GetBoardState::Request  &req,
-                       chess_server::GetBoardState::Response &rsp);
+    bool getBoardState(chess_server::GetBoardStateSvc::Request  &req,
+                       chess_server::GetBoardStateSvc::Response &rsp);
 
     //
     // Support
     //
-    void toMsgMove(const Move &move, chess_server::ChessMove &msgMove);
+    void toMsgMove(const Move &move, chess_server::ChessMoveMsg &msgMove);
   };
 
 } // namespace chess_engine

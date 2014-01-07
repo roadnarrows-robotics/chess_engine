@@ -1,5 +1,0 @@
-### Set backend chess engine difficulty.
-
-float32 difficulty  # scale from 1.0 - 10.0 with 1.0 being the easiest
----
-int8 rc   # 0 = ok, <0 = error

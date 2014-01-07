@@ -1,7 +1,0 @@
-### Run or stop autoplay message.
-
-bool    run         # run [stop] autoplay
-uint16  num_moves   # maximum number of autoplay moves 
-float32 speed       # target play speed in seconds (engine may take longer)
----
-int8 rc   # 0 = ok, <0 = error

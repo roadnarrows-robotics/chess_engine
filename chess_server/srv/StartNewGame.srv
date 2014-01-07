@@ -1,5 +1,0 @@
-### Start new chess game
-
-ChessColor player   # white or black
----
-int8 rc   # 0 = ok, <0 = error

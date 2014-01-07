@@ -63,15 +63,15 @@
 
 #include "ros/ros.h"
 
-#include "chess_server/StartNewGame.h"
-#include "chess_server/MakeAMove.h"
-#include "chess_server/MakeAMoveSAN.h"
-#include "chess_server/GetEnginesMove.h"
-#include "chess_server/Resign.h"
-#include "chess_server/AutoPlay.h"
-#include "chess_server/SetDifficulty.h"
-#include "chess_server/GetPlayHistory.h"
-#include "chess_server/GetBoardState.h"
+#include "chess_server/StartNewGameSvc.h"
+#include "chess_server/MakeAMoveSvc.h"
+#include "chess_server/MakeAMoveSANSvc.h"
+#include "chess_server/GetEnginesMoveSvc.h"
+#include "chess_server/ResignSvc.h"
+#include "chess_server/AutoPlaySvc.h"
+#include "chess_server/SetDifficultySvc.h"
+#include "chess_server/GetPlayHistorySvc.h"
+#include "chess_server/GetBoardStateSvc.h"
 
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceError.h"
@@ -141,8 +141,8 @@ void ChessServer::advertiseServices(ros::NodeHandle &nh)
 /*!
  *  \brief Request calibrate.
  */
-bool ChessServer::startNewGame(chess_server::StartNewGame::Request  &req,
-                               chess_server::StartNewGame::Response &rsp)
+bool ChessServer::startNewGame(chess_server::StartNewGameSvc::Request  &req,
+                               chess_server::StartNewGameSvc::Response &rsp)
 {
   ChessColor  colorPlayer;
   int         rc;
@@ -168,8 +168,8 @@ bool ChessServer::startNewGame(chess_server::StartNewGame::Request  &req,
   return rc == CE_OK? true: false;
 }
 
-bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
-                               chess_server::MakeAMoveSAN::Response &rsp)
+bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSANSvc::Request  &req,
+                               chess_server::MakeAMoveSANSvc::Response &rsp)
 {
   Move  move;
   int   rc;
@@ -205,8 +205,8 @@ bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
 }
 
 
-bool ChessServer::makeAMove(chess_server::MakeAMove::Request  &req,
-                            chess_server::MakeAMove::Response &rsp)
+bool ChessServer::makeAMove(chess_server::MakeAMoveSvc::Request  &req,
+                            chess_server::MakeAMoveSvc::Response &rsp)
 {
   Move  move;
   int   rc;
@@ -244,8 +244,8 @@ bool ChessServer::makeAMove(chess_server::MakeAMove::Request  &req,
   }
 }
 
-bool ChessServer::getEnginesMove(chess_server::GetEnginesMove::Request  &req,
-                                 chess_server::GetEnginesMove::Response &rsp)
+bool ChessServer::getEnginesMove(chess_server::GetEnginesMoveSvc::Request  &req,
+                                 chess_server::GetEnginesMoveSvc::Response &rsp)
 {
   Move  move;
   int   rc;
@@ -278,8 +278,8 @@ bool ChessServer::getEnginesMove(chess_server::GetEnginesMove::Request  &req,
   }
 }
 
-bool ChessServer::resign(chess_server::Resign::Request  &req,
-                         chess_server::Resign::Response &rsp)
+bool ChessServer::resign(chess_server::ResignSvc::Request  &req,
+                         chess_server::ResignSvc::Response &rsp)
 {
   ROS_DEBUG("resign");
 
@@ -294,16 +294,16 @@ bool ChessServer::resign(chess_server::Resign::Request  &req,
   return true;
 }
 
-bool ChessServer::autoplay(chess_server::AutoPlay::Request  &req,
-                           chess_server::AutoPlay::Response &rsp)
+bool ChessServer::autoplay(chess_server::AutoPlaySvc::Request  &req,
+                           chess_server::AutoPlaySvc::Response &rsp)
 {
   ROS_DEBUG("autoplay");
 
   return true;
 }
 
-bool ChessServer::setDifficulty(chess_server::SetDifficulty::Request  &req,
-                                chess_server::SetDifficulty::Response &rsp)
+bool ChessServer::setDifficulty(chess_server::SetDifficultySvc::Request  &req,
+                                chess_server::SetDifficultySvc::Response &rsp)
 {
   float   difficulty;
 
@@ -320,8 +320,8 @@ bool ChessServer::setDifficulty(chess_server::SetDifficulty::Request  &req,
   return true;
 }
 
-bool ChessServer::getPlayHistory(chess_server::GetPlayHistory::Request  &req,
-                                 chess_server::GetPlayHistory::Response &rsp)
+bool ChessServer::getPlayHistory(chess_server::GetPlayHistorySvc::Request  &req,
+                                 chess_server::GetPlayHistorySvc::Response &rsp)
 {
   std::vector<Move>           &move = m_game.getGameHistory();
   std::vector<Move>::iterator iter;
@@ -347,17 +347,17 @@ bool ChessServer::getPlayHistory(chess_server::GetPlayHistory::Request  &req,
   return true;
 }
 
-bool ChessServer::getBoardState(chess_server::GetBoardState::Request  &req,
-                                chess_server::GetBoardState::Response &rsp)
+bool ChessServer::getBoardState(chess_server::GetBoardStateSvc::Request  &req,
+                                chess_server::GetBoardStateSvc::Response &rsp)
 {
   int           file;
   int           rank;
   BoardElem    *pElem;
   ChessSquare   sq;
 
-  chess_server::ChessSquare msgSquare;
-  chess_server::ChessColor  msgColor;
-  chess_server::ChessPiece  msgPiece;
+  chess_server::ChessSquareMsg msgSquare;
+  chess_server::ChessColorMsg  msgColor;
+  chess_server::ChessPieceMsg  msgPiece;
 
   ROS_DEBUG("get_board_state");
 
@@ -391,7 +391,8 @@ bool ChessServer::getBoardState(chess_server::GetBoardState::Request  &req,
   return true;
 }
 
-void ChessServer::toMsgMove(const Move &move, chess_server::ChessMove &msgMove)
+void ChessServer::toMsgMove(const Move                 &move,
+                            chess_server::ChessMoveMsg &msgMove)
 {
   msgMove.move_num         = move.m_nMove;
   msgMove.player.color     = move.m_player;
@@ -412,4 +413,93 @@ void ChessServer::toMsgMove(const Move &move, chess_server::ChessMove &msgMove)
   msgMove.check            = move.m_check;
   msgMove.winner.color     = move.m_winner;
   msgMove.result.code      = move.m_result;
+}
+
+int ChessServer::createActionThread()
+{
+  int   rc;
+
+  m_eAsyncTaskState = HekAsyncTaskStateWorking;
+
+  rc = pthread_create(&m_threadAsync, NULL, ChessServer::actionThread, (void*)this);
+ 
+  if( rc == 0 )
+  {
+    rc = HEK_OK;
+  }
+
+  else
+  {
+    m_eAsyncTaskState = HekAsyncTaskStateIdle;
+    LOGSYSERROR("pthread_create()");
+    m_rcAsyncTask   = -HEK_ECODE_SYS;
+    m_eAsyncTaskId  = AsyncTaskIdNone;
+    m_pAsyncTaskArg = NULL;
+    rc = m_rcAsyncTask;
+  }
+
+  return rc;
+}
+
+
+void ChessServer::cancelAsyncTask()
+{
+  if( m_eAsyncTaskState != HekAsyncTaskStateIdle )
+  {
+    pthread_cancel(m_threadAsync);
+    pthread_join(m_threadAsync, NULL);
+    m_eAsyncTaskId    = AsyncTaskIdNone;
+    m_pAsyncTaskArg   = NULL;
+    m_rcAsyncTask     = -HEK_ECODE_INTR;
+    m_eAsyncTaskState = HekAsyncTaskStateIdle;
+    freeze();
+    LOGDIAG3("Async task canceled.");
+  }
+}
+
+void *ChessServer::actionThread(void *pArg)
+{
+  ChessServer *pThis = (ChessServer *)pArg;
+  int       oldstate;
+  int       rc;
+
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &oldstate);
+  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldstate);
+  //pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldstate);
+
+  LOGDIAG3("Async robot task thread created.");
+
+  //
+  // Execute asychronous task.
+  //
+  // For now, only calibrate task is supported actions.
+  //
+  switch( pThis->m_eAsyncTaskId )
+  {
+    // Calibrate the robot. 
+    case AsyncTaskIdCalibrate:
+      {
+        bool bForceRecalib = (bool)pThis->m_pAsyncTaskArg;
+        rc = pThis->calibrate(bForceRecalib);
+      }
+      break;
+
+    // Unknown task id.
+    default:
+      LOGERROR("Unknown action task id = %d.", (int)pThis->m_eAsyncTaskId);
+      rc = -HEK_ECODE_BAD_VAL;
+      break;
+  }
+
+  // freeze robot at current calibrated or aborted position.
+  //pThis->freeze();  disable, so that goto zero pt in calibration finsishes
+
+  pThis->m_eAsyncTaskId     = AsyncTaskIdNone;
+  pThis->m_pAsyncTaskArg    = NULL;
+  pThis->m_rcAsyncTask      = rc;
+  pThis->m_eAsyncTaskState  = HekAsyncTaskStateIdle;
+
+  LOGDIAG3("Async robot task thread exited.");
+
+  return NULL;
 }
