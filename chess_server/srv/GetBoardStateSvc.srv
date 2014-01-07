@@ -1,0 +1,6 @@
+### Retrieve current board state service.
+
+---
+ChessSquareMsg[]  square    # {file}{rank}. Standard board has 64 squares
+ChessColorMsg[]   whose     # whose piece
+ChessPieceMsg[]   what      # what piece
