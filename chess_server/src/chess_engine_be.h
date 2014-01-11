@@ -73,6 +73,7 @@ namespace chess_engine
     {
       m_bIsConn     = false;
       m_bIsPlaying  = false;
+      m_bIsBusy     = false;
       m_fDifficulty = 1.0; 
       m_colorPlayer = NoColor;
       m_colorEngine = NoColor;
@@ -194,6 +195,12 @@ namespace chess_engine
       return m_bIsPlaying;
     }
 
+    virtual bool isBusy() const
+    {
+      return m_bIsBusy;
+    }
+
+
     //..........................................................................
     // Low-Level I/O Interface
     //..........................................................................
@@ -229,6 +236,7 @@ namespace chess_engine
     std::string     m_strVersion;   ///< backend engine version string
     bool            m_bIsConn;      ///< [not] connected to backend engine
     bool            m_bIsPlaying;   ///< [no] active game in play
+    bool            m_bIsBusy;      ///< backend engine is [not] busy
     float           m_fDifficulty;  ///< game engine difficulty [1,10]
     ChessColor      m_colorPlayer;  ///< color of player
     ChessColor      m_colorEngine;  ///< color of backend engine

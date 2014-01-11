@@ -65,6 +65,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <pthread.h>
 
 #include <string>
 #include <vector>
@@ -94,7 +95,7 @@ using namespace chess_engine;
 // GNU Chess Tracing
 //
 
-#define GC_TRACE_ENABLE   ///< tracing on/off switch
+#undef GC_TRACE_ENABLE   ///< tracing on/off switch
 
 #ifdef GC_TRACE_ENABLE
 
@@ -269,6 +270,20 @@ uint_t timer_elapsed(struct timeval *pTvMark)
   return (uint_t)(tvDelta.tv_sec * 1000000 + tvDelta.tv_usec);
 }
 
+static void setTs(int64_t nsec, timespec &ts)
+{
+  ts.tv_sec  = (time_t)(nsec / 1000000000);
+  ts.tv_nsec = (time_t)(nsec % 1000000000);
+}
+
+static bool AbortFlagged = false;
+
+static void abort_handler(int sig)
+{
+  //fprintf(stderr, "abort_handler(%d)\n", sig);
+  AbortFlagged = true;
+}
+
 
 // -----------------------------------------------------------------------------
 // Class ChessEngineGnu
@@ -280,20 +295,22 @@ ChessEngineGnu::ChessEngineGnu()
   m_pipeToChess[1]    = -1;
   m_pipeFromChess[0]  = -1;
   m_pipeFromChess[1]  = -1;
+  m_pidParent         = getpid();
   m_pidChild          = -1;
   m_nDepth            = 2;
 
   m_bHasRandom        = true;
   m_bHasTimeLimits    = true;
 
-  //bool   UciWaitingForEngineMoveRsp;
-  //char   UciEngineMoveRspBuf[GC_MAX_BUF_SIZE];
-  //int    UciMovePairCnt;
+  pthread_mutex_init(&m_mutexIF, NULL);
+  
 }
 
 ChessEngineGnu::~ChessEngineGnu()
 {
   closeConnection();
+
+  pthread_mutex_destroy(&m_mutexIF);
 }
   
 
@@ -418,12 +435,17 @@ int ChessEngineGnu::closeConnection()
 
   m_bIsConn     = false;
   m_bIsPlaying  = false;
+  m_bIsBusy     = false;
 
   return CE_OK;
 }
 
 int ChessEngineGnu::setGameDifficulty(float fDifficulty)
 {
+  int   rc;
+
+  lock();
+
   ChessEngineBe::setGameDifficulty(fDifficulty);
 
   m_nDepth = (int)(2.0 * m_fDifficulty);
@@ -431,19 +453,28 @@ int ChessEngineGnu::setGameDifficulty(float fDifficulty)
   // ok to delay setting engine's search depth 
   if( isConnected() )
   {
-    return cmdDepth(m_nDepth);
+    rc = cmdDepth(m_nDepth);
+  }
+  else
+  {
+    rc = -CE_ECODE_NO_EXEC;
   }
 
-  return CE_OK;
+  unlock();
+
+  return rc;
 }
 
 int ChessEngineGnu::startNewGame(int colorPlayer)
 {
   int   rc;
 
+  lock();
+
   if( !isConnected() )
   {
-    return -CE_ECODE_NO_EXEC;
+    ROS_ERROR("Not connected.");
+    return exception(CE_ECODE_NO_EXEC);
   }
 
   m_bIsPlaying  = false;
@@ -457,6 +488,8 @@ int ChessEngineGnu::startNewGame(int colorPlayer)
     //cmdRandom(); // N.B. not supported in v6 and poorly in v5
     ChessEngineBe::startNewGame(colorPlayer);
   }
+
+  unlock();
 
   return rc;
 }
@@ -480,6 +513,8 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, Move &move)
   move.m_sqFrom = sqFrom;
   move.m_sqTo   = sqTo;
 
+  lock();
+
   //
   // Pre-checks
   //
@@ -487,21 +522,21 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, Move &move)
   { 
     ROS_ERROR("Not connected.");
     move.m_result = GameFatal;
-    return -CE_ECODE_NO_EXEC;
+    return exception(CE_ECODE_NO_EXEC);
   }
 
   if( !isPlayingAGame() ) 
   { 
     ROS_ERROR("No game.");
     move.m_result = NoGame;
-    return -CE_ECODE_CHESS_NO_GAME;
+    return exception(CE_ECODE_CHESS_NO_GAME);
   }
 
   if( whoseTurn() != colorMove )
   {
     ROS_ERROR("Move out-of-turn.");
     move.m_result = OutOfTurn;
-    return -CE_ECODE_CHESS_OUT_OF_TURN;
+    return exception(CE_ECODE_CHESS_OUT_OF_TURN);
   }
 
   // clear old parsed variables
@@ -521,7 +556,7 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, Move &move)
         ROS_ERROR("Response: Move %d != expected move %d.",
             m_nNewMove, m_nMove);
         move.m_result = GameFatal;
-        return -CE_ECODE_CHESS_FATAL;
+        return exception(CE_ECODE_CHESS_FATAL);
       }
 
       if( m_strNewAN != m_strNewSAN )
@@ -536,7 +571,7 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, Move &move)
       {
         ROS_ERROR("Failed to parse game state.");
         move.m_result = GameFatal;
-        return -CE_ECODE_CHESS_FATAL;
+        return exception(CE_ECODE_CHESS_FATAL);
       }
 
       // parse AN for more info
@@ -545,20 +580,26 @@ int ChessEngineGnu::makeAMove(ChessColor colorMove, Move &move)
       // alternate turns
       alternateTurns(colorMove);
 
-      return CE_OK;
+      break;
 
     // invalid move, but ok since player may be testing a move
     case -CE_ECODE_CHESS_MOVE:
       move.m_result = BadMove;
-      return CE_OK;
+      rc = CE_OK;
+      break;
 
     // fatal game errors
     case -CE_ECODE_CHESS_RSP:
     case -CE_ECODE_CHESS_FATAL:
     default:
       move.m_result = GameFatal;
-      return -CE_ECODE_CHESS_FATAL;
+      rc = -CE_ECODE_CHESS_FATAL;
+      break;
   }
+
+  unlock();
+
+  return rc;
 }
 
 int ChessEngineGnu::getEnginesMove(Move &move, bool bAuto)
@@ -584,6 +625,8 @@ int ChessEngineGnu::getEnginesMove(Move &move, bool bAuto)
   move.m_nMove  = m_nMove;
   move.m_player = colorMove;
 
+  lock();
+
   //
   // Pre-checks
   //
@@ -591,21 +634,21 @@ int ChessEngineGnu::getEnginesMove(Move &move, bool bAuto)
   { 
     ROS_ERROR("Not connected.");
     move.m_result = GameFatal;
-    return -CE_ECODE_NO_EXEC;
+    return exception(CE_ECODE_NO_EXEC);
   }
 
   if( !isPlayingAGame() ) 
   { 
     ROS_ERROR("No game.");
     move.m_result = NoGame;
-    return -CE_ECODE_CHESS_NO_GAME;
+    return exception(CE_ECODE_CHESS_NO_GAME);
   }
 
   if( whoseTurn() != colorMove )
   {
     ROS_ERROR("Move out-of-turn.");
     move.m_result = OutOfTurn;
-    return -CE_ECODE_CHESS_OUT_OF_TURN;
+    return exception(CE_ECODE_CHESS_OUT_OF_TURN);
   }
 
   // tell engine to go first
@@ -635,7 +678,7 @@ int ChessEngineGnu::getEnginesMove(Move &move, bool bAuto)
         ROS_ERROR("Response: Move %d != expected move %d.",
             m_nNewMove, m_nMove);
         move.m_result = GameFatal;
-        return -CE_ECODE_CHESS_FATAL;
+        return exception(CE_ECODE_CHESS_FATAL);
       }
 
       // extra line indication engine's call of the game
@@ -657,7 +700,7 @@ int ChessEngineGnu::getEnginesMove(Move &move, bool bAuto)
       {
         ROS_ERROR("Response: Failed to parse game state.");
         move.m_result = GameFatal;
-        return -CE_ECODE_CHESS_FATAL;
+        return exception(CE_ECODE_CHESS_FATAL);
       }
 
       // parse AN for more info
@@ -673,30 +716,37 @@ int ChessEngineGnu::getEnginesMove(Move &move, bool bAuto)
     case -CE_ECODE_CHESS_FATAL:
     default:
       move.m_result = GameFatal;
+      rc = -CE_ECODE_CHESS_FATAL;
       break;
   }
+
+  unlock();
 
   return rc;
 }
 
 int ChessEngineGnu::resign()
 {
+  lock();
+
   //
   // Pre-checks
   //
   if( !isConnected() ) 
   { 
     ROS_ERROR("Not connected.");
-    return -CE_ECODE_NO_EXEC;
+    return exception(CE_ECODE_NO_EXEC);
   }
 
   if( !isPlayingAGame() ) 
   { 
     ROS_ERROR("No game.");
-    return -CE_ECODE_CHESS_NO_GAME;
+    return exception(CE_ECODE_CHESS_NO_GAME);
   }
 
   m_bIsPlaying = false;
+
+  unlock();
 
   return CE_OK;
 }
@@ -710,19 +760,21 @@ int ChessEngineGnu::getCastlingOptions(string &strWhiteCastling,
   strWhiteCastling.clear();
   strBlackCastling.clear();
 
+  lock();
+
   //
   // Pre-checks
   //
   if( !isConnected() ) 
   { 
     ROS_ERROR("Not connected.");
-    return -CE_ECODE_NO_EXEC;
+    return exception(CE_ECODE_NO_EXEC);
   }
 
   if( !isPlayingAGame() ) 
   { 
     ROS_ERROR("No game.");
-    return -CE_ECODE_CHESS_NO_GAME;
+    return exception(CE_ECODE_CHESS_NO_GAME);
   }
 
   if( (rc = cmdShowBoard(strOptions)) == CE_OK )
@@ -747,6 +799,8 @@ int ChessEngineGnu::getCastlingOptions(string &strWhiteCastling,
       }
     }
   }
+
+  unlock();
 
   return rc;
 }
@@ -799,15 +853,17 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, uint_t msec)
 
     // wait to bytes to be available to be read
     nFd = select(fd+1, &rset, NULL, NULL, &timeout);
-
+    
     // system error occurred on select - interpret
     if( nFd < 0 )
     {
       switch(errno)
       {
         case EAGAIN:        // non-blocking timeout, retry
-        case EINTR:         // read was interrupted, retry
           break;
+        case EINTR:         // read was interrupted
+          buf[0] = 0;
+          return -CE_ECODE_SYS;
         default:            // non-recoverable error
           buf[nBytes] = 0;
           LOGSYSERROR("select(%d,...)", fd);
@@ -816,7 +872,7 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, uint_t msec)
       }
     }
 
-    // select() timeout occurred
+    // timeout occurred
     else if( nFd == 0 )
     {
       LOGDIAG4("select() on read timed out.");
@@ -906,6 +962,7 @@ void ChessEngineGnu::flushInput()
 
 void ChessEngineGnu::configure()
 {
+  setupSignals();
   flushInput();
 
   // determine version
@@ -1328,4 +1385,85 @@ int ChessEngineGnu::match(const string   &str,
   GC_TRACE("  %zu matches\n", matches.size());
 
   return (int)matches.size();
+}
+
+void ChessEngineGnu::setupSignals()
+{
+  sigset_t          blockset;
+  struct sigaction  sa;
+
+  // block signals
+  sigemptyset(&blockset);
+  sigaddset(&blockset, SIGUSR1);
+  sigprocmask(SIG_BLOCK, &blockset, NULL);
+  //pthread_sigmask(SIG_BLOCK, &blockset, NULL);
+
+  // install signal handlers
+  sa.sa_handler = abort_handler;
+  sa.sa_flags = 0;
+	sigemptyset(&sa.sa_mask);
+  sigaction(SIGUSR1, &sa, NULL);
+}
+
+int ChessEngineGnu::waitForPipe(uint_t msec)
+{
+  static int64_t  nsecStep = 10000000;  // tenth of a second in nanoseconds
+
+  int64_t         nsecTotal;    // total nsecs to wait on pipe read
+  int64_t         nsecWait;     // wait increment
+  int             fd;           // pipe fd
+  fd_set          rset;         // read set
+  struct timespec timeout;      // select timeout
+  sigset_t        emptyset;     // blocked signals
+  int             nFd;          // number of fds changed on read
+
+  // pipe from chess backend engine
+  fd = m_pipeFromChess[0];
+
+  // milliseconds to nanoseconds
+  nsecTotal = (int64_t)msec * 1000000;
+
+  sigemptyset(&emptyset);
+  sigaddset(&emptyset, SIGUSR1);
+
+  //
+  // Pseudo block for msec milliseconds.
+  //
+  // Note: pselect does not return after signal, even thoough handler works.
+  //        So, tolerated at most step size delay after aboard.
+  //
+  while( nsecTotal > 0 )
+  {
+    if( nsecTotal >= nsecStep )
+    {
+      nsecWait = nsecStep;
+    }
+    else
+    {
+      nsecWait = nsecTotal;
+    }
+
+    nsecTotal -= nsecStep;
+
+    setTs(nsecWait, timeout);
+
+    FD_ZERO(&rset);
+    fdset_nowarn(fd, &rset);
+
+    nFd = pselect(fd+1, &rset, NULL, NULL, &timeout, &emptyset);
+
+    if( AbortFlagged )
+    {
+      AbortFlagged  = false;
+      errno         = EINTR;
+      return -1;
+    }
+    else if( nFd != 0 )
+    {
+      return nFd;
+    }
+  }
+  
+  // timeout
+  return 0;
 }

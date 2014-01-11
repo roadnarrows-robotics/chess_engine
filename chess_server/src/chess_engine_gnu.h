@@ -57,6 +57,8 @@
 #define _CHESS_ENGINE_GNU_H
 
 #include <sys/types.h>
+#include <signal.h>
+#include <pthread.h>
 
 #include <string>
 #include <vector>
@@ -131,12 +133,21 @@ namespace chess_engine
       return m_pidChild > 0;
     }
 
+    virtual int abortRead()
+    {
+      kill(m_pidParent, SIGUSR1);
+    }
+
   protected:
     // configuration and i/o operation
-    std::string m_strChessApp;      ///< name of chess application
-    int         m_pipeToChess[2];   ///< pipe to chess engine
-    int         m_pipeFromChess[2]; ///< pipe from chess engine
-    pid_t       m_pidChild;         ///< fork-exec'd engine process id
+    std::string     m_strChessApp;      ///< name of chess application
+    int             m_pipeToChess[2];   ///< pipe to chess engine
+    int             m_pipeFromChess[2]; ///< pipe from chess engine
+    pid_t           m_pidParent;        ///< parent (this) process id
+    pid_t           m_pidChild;         ///< fork-exec'd engine process id
+    pthread_mutex_t m_mutexIF;          ///< high-level interface mutex
+    
+    // version independent configuration
     int         m_nDepth;           ///< engine search ply depth (half-moves)
 
     // version specific configuration
@@ -159,6 +170,27 @@ namespace chess_engine
     //
     virtual void configure();
     virtual void killApp();
+
+    //
+    // Mutual exclusion control.
+    //
+    void lock()
+    {
+      pthread_mutex_lock(&m_mutexIF);
+      m_bIsBusy = true;
+    }
+
+    void unlock()
+    {
+      m_bIsBusy = false;
+      pthread_mutex_unlock(&m_mutexIF);
+    }
+
+    int exception(int ecode)
+    {
+      unlock();
+      return ecode < 0? ecode: -ecode;
+    }
 
     //
     // Commands
@@ -199,6 +231,13 @@ namespace chess_engine
       m_eNewResult = NoResult;
       m_eNewWinner = NoColor;
     }
+
+    //
+    // Low-Level I/O
+    //
+    void setupSignals();
+
+    int waitForPipe();
   };
 
 } // chess_engine

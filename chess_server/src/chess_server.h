@@ -56,7 +56,10 @@
 #ifndef _CHESS_SERVER_H
 #define _CHESS_SERVER_H
 
+#include <pthread.h>
+
 #include <string>
+
 #include "ros/ros.h"
 
 #include "chess_server/StartNewGameSvc.h"
@@ -80,6 +83,15 @@ namespace chess_engine
   class ChessServer
   {
   public:
+    /*!
+     * \brief Asynchronous task state.
+     */
+    enum ActionState
+    {
+      ActionStateIdle     = 0,    ///< idle, no actions running
+      ActionStateWorking  = 1     ///< action(s) running
+    };
+
     ChessServer()
     {
     }
@@ -107,9 +119,18 @@ namespace chess_engine
     }
 
   protected:
-    ChessEngineGnu  m_engine;
-    Game            m_game;
+    ChessEngineGnu  m_engine;     // chess backend engine
+    Game            m_game;       // chess game state
     std::map<std::string, ros::ServiceServer> m_services;
+                                  // chess_server services
+
+    // asynchronous task control
+    ActionState m_eActionState;  ///< asynchronous task state
+    bool m_bInAutoPlay;
+    bool m_bInWaitForEngine;
+    bool              m_eAsyncTaskId;     ///< asynchronous task id
+    void             *m_pAsyncTaskArg;    ///< asynchronous argument
+    pthread_t         m_threadAction;     ///< async pthread identifier 
 
     //
     // Service callbacks
@@ -140,6 +161,10 @@ namespace chess_engine
 
     bool getBoardState(chess_server::GetBoardStateSvc::Request  &req,
                        chess_server::GetBoardStateSvc::Response &rsp);
+
+    //
+    // Action (and service thread
+    //
 
     //
     // Support

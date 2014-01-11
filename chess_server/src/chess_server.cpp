@@ -88,6 +88,10 @@ using namespace std;
 using namespace chess_engine;
 
 
+//..............................................................................
+// Services
+//..............................................................................
+
 void ChessServer::advertiseServices(ros::NodeHandle &nh)
 {
   string  strSvc;
@@ -391,37 +395,19 @@ bool ChessServer::getBoardState(chess_server::GetBoardStateSvc::Request  &req,
   return true;
 }
 
-void ChessServer::toMsgMove(const Move                 &move,
-                            chess_server::ChessMoveMsg &msgMove)
-{
-  msgMove.move_num         = move.m_nMove;
-  msgMove.player.color     = move.m_player;
-  msgMove.AN               = move.m_strAN;
-  msgMove.moved.piece      = move.m_piece;
-  msgMove.src.file         = move.m_sqFrom.m_file;
-  msgMove.src.rank         = move.m_sqFrom.m_rank;
-  msgMove.dst.file         = move.m_sqTo.m_file;
-  msgMove.dst.rank         = move.m_sqTo.m_rank;
-  msgMove.captured.piece   = move.m_captured;
-  msgMove.en_passant       = move.m_en_passant;
-  msgMove.castle.side      = move.m_castle;
-  msgMove.aux_src.file     = move.m_sqAuxAt.m_file;
-  msgMove.aux_src.rank     = move.m_sqAuxAt.m_rank;
-  msgMove.aux_dst.file     = move.m_sqAuxTo.m_file;
-  msgMove.aux_dst.rank     = move.m_sqAuxTo.m_rank;
-  msgMove.promotion.piece  = move.m_promotion;
-  msgMove.check            = move.m_check;
-  msgMove.winner.color     = move.m_winner;
-  msgMove.result.code      = move.m_result;
-}
 
+//..............................................................................
+// Action thread
+//..............................................................................
+
+#if 0 // RDK
 int ChessServer::createActionThread()
 {
   int   rc;
 
-  m_eAsyncTaskState = HekAsyncTaskStateWorking;
+  m_eActionState = ActionStateWorking;
 
-  rc = pthread_create(&m_threadAsync, NULL, ChessServer::actionThread, (void*)this);
+  rc = pthread_create(&m_threadAction, NULL, ChessServer::actionThread, (void*)this);
  
   if( rc == 0 )
   {
@@ -430,7 +416,7 @@ int ChessServer::createActionThread()
 
   else
   {
-    m_eAsyncTaskState = HekAsyncTaskStateIdle;
+    m_eActionState = ActionStateIdle;
     LOGSYSERROR("pthread_create()");
     m_rcAsyncTask   = -HEK_ECODE_SYS;
     m_eAsyncTaskId  = AsyncTaskIdNone;
@@ -444,14 +430,14 @@ int ChessServer::createActionThread()
 
 void ChessServer::cancelAsyncTask()
 {
-  if( m_eAsyncTaskState != HekAsyncTaskStateIdle )
+  if( m_eActionState != ActionStateIdle )
   {
-    pthread_cancel(m_threadAsync);
-    pthread_join(m_threadAsync, NULL);
+    pthread_cancel(m_threadAction);
+    pthread_join(m_threadAction, NULL);
     m_eAsyncTaskId    = AsyncTaskIdNone;
     m_pAsyncTaskArg   = NULL;
     m_rcAsyncTask     = -HEK_ECODE_INTR;
-    m_eAsyncTaskState = HekAsyncTaskStateIdle;
+    m_eActionState = ActionStateIdle;
     freeze();
     LOGDIAG3("Async task canceled.");
   }
@@ -497,9 +483,39 @@ void *ChessServer::actionThread(void *pArg)
   pThis->m_eAsyncTaskId     = AsyncTaskIdNone;
   pThis->m_pAsyncTaskArg    = NULL;
   pThis->m_rcAsyncTask      = rc;
-  pThis->m_eAsyncTaskState  = HekAsyncTaskStateIdle;
+  pThis->m_eActionState  = ActionStateIdle;
 
   LOGDIAG3("Async robot task thread exited.");
 
   return NULL;
+}
+#endif // RDK
+
+
+//..............................................................................
+// Support
+//..............................................................................
+
+void ChessServer::toMsgMove(const Move                 &move,
+                            chess_server::ChessMoveMsg &msgMove)
+{
+  msgMove.move_num         = move.m_nMove;
+  msgMove.player.color     = move.m_player;
+  msgMove.AN               = move.m_strAN;
+  msgMove.moved.piece      = move.m_piece;
+  msgMove.src.file         = move.m_sqFrom.m_file;
+  msgMove.src.rank         = move.m_sqFrom.m_rank;
+  msgMove.dst.file         = move.m_sqTo.m_file;
+  msgMove.dst.rank         = move.m_sqTo.m_rank;
+  msgMove.captured.piece   = move.m_captured;
+  msgMove.en_passant       = move.m_en_passant;
+  msgMove.castle.side      = move.m_castle;
+  msgMove.aux_src.file     = move.m_sqAuxAt.m_file;
+  msgMove.aux_src.rank     = move.m_sqAuxAt.m_rank;
+  msgMove.aux_dst.file     = move.m_sqAuxTo.m_file;
+  msgMove.aux_dst.rank     = move.m_sqAuxTo.m_rank;
+  msgMove.promotion.piece  = move.m_promotion;
+  msgMove.check            = move.m_check;
+  msgMove.winner.color     = move.m_winner;
+  msgMove.result.code      = move.m_result;
 }
