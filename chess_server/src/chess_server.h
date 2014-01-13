@@ -113,6 +113,14 @@ namespace chess_engine
 
     virtual void advertiseServices(ros::NodeHandle &nh);
 
+    virtual void advertisePublishers(ros::NodeHandle &nh);
+
+    virtual void subscribeToTopics(ros::NodeHandle &nh);
+
+    virtual void bindActionServers(ros::NodeHandle &nh);
+
+    virtual void publish();
+
     const ChessEngineGnu &getEngine()
     {
       return m_engine;
@@ -123,6 +131,7 @@ namespace chess_engine
     Game            m_game;       // chess game state
     std::map<std::string, ros::ServiceServer> m_services;
                                   // chess_server services
+    std::map<std::string, ros::Publisher> m_publishers;
 
     // asynchronous task control
     ActionState m_eActionState;  ///< asynchronous task state

@@ -235,9 +235,26 @@ namespace chess_engine
     //
     // Low-Level I/O
     //
+
+    /*!
+     * \brief Set up signal mask and handlers.
+     *
+     * \note Call only in main application context.
+     */
     void setupSignals();
 
-    int waitForPipe();
+    /*!
+     * \brief Wait for input from backend chess engine.
+     *
+     * The call is preemptable to support action server requests.
+     *
+     * \param msec  Maximum time to wait for input in milliseconds.
+     *
+     * \return
+     * Returns \h_lt 0, 0, \ht_gt 0 if an I/O error, timeout, or input availble
+     * event occurred, respectively.
+     */
+    int waitForPipe(uint_t msec);
   };
 
 } // chess_engine

@@ -63,6 +63,8 @@
 
 #include "ros/ros.h"
 
+#include "chess_server/ChessNewGameStatusMsg.h"
+
 #include "chess_server/StartNewGameSvc.h"
 #include "chess_server/MakeAMoveSvc.h"
 #include "chess_server/MakeAMoveSANSvc.h"
@@ -140,6 +142,27 @@ void ChessServer::advertiseServices(ros::NodeHandle &nh)
   m_services[strSvc] = nh.advertiseService(strSvc,
                                           &ChessServer::getBoardState,
                                           &(*this));
+}
+
+void ChessServer::advertisePublishers(ros::NodeHandle &nh)
+{
+  string  strPub;
+
+  strPub = "new_game_status";
+  m_publishers[strPub] = nh.advertise<chess_server::ChessNewGameStatusMsg>(
+                                  strPub, 10);
+}
+
+void ChessServer::subscribeToTopics(ros::NodeHandle &nh)
+{
+}
+
+void ChessServer::bindActionServers(ros::NodeHandle &nh)
+{
+}
+
+void ChessServer::publish()
+{
 }
 
 /*!

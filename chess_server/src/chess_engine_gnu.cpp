@@ -827,9 +827,6 @@ int ChessEngineGnu::readline(string &strLine, uint_t msec)
 
 int ChessEngineGnu::readline(char buf[], size_t sizeBuf, uint_t msec)
 {
-  uint_t          usec = msec * 1000;
-  struct timeval  timeout;
-  fd_set          rset;
   int             fd = m_pipeFromChess[0];
   int             nFd;
   ssize_t         n;
@@ -844,15 +841,7 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, uint_t msec)
   //
   while( (nBytes < sizeBuf-1) && !bDone )
   {
-    FD_ZERO(&rset);
-    fdset_nowarn(fd, &rset);
-
-    // (re)load timeout (gets munged after each select())
-    timeout.tv_sec  = (time_t)(usec / 1000000);
-    timeout.tv_usec = (time_t)(usec % 1000000);
-
-    // wait to bytes to be available to be read
-    nFd = select(fd+1, &rset, NULL, NULL, &timeout);
+    nFd = waitForPipe(msec);
     
     // system error occurred on select - interpret
     if( nFd < 0 )
@@ -889,7 +878,7 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, uint_t msec)
           //LOGDIAG4("%s(): %zd bytes response line.", LOGFUNCNAME, nBytes);
           GC_TRACE("readline() %s\n", buf);
           return (int)nBytes;
-        case '\r':    // received a character, but ignore
+        case '\r':    // received a carriage return, but ignore
           break;
         default:      // received a character
           // got some data
@@ -963,6 +952,7 @@ void ChessEngineGnu::flushInput()
 void ChessEngineGnu::configure()
 {
   setupSignals();
+
   flushInput();
 
   // determine version
@@ -1423,25 +1413,18 @@ int ChessEngineGnu::waitForPipe(uint_t msec)
   // milliseconds to nanoseconds
   nsecTotal = (int64_t)msec * 1000000;
 
+  // make set of unblock signals
   sigemptyset(&emptyset);
-  sigaddset(&emptyset, SIGUSR1);
 
   //
   // Pseudo block for msec milliseconds.
   //
-  // Note: pselect does not return after signal, even thoough handler works.
-  //        So, tolerated at most step size delay after aboard.
+  // Note:  The pselect() call does not return after signal, even though handler
+  //        works. So, break up block time into acceptable step delay sizes.
   //
   while( nsecTotal > 0 )
   {
-    if( nsecTotal >= nsecStep )
-    {
-      nsecWait = nsecStep;
-    }
-    else
-    {
-      nsecWait = nsecTotal;
-    }
+    nsecWait = nsecTotal >= nsecStep?  nsecStep: nsecTotal;
 
     nsecTotal -= nsecStep;
 
@@ -1450,20 +1433,34 @@ int ChessEngineGnu::waitForPipe(uint_t msec)
     FD_ZERO(&rset);
     fdset_nowarn(fd, &rset);
 
+    //
+    // pselect atomically:
+    //
+    // sigset_t save;
+    // sigprocmask(SIG_BLOCK, &emptyset, &save);
+    // select(...)
+    // sigprocmask(SIG_BLOCK, &save, NULL);
+    //
     nFd = pselect(fd+1, &rset, NULL, NULL, &timeout, &emptyset);
 
+    //
+    // AbortFlagged can only be set in the signal handler which is
+    // unblocked only in pselect(). N.B. signals are queue however.
+    //
     if( AbortFlagged )
     {
       AbortFlagged  = false;
       errno         = EINTR;
       return -1;
     }
+
+    // read ready or error
     else if( nFd != 0 )
     {
       return nFd;
     }
   }
   
-  // timeout
+  // timeout return
   return 0;
 }

@@ -32,7 +32,10 @@ add_message_files(
   FILES 
     ChessCastlingMsg.msg
     ChessColorMsg.msg
+    ChessEndGameStatusMsg.msg
     ChessMoveMsg.msg
+    ChessMoveStatusMsg.msg
+    ChessNewGameStatusMsg.msg
     ChessPieceMsg.msg
     ChessResultMsg.msg 
     ChessSquareMsg.msg
