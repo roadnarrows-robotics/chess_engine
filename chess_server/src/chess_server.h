@@ -113,7 +113,7 @@ namespace chess_engine
 
     virtual void advertiseServices(ros::NodeHandle &nh);
 
-    virtual void advertisePublishers(ros::NodeHandle &nh);
+    virtual void advertisePublishers(ros::NodeHandle &nh, int nQueueDepth=10);
 
     virtual void subscribeToTopics(ros::NodeHandle &nh);
 

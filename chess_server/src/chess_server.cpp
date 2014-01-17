@@ -64,6 +64,8 @@
 #include "ros/ros.h"
 
 #include "chess_server/ChessNewGameStatusMsg.h"
+#include "chess_server/ChessMoveStatusMsg.h"
+#include "chess_server/ChessEndGameStatusMsg.h"
 
 #include "chess_server/StartNewGameSvc.h"
 #include "chess_server/MakeAMoveSvc.h"
@@ -143,28 +145,6 @@ void ChessServer::advertiseServices(ros::NodeHandle &nh)
                                           &ChessServer::getBoardState,
                                           &(*this));
 }
-
-void ChessServer::advertisePublishers(ros::NodeHandle &nh)
-{
-  string  strPub;
-
-  strPub = "new_game_status";
-  m_publishers[strPub] = nh.advertise<chess_server::ChessNewGameStatusMsg>(
-                                  strPub, 10);
-}
-
-void ChessServer::subscribeToTopics(ros::NodeHandle &nh)
-{
-}
-
-void ChessServer::bindActionServers(ros::NodeHandle &nh)
-{
-}
-
-void ChessServer::publish()
-{
-}
-
 /*!
  *  \brief Request calibrate.
  */
@@ -416,6 +396,50 @@ bool ChessServer::getBoardState(chess_server::GetBoardStateSvc::Request  &req,
   ROS_INFO("Retrieved chess board state.");
 
   return true;
+}
+
+
+//..............................................................................
+// Topic Publishers
+//..............................................................................
+
+void ChessServer::advertisePublishers(ros::NodeHandle &nh, int nQueueDepth)
+{
+  string  strPub;
+
+  strPub = "new_game_status";
+  m_publishers[strPub] = nh.advertise<chess_server::ChessNewGameStatusMsg>(
+                                  strPub, nQueueDepth);
+
+  strPub = "move_status";
+  m_publishers[strPub] = nh.advertise<chess_server::ChessMoveStatusMsg>(
+                                  strPub, nQueueDepth);
+
+  strPub = "end_game_status";
+  m_publishers[strPub] = nh.advertise<chess_server::ChessEndGameStatusMsg>(
+                                  strPub, nQueueDepth);
+}
+
+void ChessServer::publish()
+{
+}
+
+
+//..............................................................................
+// Subscribed Topics
+//..............................................................................
+
+void ChessServer::subscribeToTopics(ros::NodeHandle &nh)
+{
+}
+
+
+//..............................................................................
+// Action Servers
+//..............................................................................
+
+void ChessServer::bindActionServers(ros::NodeHandle &nh)
+{
 }
 
 

@@ -414,6 +414,9 @@ int main(int argc, char *argv[])
 
   ROS_INFO(" --- %s services registered.", NodeName);
 
+  server.advertisePublishers(nh);
+
+  ROS_INFO(" --- %s publishers registered.", NodeName);
 
   seq = 0;
 
