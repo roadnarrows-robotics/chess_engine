@@ -55,11 +55,11 @@ add_service_files(
     StartNewGameSvc.srv
 )
 
-#add_action_files(
-#  DIRECTORY action 
-#  FILES 
-#    Calibrate.action
-#)
+add_action_files(
+  DIRECTORY action 
+  FILES 
+    GetEnginesMove.action
+)
 
 ## Generate added messages/services/actions with any dependencies listed here
 generate_messages(
@@ -81,6 +81,7 @@ include_directories(
 )
 
 add_executable(chess_server
+  src/chess_as_get_engines_move.cpp
   src/chess_server_main.cpp
   src/chess_engine_gnu.cpp
   src/chess_server.cpp

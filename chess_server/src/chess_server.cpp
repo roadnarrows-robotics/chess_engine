@@ -6,7 +6,7 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_service_srv.cpp
+// File:      chess_server.cpp
 //
 /*! \file
  *
@@ -447,47 +447,46 @@ void ChessServer::bindActionServers(ros::NodeHandle &nh)
 // Action thread
 //..............................................................................
 
-#if 0 // RDK
 int ChessServer::createActionThread()
 {
   int   rc;
 
-  m_eActionState = ActionStateWorking;
+  m_eActionState  = ActionStateWorking;
+  m_eActionTaskid = ActionTaskIdNone;
 
-  rc = pthread_create(&m_threadAction, NULL, ChessServer::actionThread, (void*)this);
+  rc = pthread_create(&m_threadAction, NULL, ChessServer::actionThread,
+                      (void*)this);
  
+
   if( rc == 0 )
   {
-    rc = HEK_OK;
+    m_eActionState = ActionStateIdle;
+    rc = CE_OK;
   }
 
   else
   {
-    m_eActionState = ActionStateIdle;
-    LOGSYSERROR("pthread_create()");
-    m_rcAsyncTask   = -HEK_ECODE_SYS;
-    m_eAsyncTaskId  = AsyncTaskIdNone;
-    m_pAsyncTaskArg = NULL;
-    rc = m_rcAsyncTask;
+    m_eActionState  = ActionStateExit;
+    rc = -CE_ECODE_SYS;
+    ROS_ERROR("pthread_create()");
   }
 
   return rc;
 }
 
-
-void ChessServer::cancelAsyncTask()
+void ChessServer::destroyActionThread()
 {
-  if( m_eActionState != ActionStateIdle )
-  {
-    pthread_cancel(m_threadAction);
-    pthread_join(m_threadAction, NULL);
-    m_eAsyncTaskId    = AsyncTaskIdNone;
-    m_pAsyncTaskArg   = NULL;
-    m_rcAsyncTask     = -HEK_ECODE_INTR;
-    m_eActionState = ActionStateIdle;
-    freeze();
-    LOGDIAG3("Async task canceled.");
-  }
+  m_eActionState  = ActionStateExit;
+  signal;
+
+  pthread_cancel(m_threadAction);
+  pthread_join(m_threadAction, NULL);
+
+  delete x;
+
+  m_eActionTaskId = AsyncTaskIdNone;
+
+  ROS_INFO("Action thread destroyed.");
 }
 
 void *ChessServer::actionThread(void *pArg)
@@ -500,7 +499,16 @@ void *ChessServer::actionThread(void *pArg)
   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldstate);
   //pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldstate);
 
-  LOGDIAG3("Async robot task thread created.");
+  LOGDIAG3("Action thread created.");
+
+  while( pThis->m_eActionState != ActionStateExit )
+  {
+    wait();
+
+    autoplay;
+    getenginesmove;
+    abort;
+  }
 
   //
   // Execute asychronous task.
@@ -532,11 +540,10 @@ void *ChessServer::actionThread(void *pArg)
   pThis->m_rcAsyncTask      = rc;
   pThis->m_eActionState  = ActionStateIdle;
 
-  LOGDIAG3("Async robot task thread exited.");
+  LOGDIAG3("Action thread exited.");
 
   return NULL;
 }
-#endif // RDK
 
 
 //..............................................................................

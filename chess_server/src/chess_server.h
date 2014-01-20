@@ -88,8 +88,16 @@ namespace chess_engine
      */
     enum ActionState
     {
-      ActionStateIdle     = 0,    ///< idle, no actions running
-      ActionStateWorking  = 1     ///< action(s) running
+      ActionStateExit     = 0,
+      ActionStateIdle     = 1,    ///< idle, no actions running
+      ActionStateWorking  = 2     ///< action(s) running
+    };
+
+    enum ActionTaskId
+    {
+      ActionTaskIdNone            = 0,
+      ActionTaskIdAutoPlay,
+      ActionTaskIdGetEnginesMove
     };
 
     ChessServer()
@@ -127,18 +135,20 @@ namespace chess_engine
     }
 
   protected:
-    ChessEngineGnu  m_engine;     // chess backend engine
-    Game            m_game;       // chess game state
+    ChessEngineGnu  m_engine;     ///< chess backend engine
+    Game            m_game;       ///< chess game state
+
+    // ros
     std::map<std::string, ros::ServiceServer> m_services;
-                                  // chess_server services
+                                  ///< chess_server services
     std::map<std::string, ros::Publisher> m_publishers;
+                                  ///< chess_server publishers
 
     // asynchronous task control
-    ActionState m_eActionState;  ///< asynchronous task state
-    bool m_bInAutoPlay;
-    bool m_bInWaitForEngine;
-    bool              m_eAsyncTaskId;     ///< asynchronous task id
-    void             *m_pAsyncTaskArg;    ///< asynchronous argument
+    ActionState       m_eActionState;  ///< asynchronous task state
+    ActionTaskId      m_eActionTaskId;
+    pthread_mutex_t   m_mutexAction;
+    pthread_cond_t    m_condAction;
     pthread_t         m_threadAction;     ///< async pthread identifier 
 
     //
@@ -172,7 +182,7 @@ namespace chess_engine
                        chess_server::GetBoardStateSvc::Response &rsp);
 
     //
-    // Action (and service thread
+    // Action (and service) thread
     //
 
     //
