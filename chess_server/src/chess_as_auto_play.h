@@ -6,14 +6,14 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_as_get_engines_move.h
+// File:      chess_as_auto_play.h
 //
 /*! \file
  *
  * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
  * $Rev: 3334 $
  *
- * \brief Get the chess engine's next move action server class interface.
+ * \brief Autoplay the next n moves action server class interface.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
@@ -53,8 +53,8 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _CHESS_AS_GET_ENGINES_MOVE_H
-#define _CHESS_AS_GET_ENGINES_MOVE_H
+#ifndef _CHESS_AS_AUTO_PLAY_H
+#define _CHESS_AS_AUTO_PLAY_H
 
 #include <unistd.h>
 
@@ -67,8 +67,7 @@
 #include "actionlib/server/simple_action_server.h"
 
 #include "chess_server/ChessMoveMsg.h"
-#include "chess_server/GetEnginesMoveSvc.h"
-#include "chess_server/GetEnginesMoveAction.h"
+#include "chess_server/AutoPlayAction.h"
 
 #include "chess_server.h"
 
@@ -77,7 +76,7 @@ namespace chess_engine
   /*!
    * \brief Get chess engine's next move action server class.
    */
-  class ASGetEnginesMove
+  class ASAutoPlay
   {
   public:
     /*!
@@ -86,12 +85,11 @@ namespace chess_engine
      * \param name    Action server name.
      * \param chess   Node-specific class instance.
      */
-    ASGetEnginesMove(std::string name,
-                     ChessServer &chess) :
+    ASAutoPlay(std::string name, ChessServer &chess) :
       chess_(chess),
       as_(chess.getNodeHandle(),    // node handle
           name,                     // action name
-          boost::bind(&ASGetEnginesMove::execute_cb, this, _1),
+          boost::bind(&ASAutoPlay::execute_cb, this, _1),
                                     // execute callback
           false),                   // don't auto-start
       action_name_(name)
@@ -99,8 +97,7 @@ namespace chess_engine
       // 
       // Optionally register the goal and feeback callbacks
       //
-      as_.registerPreemptCallback(
-                            boost::bind(&ASGetEnginesMove::preempt_cb, this));
+      as_.registerPreemptCallback( boost::bind(&ASAutoPlay::preempt_cb, this));
 
       // start the action server
       start();
@@ -109,7 +106,7 @@ namespace chess_engine
     /*!
      * \brief Destructor.
      */
-    virtual ~ASGetEnginesMove()
+    virtual ~ASAutoPlay()
     {
     }
 
@@ -127,7 +124,7 @@ namespace chess_engine
      * The callback is executed in a separate ROS-created thread so that it
      * can block.Typically, the callback is invoked within a ROS spin.
      */
-    void execute_cb(const chess_server::GetEnginesMoveGoalConstPtr &goal);
+    void execute_cb(const chess_server::AutoPlayGoalConstPtr &goal);
 
     /*!
      * \brief ROS callback to preempt action.
@@ -139,13 +136,13 @@ namespace chess_engine
 
   protected:
     std::string action_name_;                         ///< action name
-    actionlib::SimpleActionServer<chess_server::GetEnginesMoveAction> as_;
+    actionlib::SimpleActionServer<chess_server::AutoPlayAction> as_;
                                                       ///< action simple server
     ChessServer &chess_;                              ///< chess server instance
-    chess_server::GetEnginesMoveFeedback feedback_;   ///< progress feedback
-    chess_server::GetEnginesMoveResult   result_;     ///< action results
+    chess_server::AutoPlayFeedback feedback_;         ///< progress feedback
+    chess_server::AutoPlayResult   result_;           ///< action results
   };
 
 } // namespace chess_engine
 
-#endif // _CHESS_AS_GET_ENGINES_MOVE_H
+#endif // _CHESS_AS_AUTO_PLAY_H

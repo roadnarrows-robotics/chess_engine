@@ -1,0 +1,11 @@
+### Chess engine autoplay action server.
+
+# Goal
+uint16  num_moves # max number of moves (2 plies/move), 0 == till end of game
+float32 hz        # maximum frequency rate between plies.
+---
+# Result
+int8  rc          # 0 == success, <0 == failure
+---
+# Feedback
+ChessMoveMsg move # fully quantified move

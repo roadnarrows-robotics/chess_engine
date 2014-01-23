@@ -103,9 +103,29 @@ namespace chess_engine
       return ((int)m_history.size() + 1) / 2;
     }
 
+    int getNumOfPlies()
+    {
+      return (int)m_history.size();
+    }
+
+    ChessColor getWinner()
+    {
+      return m_winner;
+    }
+
+    ChessResult getEndOfGameReason()
+    {
+      return m_endReason;
+    }
+
     std::vector<Move> &getGameHistory()
     {
       return m_history;
+    }
+
+    Move &operator[](int i)
+    {
+      return m_history[i];
     }
 
     BoardElem *getBoardElem(ChessFile file, ChessRank rank)

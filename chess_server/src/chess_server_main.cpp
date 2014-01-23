@@ -77,6 +77,8 @@
 
 #include "chess_engine_gnu.h"
 #include "chess_server.h"
+#include "chess_as_auto_play.h"
+#include "chess_as_get_engines_move.h"
 
 using namespace std;
 using namespace chess_engine;
@@ -387,8 +389,7 @@ static void cli_test(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
-  ChessServer server;
-  int         seq;
+  uint32_t    seqnum;
   int         rc;
 
   ros::init(argc, argv, NodeName);
@@ -401,32 +402,42 @@ int main(int argc, char *argv[])
     return APP_EC_OK;
   }
 
-  ROS_INFO("%s node started.", NodeName);
+  ROS_INFO("%s: Node started.",  ros::this_node::getName().c_str());
 
-  if( (rc = server.connect()) != CE_OK )
+  ChessServer chess(nh);
+
+  if( (rc = chess.connect()) != CE_OK )
   {
-    ROS_ERROR_STREAM(server.getEngine().getChessApp() << ": "
+    ROS_ERROR_STREAM(chess.getEngine().getChessApp() << ": "
         << chess_engine::strerror(rc) << "(" << rc << ")");
     return APP_EC_INIT;
   }
 
-  server.advertiseServices(nh);
+  chess.advertiseServices();
 
-  ROS_INFO(" --- %s services registered.", NodeName);
+  ROS_INFO("%s: Services registered.", ros::this_node::getName().c_str());
 
-  server.advertisePublishers(nh);
+  chess.advertisePublishers();
 
-  ROS_INFO(" --- %s publishers registered.", NodeName);
+  ROS_INFO("%s: Publishers registered.", ros::this_node::getName().c_str());
 
-  seq = 0;
+  ASAutoPlay       asAutoPlay("auto_play", chess);
+  ASGetEnginesMove asGetEnginesMove("get_engines_move_action", chess);
+
+  ROS_INFO("%s: Action servers registered and started.",
+      ros::this_node::getName().c_str());
+
+  seqnum = 0;
 
   ros::Rate loop_rate(2);
 
   while( ros::ok() )
   {
     ros::spinOnce(); 
+
+    seqnum = chess.publish(seqnum);
+
     loop_rate.sleep();
-    ++seq;
   }
 
   return APP_EC_OK;

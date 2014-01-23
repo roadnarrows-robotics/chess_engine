@@ -6,14 +6,14 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_as_get_engines_move.cpp
+// File:      chess_as_auto_play.cpp
 //
 /*! \file
  *
  * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
  * $Rev: 3334 $
  *
- * \brief Get the chess engine's next move action server class implementation.
+ * \brief Autoplay the next n moves action server class implementation.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
@@ -64,70 +64,99 @@
 #include "actionlib/server/simple_action_server.h"
 
 #include "chess_server/ChessMoveMsg.h"
-#include "chess_server/GetEnginesMoveSvc.h"
 
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceError.h"
 
-#include "chess_as_get_engines_move.h"
+#include "chess_as_auto_play.h"
 
 using namespace std;
 using namespace chess_engine;
 
 
-void ASGetEnginesMove::execute_cb(
-                          const chess_server::GetEnginesMoveGoalConstPtr &goal)
+void ASAutoPlay::execute_cb(const chess_server::AutoPlayGoalConstPtr &goal)
 {
+  uint_t    numMoves;
+  double    hz;
+  uint_t    n;
   Move      move;
+  bool      success;
   int       rc;
 
   ROS_INFO("%s: Execute.", action_name_.c_str());
 
-  //
-  // Get engine's move. This can take up to 30 seconds, depending on the
-  // difficulty setting. To provide real feedaback, need a callback from the
-  // engine. May not be needed.
-  //
-  rc = chess_.getEngine().getEnginesMove(move);
+  numMoves  = (uint_t)goal->num_moves;
+  hz        = (double)goal->hz;
+  n         = 0;
+  success   = true;
+  rc        = CE_OK;
 
-  ROS_DEBUG_STREAM(action_name_ << ": " << move << endl);
+  ros::Rate r(hz);
 
-  //
-  // Convert move to result.
-  //
-  chess_.toMsgMove(move, result_.move);
-
-  //
-  // Action was preempted.
-  //
-  if( as_.isPreemptRequested() || !ros::ok() )
+  while( chess_.getGame().isPlaying() && ((numMoves == 0) || (n < numMoves)) )
   {
-    ROS_INFO("%s: Execution preempted", action_name_.c_str());
-    as_.setPreempted(result_); // set the action state to preempted
-  }
+    //
+    // Action was preempted.
+    //
+    if( as_.isPreemptRequested() || !ros::ok() )
+    {
+      ROS_INFO("%s: Execution preempted", action_name_.c_str());
+      result_.rc = rc;
+      as_.setPreempted(result_); // set the action state to preempted
+      success = false;
+      break;
+    }
 
-  //
-  // Action resulted in an error.
-  //
-  else if( rc != CE_OK )
-  {
-    ROS_INFO("%s: Execution error: %s(%d)",
+    // engine make move and update game state
+    rc = chess_.getEngine().getEnginesMove(move, true);
+    rc = chess_.getGame().sync(move);
+
+    ROS_DEBUG_STREAM(action_name_ << ": " << move << endl);
+
+    //
+    // Action resulted in an error.
+    //
+    if( rc != CE_OK )
+    {
+      ROS_INFO("%s: Execution error: %s(%d)",
         action_name_.c_str(), strerror(rc).c_str(), rc);
-    as_.setAborted(result_); // abort action on error
+      result_.rc = rc;
+      as_.setAborted(result_); // abort action on error
+      success = false;
+      break;
+    }
+
+    //
+    // Move succeeded.
+    //
+    else
+    {
+      // convert move to result.
+      chess_.toMsgMove(move, feedback_.move);
+
+      // publish feedback
+      as_.publishFeedback(feedback_);
+
+      // advance number of moves only after black's move
+      if( move.m_player == Black )
+      {
+        ++n;
+      }
+    }
+
+    r.sleep();
   }
 
-  //
-  // Success.
-  //
-  else
+  if( success )
   {
-    //result_.sequence = feedback_.sequence;
+    // result_.sequence = feedback_.sequence;
     ROS_INFO("%s: Exectution succeeded", action_name_.c_str());
+    result_.rc = CE_OK;
     as_.setSucceeded(result_); // set the action state to succeeded
   }
 }
 
-void ASGetEnginesMove::preempt_cb()
+void ASAutoPlay::preempt_cb()
 {
   ROS_INFO("%s: Preempt.", action_name_.c_str());
   chess_.getEngine().abortRead();

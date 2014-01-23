@@ -92,56 +92,81 @@ using namespace std;
 using namespace chess_engine;
 
 
+//------------------------------------------------------------------------------
+// ChessServer Class
+//------------------------------------------------------------------------------
+
+ChessServer::ChessServer(ros::NodeHandle &nh) : m_nh(nh)
+{
+  m_bPubNewGame = false;
+  m_nPubLastPly = 0;
+  m_bPubEndGame = false;
+
+#ifdef INC_ACTION_THREAD
+  createActionThread();
+#endif // INC_ACTION_THREAD
+}
+
+ChessServer::~ChessServer()
+{
+#ifdef INC_ACTION_THREAD
+  destroyActionThread();
+#endif // INC_ACTION_THREAD
+
+  disconnect();
+}
+
+
 //..............................................................................
 // Services
 //..............................................................................
 
-void ChessServer::advertiseServices(ros::NodeHandle &nh)
+void ChessServer::advertiseServices()
 {
   string  strSvc;
 
   strSvc = "start_new_game";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::startNewGame,
                                           &(*this));
 
   strSvc = "make_a_move_san";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::makeAMoveSAN,
                                           &(*this));
 
   strSvc = "make_a_move";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::makeAMove,
                                           &(*this));
 
   strSvc = "get_engines_move";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::getEnginesMove,
                                           &(*this));
 
   strSvc = "resign";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::resign,
                                           &(*this));
 
   strSvc = "autoplay";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::autoplay,
                                           &(*this));
 
   strSvc = "set_difficulty";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::setDifficulty,
                                           &(*this));
 
   strSvc = "get_play_history";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::getPlayHistory,
                                           &(*this));
 
   strSvc = "get_board_state";
-  m_services[strSvc] = nh.advertiseService(strSvc,
+  m_services[strSvc] = m_nh.advertiseService(strSvc,
                                           &ChessServer::getBoardState,
                                           &(*this));
 }
@@ -161,6 +186,11 @@ bool ChessServer::startNewGame(chess_server::StartNewGameSvc::Request  &req,
   if( (rc = m_engine.startNewGame(colorPlayer)) == CE_OK )
   {
     m_game.setupBoard();
+
+    m_bPubNewGame = true;
+    m_nPubLastPly = 0;
+    m_bPubEndGame = false;
+
     ROS_INFO_STREAM("start_new_game: player=" << nameOfColor(colorPlayer));
   }
 
@@ -199,6 +229,11 @@ bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSANSvc::Request  &req,
 
   if( rc == CE_OK )
   {
+    if( m_game.getWinner() != NoColor )
+    {
+      m_bPubEndGame = true;
+    }
+
     ROS_INFO_STREAM(move.m_nMove << ". " << nameOfColor(move.m_player) << ": "
         << move.m_strAN);
     return true;
@@ -239,6 +274,11 @@ bool ChessServer::makeAMove(chess_server::MakeAMoveSvc::Request  &req,
 
   if( rc == CE_OK )
   {
+    if( m_game.getWinner() != NoColor )
+    {
+      m_bPubEndGame = true;
+    }
+
     ROS_INFO_STREAM(move.m_nMove << ". " << nameOfColor(move.m_player) << ": "
         << move.m_strAN);
     return true;
@@ -273,6 +313,11 @@ bool ChessServer::getEnginesMove(chess_server::GetEnginesMoveSvc::Request  &req,
 
   if( rc == CE_OK )
   {
+    if( m_game.getWinner() != NoColor )
+    {
+      m_bPubEndGame = true;
+    }
+
     ROS_INFO_STREAM(move.m_nMove << ". " << nameOfColor(move.m_player) << ": "
         << move.m_strAN);
     return true;
@@ -295,6 +340,8 @@ bool ChessServer::resign(chess_server::ResignSvc::Request  &req,
   m_game.stopPlaying(Resign, opponent(m_engine.getPlayersColor()));
 
   ROS_INFO_STREAM(nameOfColor(m_engine.getPlayersColor()) << " resigned.");
+
+  m_bPubEndGame = true;
 
   rsp.rc = CE_OK;
 
@@ -320,7 +367,8 @@ bool ChessServer::setDifficulty(chess_server::SetDifficultySvc::Request  &req,
 
   m_engine.setGameDifficulty(difficulty);
 
-  ROS_INFO("Game difficulty set to %4.1f.", difficulty);
+  ROS_INFO("%s: Game difficulty set to %4.1f.",
+      ros::this_node::getName().c_str(), difficulty);
 
   rsp.rc = CE_OK;
 
@@ -349,7 +397,8 @@ bool ChessServer::getPlayHistory(chess_server::GetPlayHistorySvc::Request  &req,
     colorPlayer = opponent(colorPlayer);
   }
 
-  ROS_INFO("Retrieved chess play history.");
+  ROS_INFO("%s: Retrieved chess play history of %zu moves.",
+      ros::this_node::getName().c_str(), move.size());
 
   return true;
 }
@@ -393,7 +442,8 @@ bool ChessServer::getBoardState(chess_server::GetBoardStateSvc::Request  &req,
     }
   }
 
-  ROS_INFO("Retrieved chess board state.");
+  ROS_INFO("%s: Retrieved chess board state.",
+      ros::this_node::getName().c_str());
 
   return true;
 }
@@ -403,25 +453,66 @@ bool ChessServer::getBoardState(chess_server::GetBoardStateSvc::Request  &req,
 // Topic Publishers
 //..............................................................................
 
-void ChessServer::advertisePublishers(ros::NodeHandle &nh, int nQueueDepth)
+void ChessServer::advertisePublishers(int nQueueDepth)
 {
   string  strPub;
 
   strPub = "new_game_status";
-  m_publishers[strPub] = nh.advertise<chess_server::ChessNewGameStatusMsg>(
+  m_publishers[strPub] = m_nh.advertise<chess_server::ChessNewGameStatusMsg>(
                                   strPub, nQueueDepth);
 
   strPub = "move_status";
-  m_publishers[strPub] = nh.advertise<chess_server::ChessMoveStatusMsg>(
+  m_publishers[strPub] = m_nh.advertise<chess_server::ChessMoveStatusMsg>(
                                   strPub, nQueueDepth);
 
   strPub = "end_game_status";
-  m_publishers[strPub] = nh.advertise<chess_server::ChessEndGameStatusMsg>(
+  m_publishers[strPub] = m_nh.advertise<chess_server::ChessEndGameStatusMsg>(
                                   strPub, nQueueDepth);
 }
 
-void ChessServer::publish()
+uint32_t ChessServer::publish(uint32_t seqnum)
 {
+  // new game
+  if( m_bPubNewGame )
+  {
+    chess_server::ChessNewGameStatusMsg msg;
+
+    msg.header.seq    = seqnum++;
+    msg.player.color  = m_engine.getPlayersColor();
+
+    m_publishers["new_game_status"].publish(msg);
+
+    m_bPubNewGame = false;
+  }
+
+  // moves
+  while( m_nPubLastPly < m_game.getNumOfPlies() )
+  {
+    chess_server::ChessMoveStatusMsg msg;
+
+    msg.header.seq    = seqnum++;
+    toMsgMove(m_game[m_nPubLastPly], msg.move);
+
+    m_publishers["move_status"].publish(msg);
+
+    ++m_nPubLastPly;
+  }
+  
+  // end of game
+  if( m_bPubEndGame )
+  {
+    chess_server::ChessEndGameStatusMsg msg;
+
+    msg.header.seq    = seqnum++;
+    msg.winner.color  = m_game.getWinner();
+    msg.result.code   = m_game.getEndOfGameReason();
+
+    m_publishers["end_game_status"].publish(msg);
+
+    m_bPubEndGame = false;
+  }
+
+  return seqnum;
 }
 
 
@@ -429,16 +520,7 @@ void ChessServer::publish()
 // Subscribed Topics
 //..............................................................................
 
-void ChessServer::subscribeToTopics(ros::NodeHandle &nh)
-{
-}
-
-
-//..............................................................................
-// Action Servers
-//..............................................................................
-
-void ChessServer::bindActionServers(ros::NodeHandle &nh)
+void ChessServer::subscribeToTopics()
 {
 }
 
@@ -447,17 +529,18 @@ void ChessServer::bindActionServers(ros::NodeHandle &nh)
 // Action thread
 //..............................................................................
 
+#ifdef INC_ACTION_THREAD
 int ChessServer::createActionThread()
 {
   int   rc;
 
   m_eActionState  = ActionStateWorking;
-  m_eActionTaskid = ActionTaskIdNone;
 
-  rc = pthread_create(&m_threadAction, NULL, ChessServer::actionThread,
-                      (void*)this);
+  pthread_mutex_init(&m_mutexAction, NULL);
+  pthread_cond_init(&m_condAction,   NULL);
+  
+  rc = pthread_create(&m_threadAction, NULL, actionThread, (void*)this);
  
-
   if( rc == 0 )
   {
     m_eActionState = ActionStateIdle;
@@ -466,7 +549,9 @@ int ChessServer::createActionThread()
 
   else
   {
-    m_eActionState  = ActionStateExit;
+    m_eActionState = ActionStateExit;
+    pthread_cond_destroy(&m_condAction);
+    pthread_mutex_destroy(&m_mutexAction);
     rc = -CE_ECODE_SYS;
     ROS_ERROR("pthread_create()");
   }
@@ -476,17 +561,56 @@ int ChessServer::createActionThread()
 
 void ChessServer::destroyActionThread()
 {
-  m_eActionState  = ActionStateExit;
-  signal;
+  m_eActionState = ActionStateExit;
+
+  signalActionThread();
 
   pthread_cancel(m_threadAction);
   pthread_join(m_threadAction, NULL);
 
-  delete x;
+  pthread_cond_destroy(&m_condAction);
+  pthread_mutex_destroy(&m_mutexAction);
 
-  m_eActionTaskId = AsyncTaskIdNone;
+  ROS_INFO("%s: Node action thread destroyed.",
+      ros::this_node::getName().c_str());
+}
 
-  ROS_INFO("Action thread destroyed.");
+int ChessServer::execAction(boost::function<void()> execAction)
+{
+  int   rc;
+
+  lock();
+
+  if( m_eActionState == ActionStateIdle )
+  {
+    m_execAction = execAction;
+    m_eActionState = ActionStateWorking;
+    signalActionThread();
+    rc = CE_OK;
+  }
+  else
+  {
+    rc = -CE_ECODE_NO_EXEC;
+  }
+
+  unlock();
+
+  return rc;
+}
+
+void ChessServer::signalActionThread()
+{
+  pthread_cond_signal(&m_condAction);
+}
+
+void ChessServer::idleWait()
+{
+  lock();
+  while( m_eActionState == ActionStateIdle )
+  {
+    pthread_cond_wait(&m_condAction, &m_mutexAction);
+  }
+  unlock();
 }
 
 void *ChessServer::actionThread(void *pArg)
@@ -499,51 +623,35 @@ void *ChessServer::actionThread(void *pArg)
   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldstate);
   //pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldstate);
 
-  LOGDIAG3("Action thread created.");
+  ROS_INFO("%s: Node action thread created.",
+      ros::this_node::getName().c_str());
 
   while( pThis->m_eActionState != ActionStateExit )
   {
-    wait();
+    pThis->idleWait();
 
-    autoplay;
-    getenginesmove;
-    abort;
+    switch( pThis->m_eActionState )
+    {
+      case ActionStateWorking:
+        pThis->m_execAction();
+        pThis->lock();
+        pThis->m_eActionState = ActionStateIdle;
+        pThis->unlock();
+        break;
+      case ActionStateIdle:
+      case ActionStateExit:
+      default:
+        break;
+    }
   }
 
-  //
-  // Execute asychronous task.
-  //
-  // For now, only calibrate task is supported actions.
-  //
-  switch( pThis->m_eAsyncTaskId )
-  {
-    // Calibrate the robot. 
-    case AsyncTaskIdCalibrate:
-      {
-        bool bForceRecalib = (bool)pThis->m_pAsyncTaskArg;
-        rc = pThis->calibrate(bForceRecalib);
-      }
-      break;
+  pThis->m_eActionState = ActionStateExit;
 
-    // Unknown task id.
-    default:
-      LOGERROR("Unknown action task id = %d.", (int)pThis->m_eAsyncTaskId);
-      rc = -HEK_ECODE_BAD_VAL;
-      break;
-  }
-
-  // freeze robot at current calibrated or aborted position.
-  //pThis->freeze();  disable, so that goto zero pt in calibration finsishes
-
-  pThis->m_eAsyncTaskId     = AsyncTaskIdNone;
-  pThis->m_pAsyncTaskArg    = NULL;
-  pThis->m_rcAsyncTask      = rc;
-  pThis->m_eActionState  = ActionStateIdle;
-
-  LOGDIAG3("Action thread exited.");
+  ROS_INFO("%s: Node action thread exited.", ros::this_node::getName().c_str());
 
   return NULL;
 }
+#endif // INC_ACTION_THREAD
 
 
 //..............................................................................

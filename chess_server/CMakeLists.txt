@@ -58,6 +58,7 @@ add_service_files(
 add_action_files(
   DIRECTORY action 
   FILES 
+    AutoPlay.action
     GetEnginesMove.action
 )
 
@@ -81,6 +82,7 @@ include_directories(
 )
 
 add_executable(chess_server
+  src/chess_as_auto_play.cpp
   src/chess_as_get_engines_move.cpp
   src/chess_server_main.cpp
   src/chess_engine_gnu.cpp

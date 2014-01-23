@@ -6,4 +6,4 @@
 ChessMoveMsg move     # engine's fully quantified move
 ---
 # Feedback
-bool  thinking        # engine is [not] "thinking"
+uint16  thinking      # engine progress "thinking" in ticks

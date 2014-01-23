@@ -59,8 +59,12 @@
 #include <pthread.h>
 
 #include <string>
+#include <map>
+
+#include <boost/bind.hpp>
 
 #include "ros/ros.h"
+#include "actionlib/server/simple_action_server.h"
 
 #include "chess_server/StartNewGameSvc.h"
 #include "chess_server/MakeAMoveSvc.h"
@@ -72,14 +76,21 @@
 #include "chess_server/GetPlayHistorySvc.h"
 #include "chess_server/GetBoardStateSvc.h"
 
+#include "chess_server/GetEnginesMoveAction.h"
+
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceGame.h"
 
 #include "chess_engine_gnu.h"
 
+#define INC_ACTION_THREAD   ///< include an action thread with this class
+
 namespace chess_engine
 {
+  /*!
+   * \brief The class embodiment of the chess_server ROS node.
+   */
   class ChessServer
   {
   public:
@@ -88,26 +99,23 @@ namespace chess_engine
      */
     enum ActionState
     {
-      ActionStateExit     = 0,
+      ActionStateExit     = 0,    ///< exit(ing)
       ActionStateIdle     = 1,    ///< idle, no actions running
       ActionStateWorking  = 2     ///< action(s) running
     };
 
-    enum ActionTaskId
-    {
-      ActionTaskIdNone            = 0,
-      ActionTaskIdAutoPlay,
-      ActionTaskIdGetEnginesMove
-    };
+    /*! map type of ROS services */
+    typedef std::map<std::string, ros::ServiceServer> MapServices;
 
-    ChessServer()
-    {
-    }
+    /*! map type of ROS publishers */
+    typedef std::map<std::string, ros::Publisher> MapPublishers;
 
-    virtual ~ChessServer()
-    {
-      disconnect();
-    }
+    typedef actionlib::SimpleActionServer<chess_server::GetEnginesMoveAction>
+      GetEnginesMoveAS;
+
+    ChessServer(ros::NodeHandle &nh);
+
+    virtual ~ChessServer();
 
     virtual int connect(const std::string &strChessApp="gnuchess")
     {
@@ -119,37 +127,77 @@ namespace chess_engine
       return m_engine.closeConnection();
     }
 
-    virtual void advertiseServices(ros::NodeHandle &nh);
+    virtual void advertiseServices();
 
-    virtual void advertisePublishers(ros::NodeHandle &nh, int nQueueDepth=10);
+    virtual void advertisePublishers(int nQueueDepth=10);
 
-    virtual void subscribeToTopics(ros::NodeHandle &nh);
+    virtual void subscribeToTopics();
 
-    virtual void bindActionServers(ros::NodeHandle &nh);
+    virtual uint32_t publish(uint32_t seqnum);
 
-    virtual void publish();
+    ros::NodeHandle &getNodeHandle()
+    {
+      return m_nh;
+    }
 
-    const ChessEngineGnu &getEngine()
+    ChessEngineGnu &getEngine()
     {
       return m_engine;
     }
 
+    Game &getGame()
+    {
+      return m_game;
+    }
+
+#ifdef INC_ACTION_THREAD
+    /*!
+     * \brief Start execution a (component) an action server's action in the
+     * action thread.
+     *
+     * This function does not block.
+     *
+     * \param execAction  Function to execute. Should not return until its
+     *                    action is finished. The function can be a class
+     *                    member fucntion. For example:\n
+     *                    rc = x.execAction(boost::bind(&AS::thExec, this));\n
+     *                    where:\n
+     *                    x is an instance of this class and this is an instance
+     *                    of class AS.   
+     *
+     * \return
+     * Returns CE_OK of success, \<0 on failure.
+     */
+     int execAction( boost::function<void()> execAction);
+#endif // INC_ACTION_THREAD
+
+    //
+    // Support
+    //
+    void toMsgMove(const Move &move, chess_server::ChessMoveMsg &msgMove);
+
   protected:
-    ChessEngineGnu  m_engine;     ///< chess backend engine
-    Game            m_game;       ///< chess game state
+    ros::NodeHandle  &m_nh;         ///< the node handler bound to this instance
 
-    // ros
-    std::map<std::string, ros::ServiceServer> m_services;
-                                  ///< chess_server services
-    std::map<std::string, ros::Publisher> m_publishers;
-                                  ///< chess_server publishers
+    // chess
+    ChessEngineGnu    m_engine;     ///< chess backend engine
+    Game              m_game;       ///< chess game state
 
-    // asynchronous task control
-    ActionState       m_eActionState;  ///< asynchronous task state
-    ActionTaskId      m_eActionTaskId;
-    pthread_mutex_t   m_mutexAction;
-    pthread_cond_t    m_condAction;
-    pthread_t         m_threadAction;     ///< async pthread identifier 
+    // ROS services, publishers, subscriptions, and local state
+    MapServices       m_services;     ///< chess_server services
+    MapPublishers     m_publishers;   ///< chess_server publishers
+    bool              m_bPubNewGame;  ///< do [not] publish new game
+    int               m_nPubLastPly;  ///< last published ply (1/2 move)
+    bool              m_bPubEndGame;  ///< do [not] publish end of game
+
+    // action thread control
+#ifdef INC_ACTION_THREAD
+    ActionState             m_eActionState; ///< action task state
+    boost::function<void()> m_execAction;   ///< function to execute
+    pthread_mutex_t         m_mutexAction;  ///< mutex
+    pthread_cond_t          m_condAction;   ///< condition
+    pthread_t               m_threadAction; ///< action pthread identifier 
+#endif // INC_ACTION_THREAD
 
     //
     // Service callbacks
@@ -184,11 +232,58 @@ namespace chess_engine
     //
     // Action (and service) thread
     //
+#ifdef INC_ACTION_THREAD
+    int createActionThread();
 
-    //
-    // Support
-    //
-    void toMsgMove(const Move &move, chess_server::ChessMoveMsg &msgMove);
+    void destroyActionThread();
+
+    /*!
+     * \brief Lock the action thread.
+     *
+     * The calling thread will block while waiting for the mutex to become 
+     * available. Once locked, the action thread will block.
+     *
+     * The lock()/unlock() primitives provide a safe mechanism to modify state. 
+     *
+     * \par Context:
+     * Any.
+     */
+    void lock()
+    {
+      pthread_mutex_lock(&m_mutexAction);
+    }
+
+    /*!
+     * \brief Unlock the action thread.
+     *
+     * The action thread will be available to run.
+     *
+     * \par Context:
+     * Any.
+     */
+    void unlock()
+    {
+      pthread_mutex_unlock(&m_mutexAction);
+    }
+    
+    /*!
+     * \brief Signal action thread of change of state.
+     *
+     * \par Context:
+     * Calling thread or background thread.
+     */
+    void signalActionThread();
+
+    /*!
+     * \brief Wait indefinitely in idle state.
+     *
+     * \par Context:
+     * Calling thread or background thread.
+     */
+    void idleWait();
+    
+    static void *actionThread(void *pArg);
+#endif // INC_ACTION_THREAD
   };
 
 } // namespace chess_engine
