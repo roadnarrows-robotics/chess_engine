@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package>
+  <name>rqt_chess</name>
+  <version>1.0.0</version>
+  <description>Provides graphical interface to chess engine chess_server ROS node.</description>
+
+  <maintainer email="robin.knight@roadnarrows.com">Robin Knight</maintainer>
+  <license>BSD</license>
+
+  <url type="website">http://roadnarrows.com/Hekateros</url>
+  <url type="website">http://github.com/roadnarrows-robotics/chess_engine</url>
+
+  <author email="robin.knight@roadnarrows.com">Robin Knight</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>qt_build</build_depend>
+
+  <build_depend>actionlib</build_depend>
+  <build_depend>actionlib_msgs</build_depend>
+  <build_depend>control_msgs</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>message_generation</build_depend>
+
+  <run_depend>actionlib</run_depend>
+  <run_depend>actionlib_msgs</run_depend>
+  <run_depend>control_msgs</run_depend>
+  <run_depend>message_runtime</run_depend>
+</package>

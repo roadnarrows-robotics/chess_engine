@@ -421,7 +421,7 @@ int main(int argc, char *argv[])
 
   ROS_INFO("%s: Publishers registered.", ros::this_node::getName().c_str());
 
-  ASAutoPlay       asAutoPlay("auto_play", chess);
+  ASAutoPlay       asAutoPlay("auto_play_action", chess);
   ASGetEnginesMove asGetEnginesMove("get_engines_move_action", chess);
 
   ROS_INFO("%s: Action servers registered and started.",
