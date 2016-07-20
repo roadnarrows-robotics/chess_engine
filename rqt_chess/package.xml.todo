@@ -5,10 +5,9 @@
   <description>Provides graphical interface to chess engine chess_server ROS node.</description>
 
   <maintainer email="robin.knight@roadnarrows.com">Robin Knight</maintainer>
-  <license>BSD</license>
+  <license>MIT</license>
 
-  <url type="website">http://roadnarrows.com/Hekateros</url>
-  <url type="website">http://github.com/roadnarrows-robotics/chess_engine</url>
+  <url type="website">http://roadnarrows.com</url>
 
   <author email="robin.knight@roadnarrows.com">Robin Knight</author>
 

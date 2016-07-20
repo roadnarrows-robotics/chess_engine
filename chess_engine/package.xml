@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>chess_engine</name>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
 
   <description>
     RoadNarrows Robotics ROS Chess Engine metapackage - provides chess engine
@@ -10,10 +10,9 @@
 
   <author email="robin.knight@roadnarrows.com">robin knight</author>
   <maintainer email="robin.knight@roadnarrows.com">daniel packard</maintainer>
-  <license>BSD</license>
+  <license>MIT</license>
 
-  <url type="website">http://roadnarrows.com/Hekateros</url>
-  <url type="website">http://roadnarrows.com/r-and-d/Hekateros</url>
+  <url type="website">http://roadnarrows.com</url>
 
   <buildtool_depend>catkin</buildtool_depend>
 
