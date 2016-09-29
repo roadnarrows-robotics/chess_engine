@@ -10,6 +10,12 @@ Nearing completion. (About time!) I need to add:
 * a secondary chess engine backend
 * refine the ROS messages and services.
 
+## License
+MIT
+
+# Wiki
+[Wiki] (https://github.com/roadnarrows-robotics/chess_engine/wiki)
+
 # Summary
 ## What It Is
 The chess_engine meta-package provides a set of libraries, headers,
@@ -45,15 +51,13 @@ The <em>chess_server</em> ROS node supports the **full** game of chess:
 If you are looking to develop a Deeper Blue, this repo will not aid you in
 obtaining Chess Nirvana. Good luck.
 
-## License
-MIT
-
 # Requirements
 * Ubuntu 16.04 + ROS kinetic _or_ Ubuntu 14.04 + ROS indigo
 * GNU Chess 6.x
 * Qt 5.x
 
 # System Reference Diagram
+![Reference Diagram][ref_diagram]
 
 # Game Scenarios
 Game | Player 0 | Player 1
@@ -63,3 +67,6 @@ Robot vs. Computer | CE0 | CE1
 Robot vs. Human | CE0 | human
 Robot vs. Robot | CE0 | CE1
 Computer vs. Human | CE0 | human
+
+<!-- images -->
+[ref_diagram]: https://github.com/roadnarrows-robotics/chess_engine/images/RefDiagram.png
