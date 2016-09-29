@@ -23,7 +23,9 @@ catkin_package()
 
 # this comes from qt_build's qt-ros.cmake which is automatically 
 # included via the dependency call in manifest.xml
-rosbuild_prepare_qt4(QtCore QtGui) # Add the appropriate components to the component list here
+rosbuild_prepare_qt5(QtCore QtGui) # Add the appropriate components to the component list here
+find_package(Qt4 REQUIRED COMPONENTS QtCore QtGui)
+include(${QT_USE_FILE})
 
 ##############################################################################
 # Sections
