@@ -15,7 +15,7 @@
 #include <string>
 #include <std_msgs/String.h>
 #include <sstream>
-#include "../include/rqt_chess/qnode.h"
+#include "qnode.h"
 
 /*****************************************************************************
 ** Namespaces

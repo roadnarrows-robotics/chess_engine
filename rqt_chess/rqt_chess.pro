@@ -11,15 +11,22 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = rqt_chess
 TEMPLATE = app
 
+SOURCES += \
+  src/main.cpp \
+  src/mainwindow.cpp \
+  src/chessboard.cpp
 
-SOURCES += main.cpp\
-        mainwindow.cpp \
-    chessboard.cpp
+#  src/qnode.cpp
 
-HEADERS  += mainwindow.h \
-    chessboard.h
+HEADERS += \
+  include/mainwindow.h \
+  include/chessboard.h
 
-FORMS    += mainwindow.ui
+#  include/qnode.h
+
+INCLUDEPATH += include
+
+FORMS    += ui/mainwindow.ui
 
 RESOURCES += resources/images.qrc
 
