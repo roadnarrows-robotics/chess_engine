@@ -19,4 +19,4 @@ MIT
 [Wiki] (https://github.com/roadnarrows-robotics/chess_engine/wiki)
 
 <!-- images -->
-[board]: https://github.com/roadnarrows-robotics/chess_engine/wiki/images/chessboard.png
+[board]: https://github.com/roadnarrows-robotics/chess_engine/wiki/images/gameover.png
