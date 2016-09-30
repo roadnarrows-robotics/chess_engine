@@ -5,9 +5,30 @@
  *
  * @date November 2010
  **/
-#ifndef rqt_chess_MAIN_WINDOW_H
-#define rqt_chess_MAIN_WINDOW_H
+#ifndef MAINWINDOW_H
+#define MAINWINDOW_H
 
+#include <QMainWindow>
+#include "chessboard.h"
+
+namespace Ui {
+class MainWindow;
+}
+
+class MainWindow : public QMainWindow
+{
+    Q_OBJECT
+
+public:
+    explicit MainWindow(QWidget *parent = 0);
+    ~MainWindow();
+
+private:
+    Ui::MainWindow *ui;
+    ChessBoard     *m_chessBoard;
+};
+
+#if 0 // OLD ROS QT
 /*****************************************************************************
 ** Includes
 *****************************************************************************/
@@ -60,5 +81,6 @@ private:
 };
 
 }  // namespace rqt_chess
+#endif // OLD ROS QT
 
-#endif // rqt_chess_MAIN_WINDOW_H
+#endif // MAINWINDOW_H

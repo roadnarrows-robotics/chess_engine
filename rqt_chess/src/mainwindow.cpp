@@ -1,10 +1,32 @@
 /**
  * @file /src/main_window.cpp
  *
- * @brief Implementation for the qt gui.
+ * @brief Chess Engine Qt GUI.
  *
- * @date February 2011
+ * @date 2016
  **/
+
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+
+MainWindow::MainWindow(QWidget *parent) :
+    QMainWindow(parent),
+    ui(new Ui::MainWindow)
+{
+    ui->setupUi(this);
+
+    this->setWindowTitle("rqt_chess");
+
+    m_chessBoard = new ChessBoard();
+    ui->playArea->setScene(m_chessBoard);
+}
+
+MainWindow::~MainWindow()
+{
+    delete ui;
+}
+
+#if 0 // OLD ROS QT
 /*****************************************************************************
 ** Includes
 *****************************************************************************/
@@ -168,4 +190,5 @@ void MainWindow::closeEvent(QCloseEvent *event)
 }
 
 }  // namespace rqt_chess
+#endif // OLD ROS QT
 

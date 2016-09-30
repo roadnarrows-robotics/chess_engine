@@ -1,32 +1,11 @@
-/**
- * @file /src/main.cpp
- *
- * @brief Qt based gui.
- *
- * @date November 2010
- **/
-/*****************************************************************************
-** Includes
-*****************************************************************************/
-
-#include <QtGui>
+#include "mainwindow.h"
 #include <QApplication>
-#include "../include/rqt_chess/main_window.hpp"
 
-/*****************************************************************************
-** Main
-*****************************************************************************/
-
-int main(int argc, char **argv) {
-
-    /*********************
-    ** Qt
-    **********************/
-    QApplication app(argc, argv);
-    rqt_chess::MainWindow w(argc,argv);
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+    MainWindow w;
     w.show();
-    app.connect(&app, SIGNAL(lastWindowClosed()), &app, SLOT(quit()));
-    int result = app.exec();
 
-	return result;
+    return a.exec();
 }

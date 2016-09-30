@@ -9,8 +9,8 @@
 ** Ifdefs
 *****************************************************************************/
 
-#ifndef rqt_chess_QNODE_HPP_
-#define rqt_chess_QNODE_HPP_
+#ifndef QNODE_HPP_
+#define QNODE_HPP_
 
 /*****************************************************************************
 ** Includes

@@ -1,5 +1,7 @@
-<RCC>
-    <qresource prefix="/" >
-        <file>images/icon.png</file>
-    </qresource>
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <file>images/chessboard2.png</file>
+    <file>images/blackknight.png</file>
+    <file>images/whitequeen.png</file>
+</qresource>
 </RCC>
