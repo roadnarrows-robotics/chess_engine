@@ -1,7 +1,8 @@
 #include <QGraphicsItem>
-#include "chessboard.h"
 
-ChessBoard::ChessBoard()
+#include "rqt_chess/chessscene.h"
+
+ChessScene::ChessScene()
 {
   //QPixmap img = QPixmap("/prj/ros/indigo/src/chess_engine.wiki/images/chessboard2.png");
   QPixmap img = QPixmap(":/images/chessboard2.png");

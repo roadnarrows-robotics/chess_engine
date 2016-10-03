@@ -91,7 +91,7 @@ namespace chess_engine
       return m_bIsPlaying;
     }
 
-    bool stopPlaying(ChessResult reason, ChessColor winner=NoColor)
+    void stopPlaying(ChessResult reason, ChessColor winner=NoColor)
     {
       m_bIsPlaying  = false;
       m_endReason   = reason;

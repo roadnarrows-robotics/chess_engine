@@ -14,17 +14,17 @@ TEMPLATE = app
 SOURCES += \
   src/main.cpp \
   src/mainwindow.cpp \
-  src/chessboard.cpp
+  src/chessscene.cpp
 
 #  src/qnode.cpp
 
 HEADERS += \
-  include/mainwindow.h \
-  include/chessboard.h
+  include/rqt_chess/mainwindow.h \
+  include/rqt_chess/chessscene.h
 
 #  include/qnode.h
 
-INCLUDEPATH += include
+INCLUDEPATH += include ../include
 
 FORMS    += ui/mainwindow.ui
 

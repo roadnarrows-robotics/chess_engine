@@ -9,23 +9,28 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "chessboard.h"
 
-namespace Ui {
-class MainWindow;
+#include "chess_engine/ceChess.h"
+#include "chess_engine/ceGame.h"
+
+#include "rqt_chess/chessscene.h"
+
+namespace Ui
+{
+  class MainWindow;
 }
 
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT
+  Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = 0);
-    ~MainWindow();
+  explicit MainWindow(QWidget *parent = 0);
+  ~MainWindow();
 
 private:
-    Ui::MainWindow *ui;
-    ChessBoard     *m_chessBoard;
+  Ui::MainWindow *ui;
+  ChessScene     *m_chessScene;
 };
 
 #if 0 // OLD ROS QT

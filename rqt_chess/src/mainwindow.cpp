@@ -6,24 +6,25 @@
  * @date 2016
  **/
 
-#include "mainwindow.h"
+#include "rqt_chess/mainwindow.h"
+
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-    ui->setupUi(this);
+  ui->setupUi(this);
 
-    this->setWindowTitle("rqt_chess");
+  this->setWindowTitle("rqt_chess");
 
-    m_chessBoard = new ChessBoard();
-    ui->playArea->setScene(m_chessBoard);
+  m_chessScene = new ChessScene();
+  ui->playArea->setScene(m_chessScene);
 }
 
 MainWindow::~MainWindow()
 {
-    delete ui;
+  delete ui;
 }
 
 #if 0 // OLD ROS QT
