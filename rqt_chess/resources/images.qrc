@@ -1,7 +1,21 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
+    <file>images/icon.png</file>
+
     <file>images/chessboard2.png</file>
-    <file>images/blackknight.png</file>
-    <file>images/whitequeen.png</file>
+
+    <file>images/blackKing.png</file>
+    <file>images/blackQueen.png</file>
+    <file>images/blackBishop.png</file>
+    <file>images/blackKnight.png</file>
+    <file>images/blackRook.png</file>
+    <file>images/blackPawn.png</file>
+
+    <file>images/whiteKing.png</file>
+    <file>images/whiteQueen.png</file>
+    <file>images/whiteBishop.png</file>
+    <file>images/whiteKnight.png</file>
+    <file>images/whiteRook.png</file>
+    <file>images/whitePawn.png</file>
 </qresource>
 </RCC>

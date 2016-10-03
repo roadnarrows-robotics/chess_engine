@@ -10,17 +10,17 @@
 //
 /*! \file
  *
- * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
- * $Rev: 3334 $
- *
  * \brief Common chess utilities.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013  RoadNarrows
+ * (C) 2013-2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
+ *
+ * \par License:
+ * MIT
  */
 /*
  * @EulaBegin@

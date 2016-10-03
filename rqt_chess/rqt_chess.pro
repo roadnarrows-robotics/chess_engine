@@ -24,9 +24,10 @@ HEADERS += \
 
 #  include/qnode.h
 
-INCLUDEPATH += include ../include
-
 FORMS    += ui/mainwindow.ui
 
 RESOURCES += resources/images.qrc
 
+INCLUDEPATH += include ../include
+
+LIBS += -L../../../devel/lib -lchessengine -lboost_regex

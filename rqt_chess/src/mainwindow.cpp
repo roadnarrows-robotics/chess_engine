@@ -1,10 +1,28 @@
-/**
- * @file /src/main_window.cpp
+////////////////////////////////////////////////////////////////////////////////
+//
+// Package:   RoadNarrows Robotics ROS Chess Engine Package
+//
+// Link:      https://github.com/roadnarrows-robotics/chess_engine
+//
+// Node:      rqt_chess
+//
+// File:      mainwindow.cpp
+//
+/*! \file
  *
- * @brief Chess Engine Qt GUI.
+ * \brief Qt based gui for rqt_chess.
  *
- * @date 2016
- **/
+ * \author Robin Knight (robin.knight@roadnarrows.com)
+ * 
+ * \par Copyright:
+ * (C) 2016  RoadNarrows
+ * (http://www.roadnarrows.com)
+ * \n All Rights Reserved
+ *
+ * \par License:
+ * MIT
+ */
+////////////////////////////////////////////////////////////////////////////////
 
 #include "rqt_chess/mainwindow.h"
 
@@ -17,6 +35,7 @@ MainWindow::MainWindow(QWidget *parent) :
   ui->setupUi(this);
 
   this->setWindowTitle("rqt_chess");
+	setWindowIcon(QIcon(":/images/icon.png"));
 
   m_chessScene = new ChessScene();
   ui->playArea->setScene(m_chessScene);

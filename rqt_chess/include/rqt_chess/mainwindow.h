@@ -1,17 +1,35 @@
-/**
- * @file /include/rqt_chess/main_window.hpp
+////////////////////////////////////////////////////////////////////////////////
+//
+// Package:   RoadNarrows Robotics ROS Chess Engine Package
+//
+// Link:      https://github.com/roadnarrows-robotics/chess_engine
+//
+// Node:      rqt_chess
+//
+// File:      mainwindow.h
+//
+/*! \file
  *
- * @brief Qt based gui for rqt_chess.
+ * \brief Qt based gui for rqt_chess.
  *
- * @date November 2010
- **/
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+ * \author Robin Knight (robin.knight@roadnarrows.com)
+ *
+ * \par Copyright:
+ * (C) 2016  RoadNarrows
+ * (http://www.roadnarrows.com)
+ * \n All Rights Reserved
+ *
+ * \par License:
+ * MIT
+ */
+////////////////////////////////////////////////////////////////////////////////
+
+#ifndef _MAIN_WINDOW_H
+#define _MAIN_WINDOW_H
 
 #include <QMainWindow>
 
 #include "chess_engine/ceChess.h"
-#include "chess_engine/ceGame.h"
 
 #include "rqt_chess/chessscene.h"
 
@@ -88,4 +106,4 @@ private:
 }  // namespace rqt_chess
 #endif // OLD ROS QT
 
-#endif // MAINWINDOW_H
+#endif // _MAIN_WINDOW_H

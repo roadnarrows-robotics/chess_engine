@@ -1,29 +1,158 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+// Package:   RoadNarrows Robotics ROS Chess Engine Package
+//
+// Link:      https://github.com/roadnarrows-robotics/chess_engine
+//
+// Node:      rqt_chess
+//
+// File:      chessscene.cpp
+//
+/*! \file
+ *
+ * \brief Chess scene widget implementation.
+ *
+ * \author Robin Knight (robin.knight@roadnarrows.com)
+ * 
+ * \par Copyright:
+ * (C) 2016  RoadNarrows
+ * (http://www.roadnarrows.com)
+ * \n All Rights Reserved
+ *
+ * \par License:
+ * MIT
+ */
+////////////////////////////////////////////////////////////////////////////////
+
+#include <stdio.h>
+
+#include <map>
+
 #include <QGraphicsItem>
 
 #include "rqt_chess/chessscene.h"
 
+
+using namespace std;
+using namespace chess_engine;
+
+
+namespace chess_engine
+{
+  static const int ChessSqSize = 48; ///< chess board square size (pixels)
+}
+
 ChessScene::ChessScene()
 {
-  //QPixmap img = QPixmap("/prj/ros/indigo/src/chess_engine.wiki/images/chessboard2.png");
-  QPixmap img = QPixmap(":/images/chessboard2.png");
+  QPixmap               img;
+  QGraphicsPixmapItem  *pItem;
 
-  //setBackgroundImage(img);
+  // chess board
+  img = QPixmap(":/images/chessboard2.png");
+  pItem = addPixmap(img);
+  pItem->setPos(0, 0);
+  pItem->setZValue(-1);
 
-  QGraphicsPixmapItem *bgItem = new QGraphicsPixmapItem();
-  
-  bgItem = addPixmap(img);
-  bgItem->setPos(0, 0);
-  bgItem->setZValue(-1);
+  // chess pieces
+  loadPieces();
+}
 
-  QPixmap img2 = QPixmap(":/images/blackknight.png");
-  QGraphicsPixmapItem *p = new QGraphicsPixmapItem();
-  p = addPixmap(img2);
-  p->setPos(192+5, 48+5);
-  p->setZValue(0);
+void ChessScene::loadPieces()
+{
+  int           file, rank;
+  BoardElem    *pElem;
 
-  QPixmap img3 = QPixmap(":/images/whitequeen.png");
-  QGraphicsPixmapItem *p2 = new QGraphicsPixmapItem();
-  p2 = addPixmap(img3);
-  p2->setPos(48*6+5, 48*7+5);
-  p2->setZValue(0);
+  string        strId;
+  string        strFileName;
+
+  QPixmap               img;
+  QGraphicsPixmapItem  *pItem;
+
+  int           x, y;
+
+  m_game.setupBoard();
+
+  for(file = ChessFileA; file <= ChessFileH; ++file)
+  {
+    for(rank = ChessRank1; rank <= ChessRank8; ++rank)
+    {
+      pElem = m_game.getBoardElem((ChessFile)file, (ChessRank)rank);
+
+      if( (pElem == NULL) ||
+          (pElem->m_color == NoColor) ||
+          (pElem->m_piece == NoPiece) )
+      {
+        continue;
+      }
+
+      strFileName = ":/images/" +
+                      nameOfColor(pElem->m_color) +
+                      nameOfPiece(pElem->m_piece) +
+                      ".png";
+
+      strId = toPieceId((ChessFile)file, (ChessRank)rank,
+                            pElem->m_color, pElem->m_piece);
+
+      img = QPixmap(strFileName.c_str());
+
+      pItem = addPixmap(img);
+      pItem->setZValue(0);
+
+      x = m_game.toCol(file) * ChessSqSize + 5;
+      y = m_game.toRow(rank) * ChessSqSize + 5;
+
+      pItem->setPos(x, y);
+
+      m_pixmapPiece[strId] = pItem;
+    }
+  }
+}
+
+void ChessScene::setupGame()
+{
+  int           file, rank;
+  string        strId;
+  BoardElem    *pElem;
+
+  QGraphicsPixmapItem  *pItem;
+
+  int           x, y;
+
+  m_game.setupBoard();
+
+  for(file = ChessFileA; file <= ChessFileH; ++file)
+  {
+    for(rank = ChessRank1; rank <= ChessRank8; ++rank)
+    {
+      pElem = m_game.getBoardElem((ChessFile)file, (ChessRank)rank);
+
+      if( (pElem == NULL) ||
+          (pElem->m_color == NoColor) ||
+          (pElem->m_piece == NoPiece) )
+      {
+        continue;
+      }
+
+      strId = toPieceId((ChessFile)file, (ChessRank)rank,
+                            pElem->m_color, pElem->m_piece);
+
+      pItem = m_pixmapPiece[strId];
+
+      x = m_game.toCol(file) * ChessSqSize + 5;
+      y = m_game.toRow(rank) * ChessSqSize + 5;
+
+      pItem->setPos(x, y);
+    }
+  }
+}
+
+string ChessScene::toPieceId(ChessFile file,   ChessRank rank,
+                             ChessColor color, ChessPiece piece)
+{
+  char    buf[64];
+
+  sprintf(buf, "%c%c-%s-%s",
+      file, rank, nameOfColor(color).c_str(), nameOfPiece(piece).c_str());
+
+  return string(buf);
 }

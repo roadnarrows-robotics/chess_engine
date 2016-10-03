@@ -10,17 +10,17 @@
 //
 /*! \file
  *
- * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
- * $Rev: 3334 $
- *
  * \brief The chess game state implementation.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013  RoadNarrows
+ * (C) 2013-2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
+ *
+ * \par License:
+ * MIT
  */
 /*
  * @EulaBegin@
@@ -392,6 +392,94 @@ int Game::sync(Move &move)
   return CE_OK;
 }
 
+void Game::stopPlaying(ChessResult reason, ChessColor winner)
+{
+  m_bIsPlaying  = false;
+  m_endReason   = reason;
+  m_winner      = winner;
+}
+
+int Game::getNumOfMoves()
+{
+  return ((int)m_history.size() + 1) / 2;
+}
+
+int Game::getNumOfPlies()
+{
+  return (int)m_history.size();
+}
+
+BoardElem *Game::getBoardElem(ChessFile file, ChessRank rank)
+{
+  ChessSquare sq;
+
+  sq.m_file = file;
+  sq.m_rank = rank;
+
+  return elem(sq);
+}
+
+std::vector<ChessPiece> &Game::getBoneYard(ChessColor color)
+{
+  return color == White? m_boneYardWhite: m_boneYardBlack;
+}
+
+int Game::toRow(int rank)
+{
+  return NumOfRanks - (rank - (int)ChessRank1) - 1;
+}
+
+int Game::toCol(int file)
+{
+  return file - (int)ChessFileA;
+}
+
+int Game::toRowCol(const ChessSquare &sq, int &row, int &col)
+{
+  row = toRow(sq.m_rank);
+  col = toCol(sq.m_file);
+  if( (row < 0) || (row >= NumOfRanks) || (col < 0) || (col >= NumOfFiles) )
+  {
+    return -CE_ECODE_CHESS_FATAL;
+  }
+  else
+  {
+    return CE_OK;
+  }
+}
+
+ChessColor Game::getSquareColor(int file, int rank)
+{
+  return ((file - ChessFileA) + (rank - ChessRank1)) % 2 == 0? Black: White;
+}
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+//  Protected
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+BoardElem *Game::elem(const ChessSquare &sq)
+{
+  int row, col;
+
+  if( toRowCol(sq, row, col) == CE_OK )
+  {
+    return &m_board[row][col];
+  }
+  return NULL;
+}
+
+void Game::movePiece(const ChessSquare &sqFrom, const ChessSquare &sqTo)
+{
+  movePiece(elem(sqFrom), elem(sqTo));
+}
+
+void Game::movePiece(BoardElem *pSrc, BoardElem *pDst)
+{
+  *pDst = *pSrc;
+  *pSrc = EmptyElem;
+}
+
 void Game::recordHistory(Move &move)
 {
   m_history.push_back(move);
@@ -413,6 +501,11 @@ void Game::moveToBoneYard(BoardElem *pDeadPiece)
 
   *pDeadPiece = EmptyElem;
 }
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+//  Friends
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 ostream &chess_engine::operator<<(ostream &os, const Game &game)
 {

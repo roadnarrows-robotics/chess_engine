@@ -6,21 +6,21 @@
 //
 // Library:   libchessengine
 //
-// File:      ceGame.ce
+// File:      ceGame.h
 //
 /*! \file
- *
- * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
- * $Rev: 3334 $
  *
  * \brief The chess game state interface.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013  RoadNarrows
+ * (C) 2013-2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
+ *
+ * \par License:
+ * MIT
  */
 /*
  * @EulaBegin@
@@ -65,23 +65,44 @@
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceUtils.h"
 
+/*!
+ * \brief Package top-level namespace.
+ */
 namespace chess_engine
 {
+  /*!
+   * \brief Chess board element.
+   */
   struct BoardElem
   {
-    ChessColor  m_color;
-    ChessPiece  m_piece;
+    ChessColor  m_color;  ///< color
+    ChessPiece  m_piece;  ///< piece
   };
 
+  /*!
+   * \brief Empty board element (no piece occupying the square, etc).
+   */
   const BoardElem EmptyElem = {NoColor, NoPiece};
 
+  /*!
+   * \brief Chess game class.
+   */
   class Game
   {
   public:
+    /*!
+     * \brief Default constructor.
+     */
     Game();
   
+    /*!
+     * \brief Destructor.
+     */
     virtual ~Game() { }
   
+    /*!
+     * \brief Set up board to start a game.
+     */
     void setupBoard();
   
     int sync(Move &move);
@@ -91,22 +112,11 @@ namespace chess_engine
       return m_bIsPlaying;
     }
 
-    void stopPlaying(ChessResult reason, ChessColor winner=NoColor)
-    {
-      m_bIsPlaying  = false;
-      m_endReason   = reason;
-      m_winner      = winner;
-    }
+    void stopPlaying(ChessResult reason, ChessColor winner=NoColor);
 
-    int getNumOfMoves()
-    {
-      return ((int)m_history.size() + 1) / 2;
-    }
+    int getNumOfMoves();
 
-    int getNumOfPlies()
-    {
-      return (int)m_history.size();
-    }
+    int getNumOfPlies();
 
     ChessColor getWinner()
     {
@@ -128,49 +138,17 @@ namespace chess_engine
       return m_history[i];
     }
 
-    BoardElem *getBoardElem(ChessFile file, ChessRank rank)
-    {
-      ChessSquare sq;
+    BoardElem *getBoardElem(ChessFile file, ChessRank rank);
 
-      sq.m_file = file;
-      sq.m_rank = rank;
+    std::vector<ChessPiece> &getBoneYard(ChessColor color);
 
-      return elem(sq);
-    }
+    static int toRow(int rank);
 
-    std::vector<ChessPiece> &getBoneYard(ChessColor color)
-    {
-      return color == White? m_boneYardWhite: m_boneYardBlack;
-    }
+    static int toCol(int file);
 
-    static int toRow(int rank)
-    {
-      return NumOfRanks - (rank - (int)ChessRank1) - 1;
-    }
+    static int toRowCol(const ChessSquare &sq, int &row, int &col);
 
-    static int toCol(int file)
-    {
-      return file - (int)ChessFileA;
-    }
-
-    static int toRowCol(const ChessSquare &sq, int &row, int &col)
-    {
-      row = toRow(sq.m_rank);
-      col = toCol(sq.m_file);
-      if( (row < 0) || (row >= NumOfRanks) || (col < 0) || (col >= NumOfFiles) )
-      {
-        return -CE_ECODE_CHESS_FATAL;
-      }
-      else
-      {
-        return CE_OK;
-      }
-    }
-
-    static ChessColor getSquareColor(int file, int rank)
-    {
-      return ((file - ChessFileA) + (rank - ChessRank1)) % 2 == 0? Black: White;
-    }
+    static ChessColor getSquareColor(int file, int rank);
 
     void setGuiState(bool on_off)
     {
@@ -185,29 +163,13 @@ namespace chess_engine
     std::vector<Move>       m_history;        ///< game history
     std::vector<ChessPiece> m_boneYardWhite;  ///< captured white pieces
     std::vector<ChessPiece> m_boneYardBlack;  ///< captured black pieces
-    bool                    m_bGui;           ///< [not] gui stream output
+    bool                    m_bGui;           ///< [not] a gui stream output
 
-    BoardElem *elem(const ChessSquare &sq)
-    {
-      int row, col;
+    BoardElem *elem(const ChessSquare &sq);
 
-      if( toRowCol(sq, row, col) == CE_OK )
-      {
-        return &m_board[row][col];
-      }
-      return NULL;
-    }
+    void movePiece(const ChessSquare &sqFrom, const ChessSquare &sqTo);
 
-    void movePiece(const ChessSquare &sqFrom, const ChessSquare &sqTo)
-    {
-      movePiece(elem(sqFrom), elem(sqTo));
-    }
-
-    void movePiece(BoardElem *pSrc, BoardElem *pDst)
-    {
-      *pDst = *pSrc;
-      *pSrc = EmptyElem;
-    }
+    void movePiece(BoardElem *pSrc, BoardElem *pDst);
 
     void recordHistory(Move &move);
 

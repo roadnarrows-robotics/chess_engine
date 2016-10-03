@@ -1,10 +1,19 @@
-/**
- * @file /include/rqt_chess/qnode.hpp
+////////////////////////////////////////////////////////////////////////////////
+//
+// Package:   RoadNarrows Robotics ROS Chess Engine Package
+//
+// Link:      https://github.com/roadnarrows-robotics/chess_engine
+//
+// Node:      rqt_chess
+//
+// File:      qnode.h
+//
+/*! \file
  *
- * @brief Communications central!
- *
- * @date February 2011
- **/
+ * \brief Ros communication central!
+ */
+////////////////////////////////////////////////////////////////////////////////
+
 /*****************************************************************************
 ** Ifdefs
 *****************************************************************************/
