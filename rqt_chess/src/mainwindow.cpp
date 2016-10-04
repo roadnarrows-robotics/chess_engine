@@ -38,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	setWindowIcon(QIcon(":/images/icon.png"));
 
   m_chessScene = new ChessScene();
+  m_chessScene->setSceneRect(0, 0, 500, 396);
   ui->playArea->setScene(m_chessScene);
 }
 

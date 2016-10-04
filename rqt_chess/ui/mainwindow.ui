@@ -19,18 +19,8 @@
      <rect>
       <x>70</x>
       <y>0</y>
-      <width>400</width>
+      <width>521</width>
       <height>400</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QGraphicsView" name="whiteDeadPool">
-    <property name="geometry">
-     <rect>
-      <x>480</x>
-      <y>0</y>
-      <width>141</width>
-      <height>111</height>
      </rect>
     </property>
    </widget>

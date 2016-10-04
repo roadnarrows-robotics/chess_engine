@@ -30,4 +30,4 @@ RESOURCES += resources/images.qrc
 
 INCLUDEPATH += include ../include
 
-LIBS += -L../../../devel/lib -lchessengine -lboost_regex
+LIBS += -L/prj/ros/kinetic/devel/lib -L../../../devel/lib -lchessengine -lboost_regex
