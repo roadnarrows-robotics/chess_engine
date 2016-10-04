@@ -448,6 +448,16 @@ int Game::toRowCol(const ChessSquare &sq, int &row, int &col)
   }
 }
 
+ChessFile Game::toFile(int col)
+{
+  return (ChessFile)((int)ChessFileA + col);
+}
+
+ChessRank Game::toRank(int row)
+{
+  return (ChessRank)((int)ChessRank1 + NumOfRanks - row - 1);
+}
+
 ChessColor Game::getSquareColor(int file, int rank)
 {
   return ((file - ChessFileA) + (rank - ChessRank1)) % 2 == 0? Black: White;

@@ -28,6 +28,7 @@
 
 #include <map>
 
+#include <QGraphicsSceneMouseEvent>
 #include <QGraphicsItem>
 
 #include "rqt_chess/chessscene.h"
@@ -36,13 +37,16 @@
 using namespace std;
 using namespace chess_engine;
 
-
-namespace chess_engine
+namespace rqt_chess
 {
-  static const int ChessSqSize = 48; ///< chess board square size (pixels)
+  static const int ChessSqSize = 48;  ///< chess board square size (pixels)
+  static const int ChessOffset = 4;   ///< chess board offset (pixels)
 }
 
-ChessScene::ChessScene()
+using namespace rqt_chess;
+
+ChessScene::ChessScene() :
+  m_pieceSrc(EmptyElem), m_pieceDst(EmptyElem)
 {
   QPixmap               img;
   QGraphicsPixmapItem  *pItem;
@@ -55,6 +59,50 @@ ChessScene::ChessScene()
 
   // chess pieces
   loadPieces();
+}
+
+void ChessScene::newGame()
+{
+  fprintf(stderr, "newGame()\n");
+  setupBoard();
+}
+
+void ChessScene::mousePressEvent(QGraphicsSceneMouseEvent *mouseEvent)
+{
+}
+
+void ChessScene::mouseMoveEvent(QGraphicsSceneMouseEvent *mouseEvent)
+{
+}
+
+void ChessScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
+{
+  if( mouseEvent->button() == Qt::LeftButton )
+  {
+    QPointF pt = mouseEvent->scenePos(); //.toPoint();
+
+    fprintf(stderr, "mousePressEvent(): %lf,%lf --> ", pt.x(), pt.y());
+
+    if( (pt.x() >= 0.0) && (pt.x() <= 390.0) &&
+        (pt.y() >= 0.0) && (pt.y() <= 390.0) )
+    {
+      int row = (int)pt.y() / (double)ChessSqSize;
+      int col = (int)pt.x() / (double)ChessSqSize;
+
+      ChessFile file = m_game.toFile(col);
+      ChessRank rank = m_game.toRank(row);
+      
+      fprintf(stderr, "sq=%c%c\n", (char)file, (char)rank);
+    }
+    else
+    {
+      fprintf(stderr, "no sq\n");
+    }
+  }
+}
+
+void ChessScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+{
 }
 
 void ChessScene::loadPieces()
@@ -98,8 +146,8 @@ void ChessScene::loadPieces()
       pItem = addPixmap(img);
       pItem->setZValue(0);
 
-      x = m_game.toCol(file) * ChessSqSize + 5;
-      y = m_game.toRow(rank) * ChessSqSize + 5;
+      x = m_game.toCol(file) * ChessSqSize + ChessOffset;
+      y = m_game.toRow(rank) * ChessSqSize + ChessOffset;
 
       pItem->setPos(x, y);
 
@@ -108,7 +156,7 @@ void ChessScene::loadPieces()
   }
 }
 
-void ChessScene::setupGame()
+void ChessScene::setupBoard()
 {
   int           file, rank;
   string        strId;
@@ -138,8 +186,8 @@ void ChessScene::setupGame()
 
       pItem = m_pixmapPiece[strId];
 
-      x = m_game.toCol(file) * ChessSqSize + 5;
-      y = m_game.toRow(rank) * ChessSqSize + 5;
+      x = m_game.toCol(file) * ChessSqSize + ChessOffset;
+      y = m_game.toRow(rank) * ChessSqSize + ChessOffset;
 
       pItem->setPos(x, y);
     }

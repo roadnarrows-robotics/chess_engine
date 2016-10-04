@@ -31,6 +31,7 @@
 
 #include <QObject>
 #include <QGraphicsScene>
+#include <QGraphicsSceneMouseEvent>
 
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceGame.h"
@@ -44,17 +45,28 @@ class ChessScene : public QGraphicsScene
 public:
   explicit ChessScene();
 
-  void setupGame();
-
 signals:
 
 public slots:
+  void newGame();
 
 protected:
-  chess_engine::Game    m_game;
-  PiecePixMap           m_pixmapPiece;
+  chess_engine::Game      m_game;
+  PiecePixMap             m_pixmapPiece;
+  chess_engine::BoardElem m_pieceSrc;
+  chess_engine::BoardElem m_pieceDst;
+
+  void mousePressEvent(QGraphicsSceneMouseEvent *mouseEvent);
+
+  void mouseMoveEvent(QGraphicsSceneMouseEvent *mouseEvent);
+
+  void mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent);
+
+  void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event);
 
   void loadPieces();
+
+  void setupBoard();
 
   static std::string toPieceId(chess_engine::ChessFile file,
                                chess_engine::ChessRank rank,

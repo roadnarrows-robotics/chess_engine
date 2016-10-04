@@ -142,11 +142,56 @@ namespace chess_engine
 
     std::vector<ChessPiece> &getBoneYard(ChessColor color);
 
+    /*!
+     * \brief Convert chess rank to board array row.
+     *
+     * \note Rank 8 is row 7, ..., rank 1 is row 0.
+     *
+     * \param rank    Chess rank ['1', '8'].
+     *
+     * \return Board row [0, 7]
+     */
     static int toRow(int rank);
 
+    /*!
+     * \brief Convert chess file to board array column.
+     *
+     * \param file    Chess file ['a', 'h'].
+     *
+     * \return Board column [0, 7]
+     */
     static int toCol(int file);
 
+    /*!
+     * \brief Convert chess square coordinates to board array row and column.
+     *
+     * \param [in] sq     Board square (file,rank).
+     * \param [out] row   Board row [0, 7]
+     * \param [out] col   Board column [0, 7]
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
     static int toRowCol(const ChessSquare &sq, int &row, int &col);
+
+    /*!
+     * \brief Convert board array column to chess file.
+     *
+     * \param col  Board column [0, 7]
+     *
+     * \reture Chess file ['a', 'h'].
+     */
+    static ChessFile toFile(int col);
+
+    /*!
+     * \brief Convert board array row to chess rank.
+     *
+     * \note Rank 8 is row 7, ..., rank 1 is row 0.
+     *
+     * \param row   Board row [0, 7]
+     *
+     * \return Chess rank ['1', '8'].
+     */
+    static ChessRank toRank(int row);
 
     static ChessColor getSquareColor(int file, int rank);
 

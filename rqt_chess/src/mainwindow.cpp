@@ -40,12 +40,21 @@ MainWindow::MainWindow(QWidget *parent) :
   m_chessScene = new ChessScene();
   m_chessScene->setSceneRect(0, 0, 500, 396);
   ui->playArea->setScene(m_chessScene);
+
+  createConnections();
 }
 
 MainWindow::~MainWindow()
 {
   delete ui;
 }
+
+void MainWindow::createConnections()
+{
+  QObject::connect(ui->newGame, SIGNAL(clicked()),
+                     m_chessScene, SLOT(newGame()));
+}
+
 
 #if 0 // OLD ROS QT
 /*****************************************************************************

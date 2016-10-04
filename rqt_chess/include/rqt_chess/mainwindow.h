@@ -44,11 +44,14 @@ class MainWindow : public QMainWindow
 
 public:
   explicit MainWindow(QWidget *parent = 0);
+
   ~MainWindow();
 
 private:
   Ui::MainWindow *ui;
   ChessScene     *m_chessScene;
+
+  void createConnections();
 };
 
 #if 0 // OLD ROS QT
