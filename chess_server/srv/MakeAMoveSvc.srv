@@ -1,6 +1,0 @@
-### Make a move using chess square source and destination notation service.
-
-ChessSquareMsg  src   # {file}{rank}
-ChessSquareMsg  dst   # {file}{rank}
----
-ChessMoveMsg    move  # the actual move, fully quantified

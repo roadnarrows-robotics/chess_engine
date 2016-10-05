@@ -70,21 +70,117 @@
  */
 namespace chess_engine
 {
-  /*!
-   * \brief Chess board element.
-   */
-  class BoardElem
-  {
-  public:
-    ChessColor  m_color;  ///< color
-    ChessPiece  m_piece;  ///< piece
-    std::string m_strId;  ///< 
-  };
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // Class ChessSquare
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
   /*!
-   * \brief Empty board element (no piece occupying the square, etc).
+   * \brief Chess board square class.
    */
-  const BoardElem EmptyElem = {NoColor, NoPiece};
+  class ChessSquare
+  {
+  public:
+
+    /*!
+     * \brief Default constructor.
+     */
+    ChessSquare();
+
+    /*!
+     * \brief Destructor.
+     */
+    virtual ~ChessSquare() { };
+
+    /*!
+     * \brief Assignment operator.
+     *
+     * \param rhs   Right-hand side source object.
+     *
+     * \return Dereferenced this
+     */
+    ChessSquare operator==(const ChessSquare &rhs);
+
+    /*!
+     * \brief Set chess square data.
+     *
+     * \param [in] eColor       Piece color [NoColor, White, Black]
+     * \param [in] eType        Piece type [NoPiece, King, Queen, ..., Pawn]
+     * \param [in] strPieceId   Fixed unique piece id.
+     */
+    void set(const ChessColor eColor,
+             const ChessPiece eType,
+             const std::string &strPieceId);
+
+    /*!
+     * \brief Get chess square data.
+     *
+     * \param [out] eColor      Piece color [NoColor, White, Black]
+     * \param [out] eType       Piece type [NoPiece, King, Queen, ..., Pawn]
+     * \param [out] strPieceId  Fixed unique piece id.
+     */
+    void get(ChessColor &eColor,
+             ChessPiece &eType,
+             std::string &strPieceId);
+
+    /*!
+     * \brief Copy this square's data to destination square.
+     *
+     * \param [out] dst   Destination square.
+     */
+    void copy(ChessSquare &dst);
+
+    /*!
+     * \brief Move this square's data to destination square.
+     *
+     * \param [out] dst   Destination square.
+     */
+    void move(ChessSquare &dst);
+
+    /*!
+     * \brief Remove this square's data.
+     *
+     * The square is without a chess piece. (isEmpty() is true).
+     */
+    void remove();
+
+    /*!
+     * \brief Test if square is empty (i.e. no piece).
+     *
+     * \return Returns true or false.
+     */
+    bool isEmpty();
+
+    /*!
+     * \brief Get this chess square's chess piece color.
+     *
+     * \return Piece color [NoColor, White, Black]
+     */
+    ChessColor getPieceColor();
+
+    /*!
+     * \brief Get this chess square's chess piece type.
+     *
+     * \return Piece type [NoPiece, King, Queen, ..., Pawn]
+     */
+    ChessPiece getPieceType();
+
+    /*!
+     * \brief Get this chess square's chess piece unique string id.
+     *
+     * \return Fixed unique piece id.
+     */
+    std::string getPieceId();
+
+  protected:
+    ChessColor  m_eColor;     ///< piece color [NoColor, White, Black]
+    ChessPiece  m_eType;      ///< piece type [NoPiece, King, Queen, ..., Pawn]
+    std::string m_strPieceId; ///< fixed unique piece id (eg. "white-b-pawn")
+  };
+
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // Class ChessGame
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
   /*!
    * \brief Chess game class.
@@ -203,7 +299,7 @@ namespace chess_engine
     }
 
   protected:
-    BoardElem               m_board[NumOfRanks][NumOfFiles]; ///< board matrix
+    ChessSquare             m_board[NumOfRanks][NumOfFiles]; ///< board matrix
     bool                    m_bIsPlaying;     ///< is [not] playing a game
     ChessResult             m_endReason;      ///< end of game reason
     ChessColor              m_winner;         ///< end of game winner, if any

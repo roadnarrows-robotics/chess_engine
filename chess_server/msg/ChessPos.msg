@@ -1,4 +1,4 @@
-### Chess square in traditional file,rank location message.
+### Chess position in traditional file,rank location message.
 
 # file enumeration constants
 uint8 NoFile =  48  # '0' (ascii zero)

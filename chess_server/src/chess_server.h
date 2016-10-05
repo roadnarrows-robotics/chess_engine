@@ -10,17 +10,17 @@
 //
 /*! \file
  *
- * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
- * $Rev: 3334 $
- *
  * \brief The ROS chess_server node class interface.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013  RoadNarrows
+ * (C) 2013-2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
+ *
+ * \par Licence:
+ * MIT
  */
 /*
  * @EulaBegin@
@@ -66,15 +66,19 @@
 #include "ros/ros.h"
 #include "actionlib/server/simple_action_server.h"
 
-#include "chess_server/StartNewGameSvc.h"
-#include "chess_server/MakeAMoveSvc.h"
-#include "chess_server/MakeAMoveSANSvc.h"
-#include "chess_server/GetEnginesMoveSvc.h"
-#include "chess_server/ResignSvc.h"
-#include "chess_server/AutoPlaySvc.h"
-#include "chess_server/SetDifficultySvc.h"
-#include "chess_server/GetPlayHistorySvc.h"
-#include "chess_server/GetBoardStateSvc.h"
+#include "chess_server/ChessNewGameStatus.h"
+#include "chess_server/ChessMoveStamped.h"
+#include "chess_server/ChessEndGameStatus.h"
+
+#include "chess_server/StartNewGame.h"
+#include "chess_server/MakeAMove.h"
+#include "chess_server/MakeAMoveSAN.h"
+#include "chess_server/GetEnginesMove.h"
+#include "chess_server/Resign.h"
+#include "chess_server/AutoPlay.h"
+#include "chess_server/SetDifficulty.h"
+#include "chess_server/GetPlayHistory.h"
+#include "chess_server/GetBoardState.h"
 
 #include "chess_server/GetEnginesMoveAction.h"
 
@@ -174,7 +178,7 @@ namespace chess_engine
     //
     // Support
     //
-    void toMsgMove(const Move &move, chess_server::ChessMoveMsg &msgMove);
+    void toMsgMove(const Move &move, chess_server::ChessMove &msgMove);
 
   protected:
     ros::NodeHandle  &m_nh;         ///< the node handler bound to this instance
@@ -190,6 +194,11 @@ namespace chess_engine
     int               m_nPubLastPly;  ///< last published ply (1/2 move)
     bool              m_bPubEndGame;  ///< do [not] publish end of game
 
+    // Messages for published data.
+    chess_server::ChessNewGameStatus  m_msgNewGameStatus;
+    chess_server::ChessMoveStamped    m_msgMoveStamped;
+    chess_server::ChessEndGameStatus  m_msgEndOfGameStatus;
+    
     // action thread control
 #ifdef INC_ACTION_THREAD
     ActionState             m_eActionState; ///< action task state
@@ -202,32 +211,36 @@ namespace chess_engine
     //
     // Service callbacks
     //
-    bool startNewGame(chess_server::StartNewGameSvc::Request  &req,
-                      chess_server::StartNewGameSvc::Response &rsp);
+    bool startNewGame(chess_server::StartNewGame::Request  &req,
+                      chess_server::StartNewGame::Response &rsp);
 
-    bool makeAMoveSAN(chess_server::MakeAMoveSANSvc::Request  &req,
-                      chess_server::MakeAMoveSANSvc::Response &rsp);
+    bool makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
+                      chess_server::MakeAMoveSAN::Response &rsp);
 
-    bool makeAMove(chess_server::MakeAMoveSvc::Request  &req,
-                   chess_server::MakeAMoveSvc::Response &rsp);
+    bool makeAMove(chess_server::MakeAMove::Request  &req,
+                   chess_server::MakeAMove::Response &rsp);
 
-    bool getEnginesMove(chess_server::GetEnginesMoveSvc::Request  &req,
-                        chess_server::GetEnginesMoveSvc::Response &rsp);
+    bool getEnginesMove(chess_server::GetEnginesMove::Request  &req,
+                        chess_server::GetEnginesMove::Response &rsp);
 
-    bool resign(chess_server::ResignSvc::Request  &req,
-                chess_server::ResignSvc::Response &rsp);
+    bool resign(chess_server::Resign::Request  &req,
+                chess_server::Resign::Response &rsp);
 
-    bool autoplay(chess_server::AutoPlaySvc::Request  &req,
-                  chess_server::AutoPlaySvc::Response &rsp);
+    bool autoplay(chess_server::AutoPlay::Request  &req,
+                  chess_server::AutoPlay::Response &rsp);
 
-    bool setDifficulty(chess_server::SetDifficultySvc::Request  &req,
-                       chess_server::SetDifficultySvc::Response &rsp);
+    bool setDifficulty(chess_server::SetDifficulty::Request  &req,
+                       chess_server::SetDifficulty::Response &rsp);
 
-    bool getPlayHistory(chess_server::GetPlayHistorySvc::Request  &req,
-                        chess_server::GetPlayHistorySvc::Response &rsp);
+    bool getPlayHistory(chess_server::GetPlayHistory::Request  &req,
+                        chess_server::GetPlayHistory::Response &rsp);
 
-    bool getBoardState(chess_server::GetBoardStateSvc::Request  &req,
-                       chess_server::GetBoardStateSvc::Response &rsp);
+    bool getBoardState(chess_server::GetBoardState::Request  &req,
+                       chess_server::GetBoardState::Response &rsp);
+
+    void stampHeader(std_msgs::Header  &header,
+                     u32_t              nSeqNum = 0,
+                     const std::string &strFrameId= "0");
 
     //
     // Action (and service) thread

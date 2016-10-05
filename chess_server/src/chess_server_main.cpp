@@ -10,9 +10,6 @@
 //
 /*! \file
  *
- * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
- * $Rev: 3334 $
- *
  * \brief The ROS node chess_server main.
  *
  * The ROS chess_server node provides services and subscriptions to play 
@@ -26,9 +23,12 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013  RoadNarrows
+ * (C) 2013-2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
+ *
+ * \par Licence:
+ * MIT
  */
 /*
  * @EulaBegin@

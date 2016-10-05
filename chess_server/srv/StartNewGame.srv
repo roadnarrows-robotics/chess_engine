@@ -1,5 +1,5 @@
 ### Start new chess game service.
 
-ChessColorMsg player   # white or black
+ChessColor player   # white or black
 ---
 int8 rc   # 0 = ok, <0 = error

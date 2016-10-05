@@ -1,0 +1,4 @@
+### Get backend chess engine's move service.
+
+---
+ChessMove move   # engine's fully quantified move

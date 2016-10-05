@@ -30,29 +30,29 @@ find_library(
 add_message_files(
   DIRECTORY msg
   FILES 
-    ChessCastlingMsg.msg
-    ChessColorMsg.msg
-    ChessEndGameStatusMsg.msg
-    ChessMoveMsg.msg
-    ChessMoveStatusMsg.msg
-    ChessNewGameStatusMsg.msg
-    ChessPieceMsg.msg
-    ChessResultMsg.msg 
-    ChessSquareMsg.msg
+    ChessCastling.msg
+    ChessColor.msg
+    ChessEndGameStatus.msg
+    ChessMove.msg
+    ChessMoveStamped.msg
+    ChessNewGameStatus.msg
+    ChessPiece.msg
+    ChessPos.msg
+    ChessResult.msg 
 )
 
 add_service_files(
   DIRECTORY srv
   FILES
-    AutoPlaySvc.srv
-    GetBoardStateSvc.srv
-    GetEnginesMoveSvc.srv
-    GetPlayHistorySvc.srv
-    MakeAMoveSANSvc.srv
-    MakeAMoveSvc.srv
-    ResignSvc.srv
-    SetDifficultySvc.srv
-    StartNewGameSvc.srv
+    AutoPlay.srv
+    GetBoardState.srv
+    GetEnginesMove.srv
+    GetPlayHistory.srv
+    MakeAMoveSAN.srv
+    MakeAMove.srv
+    Resign.srv
+    SetDifficulty.srv
+    StartNewGame.srv
 )
 
 add_action_files(

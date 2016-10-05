@@ -10,17 +10,17 @@
 //
 /*! \file
  *
- * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
- * $Rev: 3334 $
- *
  * \brief Autoplay the next n moves action server class implementation.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2014  RoadNarrows
+ * (C) 2014-2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
+ *
+ * \par Licence:
+ * MIT
  */
 /*
  * @EulaBegin@
@@ -63,7 +63,7 @@
 
 #include "actionlib/server/simple_action_server.h"
 
-#include "chess_server/ChessMoveMsg.h"
+#include "chess_server/ChessMove.h"
 
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceError.h"

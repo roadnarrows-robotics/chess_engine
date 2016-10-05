@@ -10,17 +10,17 @@
 //
 /*! \file
  *
- * $LastChangedDate: 2013-09-24 16:16:44 -0600 (Tue, 24 Sep 2013) $
- * $Rev: 3334 $
- *
  * \brief The ROS chess_server node supported services.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013  RoadNarrows
+ * (C) 2013-2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
+ *
+ * \par Licence:
+ * MIT
  */
 /*
  * @EulaBegin@
@@ -63,19 +63,19 @@
 
 #include "ros/ros.h"
 
-#include "chess_server/ChessNewGameStatusMsg.h"
-#include "chess_server/ChessMoveStatusMsg.h"
-#include "chess_server/ChessEndGameStatusMsg.h"
+#include "chess_server/ChessNewGameStatus.h"
+#include "chess_server/ChessMoveStamped.h"
+#include "chess_server/ChessEndGameStatus.h"
 
-#include "chess_server/StartNewGameSvc.h"
-#include "chess_server/MakeAMoveSvc.h"
-#include "chess_server/MakeAMoveSANSvc.h"
-#include "chess_server/GetEnginesMoveSvc.h"
-#include "chess_server/ResignSvc.h"
-#include "chess_server/AutoPlaySvc.h"
-#include "chess_server/SetDifficultySvc.h"
-#include "chess_server/GetPlayHistorySvc.h"
-#include "chess_server/GetBoardStateSvc.h"
+#include "chess_server/StartNewGame.h"
+#include "chess_server/MakeAMove.h"
+#include "chess_server/MakeAMoveSAN.h"
+#include "chess_server/GetEnginesMove.h"
+#include "chess_server/Resign.h"
+#include "chess_server/AutoPlay.h"
+#include "chess_server/SetDifficulty.h"
+#include "chess_server/GetPlayHistory.h"
+#include "chess_server/GetBoardState.h"
 
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceError.h"
@@ -173,8 +173,8 @@ void ChessServer::advertiseServices()
 /*!
  *  \brief Request calibrate.
  */
-bool ChessServer::startNewGame(chess_server::StartNewGameSvc::Request  &req,
-                               chess_server::StartNewGameSvc::Response &rsp)
+bool ChessServer::startNewGame(chess_server::StartNewGame::Request  &req,
+                               chess_server::StartNewGame::Response &rsp)
 {
   ChessColor  colorPlayer;
   int         rc;
@@ -205,8 +205,8 @@ bool ChessServer::startNewGame(chess_server::StartNewGameSvc::Request  &req,
   return rc == CE_OK? true: false;
 }
 
-bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSANSvc::Request  &req,
-                               chess_server::MakeAMoveSANSvc::Response &rsp)
+bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
+                               chess_server::MakeAMoveSAN::Response &rsp)
 {
   Move  move;
   int   rc;
@@ -247,8 +247,8 @@ bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSANSvc::Request  &req,
 }
 
 
-bool ChessServer::makeAMove(chess_server::MakeAMoveSvc::Request  &req,
-                            chess_server::MakeAMoveSvc::Response &rsp)
+bool ChessServer::makeAMove(chess_server::MakeAMove::Request  &req,
+                            chess_server::MakeAMove::Response &rsp)
 {
   Move  move;
   int   rc;
@@ -291,8 +291,8 @@ bool ChessServer::makeAMove(chess_server::MakeAMoveSvc::Request  &req,
   }
 }
 
-bool ChessServer::getEnginesMove(chess_server::GetEnginesMoveSvc::Request  &req,
-                                 chess_server::GetEnginesMoveSvc::Response &rsp)
+bool ChessServer::getEnginesMove(chess_server::GetEnginesMove::Request  &req,
+                                 chess_server::GetEnginesMove::Response &rsp)
 {
   Move  move;
   int   rc;
@@ -330,8 +330,8 @@ bool ChessServer::getEnginesMove(chess_server::GetEnginesMoveSvc::Request  &req,
   }
 }
 
-bool ChessServer::resign(chess_server::ResignSvc::Request  &req,
-                         chess_server::ResignSvc::Response &rsp)
+bool ChessServer::resign(chess_server::Resign::Request  &req,
+                         chess_server::Resign::Response &rsp)
 {
   ROS_DEBUG("resign");
 
@@ -348,16 +348,16 @@ bool ChessServer::resign(chess_server::ResignSvc::Request  &req,
   return true;
 }
 
-bool ChessServer::autoplay(chess_server::AutoPlaySvc::Request  &req,
-                           chess_server::AutoPlaySvc::Response &rsp)
+bool ChessServer::autoplay(chess_server::AutoPlay::Request  &req,
+                           chess_server::AutoPlay::Response &rsp)
 {
   ROS_DEBUG("autoplay");
 
   return true;
 }
 
-bool ChessServer::setDifficulty(chess_server::SetDifficultySvc::Request  &req,
-                                chess_server::SetDifficultySvc::Response &rsp)
+bool ChessServer::setDifficulty(chess_server::SetDifficulty::Request  &req,
+                                chess_server::SetDifficulty::Response &rsp)
 {
   float   difficulty;
 
@@ -375,8 +375,8 @@ bool ChessServer::setDifficulty(chess_server::SetDifficultySvc::Request  &req,
   return true;
 }
 
-bool ChessServer::getPlayHistory(chess_server::GetPlayHistorySvc::Request  &req,
-                                 chess_server::GetPlayHistorySvc::Response &rsp)
+bool ChessServer::getPlayHistory(chess_server::GetPlayHistory::Request  &req,
+                                 chess_server::GetPlayHistory::Response &rsp)
 {
   std::vector<Move>           &move = m_game.getGameHistory();
   std::vector<Move>::iterator iter;
@@ -403,17 +403,17 @@ bool ChessServer::getPlayHistory(chess_server::GetPlayHistorySvc::Request  &req,
   return true;
 }
 
-bool ChessServer::getBoardState(chess_server::GetBoardStateSvc::Request  &req,
-                                chess_server::GetBoardStateSvc::Response &rsp)
+bool ChessServer::getBoardState(chess_server::GetBoardState::Request  &req,
+                                chess_server::GetBoardState::Response &rsp)
 {
   int           file;
   int           rank;
   BoardElem    *pElem;
   ChessPos      pos;
 
-  chess_server::ChessSquareMsg  msgSquare;
-  chess_server::ChessColorMsg   msgColor;
-  chess_server::ChessPieceMsg   msgPiece;
+  chess_server::ChessPos    msgSquare;
+  chess_server::ChessColor  msgColor;
+  chess_server::ChessPiece  msgPiece;
 
   ROS_DEBUG("get_board_state");
 
@@ -426,13 +426,13 @@ bool ChessServer::getBoardState(chess_server::GetBoardStateSvc::Request  &req,
       {
         msgSquare.file = (uint8_t)file;
         msgSquare.rank = (uint8_t)rank;
-        rsp.square.push_back(msgSquare);
+        rsp.squares.push_back(msgSquare);
 
         msgColor.color = (uint8_t)pElem->m_color;
-        rsp.whose.push_back(msgColor);
+        rsp.colors.push_back(msgColor);
 
         msgPiece.piece = (uint8_t)pElem->m_piece;
-        rsp.what.push_back(msgPiece);
+        rsp.pieces.push_back(msgPiece);
       }
       else
       {
@@ -458,15 +458,15 @@ void ChessServer::advertisePublishers(int nQueueDepth)
   string  strPub;
 
   strPub = "new_game_status";
-  m_publishers[strPub] = m_nh.advertise<chess_server::ChessNewGameStatusMsg>(
+  m_publishers[strPub] = m_nh.advertise<chess_server::ChessNewGameStatus>(
                                   strPub, nQueueDepth);
 
   strPub = "move_status";
-  m_publishers[strPub] = m_nh.advertise<chess_server::ChessMoveStatusMsg>(
+  m_publishers[strPub] = m_nh.advertise<chess_server::ChessMoveStamped>(
                                   strPub, nQueueDepth);
 
-  strPub = "end_game_status";
-  m_publishers[strPub] = m_nh.advertise<chess_server::ChessEndGameStatusMsg>(
+  strPub = "end_of_game_status";
+  m_publishers[strPub] = m_nh.advertise<chess_server::ChessEndGameStatus>(
                                   strPub, nQueueDepth);
 }
 
@@ -475,9 +475,10 @@ uint32_t ChessServer::publish(uint32_t seqnum)
   // new game
   if( m_bPubNewGame )
   {
-    chess_server::ChessNewGameStatusMsg msg;
+    chess_server::ChessNewGameStatus &msg = m_msgNewGameStatus;
 
-    msg.header.seq    = seqnum++;
+    stampHeader(msg.header, msg.header.seq+1, "new_game");
+    
     msg.player.color  = m_engine.getPlayersColor();
 
     m_publishers["new_game_status"].publish(msg);
@@ -488,9 +489,10 @@ uint32_t ChessServer::publish(uint32_t seqnum)
   // moves
   while( m_nPubLastPly < m_game.getNumOfPlies() )
   {
-    chess_server::ChessMoveStatusMsg msg;
+    chess_server::ChessMoveStamped &msg = m_msgMoveStamped;
 
-    msg.header.seq    = seqnum++;
+    stampHeader(msg.header, msg.header.seq+1, "move");
+
     toMsgMove(m_game[m_nPubLastPly], msg.move);
 
     m_publishers["move_status"].publish(msg);
@@ -501,13 +503,14 @@ uint32_t ChessServer::publish(uint32_t seqnum)
   // end of game
   if( m_bPubEndGame )
   {
-    chess_server::ChessEndGameStatusMsg msg;
+    chess_server::ChessEndGameStatus &msg = m_msgEndOfGameStatus;
 
-    msg.header.seq    = seqnum++;
+    stampHeader(msg.header, msg.header.seq+1, "end_of_game");
+
     msg.winner.color  = m_game.getWinner();
     msg.result.code   = m_game.getEndOfGameReason();
 
-    m_publishers["end_game_status"].publish(msg);
+    m_publishers["end_of_game_status"].publish(msg);
 
     m_bPubEndGame = false;
   }
@@ -658,8 +661,8 @@ void *ChessServer::actionThread(void *pArg)
 // Support
 //..............................................................................
 
-void ChessServer::toMsgMove(const Move                 &move,
-                            chess_server::ChessMoveMsg &msgMove)
+void ChessServer::toMsgMove(const Move              &move,
+                            chess_server::ChessMove &msgMove)
 {
   msgMove.move_num         = move.m_nMove;
   msgMove.player.color     = move.m_player;
@@ -680,4 +683,13 @@ void ChessServer::toMsgMove(const Move                 &move,
   msgMove.check            = move.m_check;
   msgMove.winner.color     = move.m_winner;
   msgMove.result.code      = move.m_result;
+}
+
+void ChessServer::stampHeader(std_msgs::Header &header,
+                              u32_t             nSeqNum,
+                              const string     &strFrameId)
+{
+  header.seq      = nSeqNum;
+  header.stamp    = ros::Time::now();
+  header.frame_id = strFrameId;
 }

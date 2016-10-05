@@ -8,4 +8,4 @@ float32 hz        # maximum frequency rate between plies.
 int8  rc          # 0 == success, <0 == failure
 ---
 # Feedback
-ChessMoveMsg move # fully quantified move
+ChessMove   move # fully quantified move

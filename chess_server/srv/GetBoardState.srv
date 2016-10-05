@@ -1,0 +1,6 @@
+### Retrieve current board state service.
+
+---
+ChessPos[]    squares   # {file}{rank}. Standard board has 64 squares
+ChessColor[]  colors    # piece color, at chess position
+ChessPiece[]  pieces    # piece type, at chess position

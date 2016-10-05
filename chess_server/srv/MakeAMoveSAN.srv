@@ -1,0 +1,5 @@
+### Make a move using Standard Algebraic Notation service.
+
+string SAN      # {file}{rank}{file}{rank} Example: "a2a4"
+---
+ChessMove move  # the actual move, fully quantified

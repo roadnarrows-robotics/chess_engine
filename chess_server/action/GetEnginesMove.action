@@ -3,7 +3,7 @@
 # Goal
 ---
 # Result
-ChessMoveMsg move     # engine's fully quantified move
+ChessMove move    # engine's fully quantified move
 ---
 # Feedback
-uint16  thinking      # engine progress "thinking" in ticks
+uint16  thinking  # engine progress "thinking" in ticks

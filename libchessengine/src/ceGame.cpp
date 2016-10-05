@@ -70,6 +70,73 @@ using namespace std;
 using namespace chess_engine;
 
 
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Chess board square class.
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+ChessSquare::ChessSquare()
+{
+  m_eColor = NoColor;
+  m_eType  = NoPiece;
+}
+
+ChessSquare ChessSquare::operator==(const ChessSquare &rhs)
+{
+  m_eColor      = rhs.m_eColor;
+  m_eType       = rhs.m_eType;
+  m_strPieceId  = rhs.m_strPiecedId;
+
+  return *this;
+}
+
+void ChessSquare::set(const ChessColor eColor,
+                      const ChessPiece eType,
+                      const std::string &strPieceId)
+{
+  m_eColor      = eColor;
+  m_eType       = eType;
+  m_strPieceId  = strPiecedId;
+}
+
+void ChessSquare::get(ChessColor &eColor,
+                      ChessPiece &eType,
+                      std::string &strPieceId)
+{
+  eColor      = m_eColor;
+  eType       = m_eType;
+  strPieceId  = m_strPiecedId;
+}
+
+void ChessSquare::copy(ChessSquare &dst)
+{
+  dst.m_eColor      = m_eColor;
+  dst.m_eType       = m_eType;
+  dst.m_strPieceId  = m_strPiecedId;
+}
+
+void ChessSquare::move(ChessSquare &dst)
+{
+  copy(dst);
+  remove();
+}
+
+void ChessSquare::remove()
+{
+  m_eColor = NoColor;
+  m_eType  = NoPiece;
+  m_strPieceId.clear();
+}
+
+bool ChessSquare::isEmpty()
+{
+  return m_eType == NoPiece;
+}
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Chess game class.
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
 Game::Game()
 {
   setupBoard();
