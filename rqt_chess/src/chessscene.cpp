@@ -39,8 +39,10 @@ using namespace chess_engine;
 
 namespace rqt_chess
 {
-  static const int ChessSqSize = 48;  ///< chess board square size (pixels)
-  static const int ChessOffset = 4;   ///< chess board offset (pixels)
+  static const int ChessSqSize    = 49; ///< chess board square size (pixels)
+  static const int ChessBoarder   = 1;  ///< chess board boarder (pixels)
+  static const int ChessBoardSize = ChessSqSize * NumOfFiles - 2 * ChessBoarder;
+                                        ///< chess board size (pixels);
 }
 
 using namespace rqt_chess;
@@ -86,8 +88,8 @@ void ChessScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
     if( (pt.x() >= 0.0) && (pt.x() <= 390.0) &&
         (pt.y() >= 0.0) && (pt.y() <= 390.0) )
     {
-      int row = (int)pt.y() / (double)ChessSqSize;
-      int col = (int)pt.x() / (double)ChessSqSize;
+      int row = (int)(pt.y() / (double)ChessSqSize);
+      int col = (int)(pt.x() / (double)ChessSqSize);
 
       ChessFile file = m_game.toFile(col);
       ChessRank rank = m_game.toRank(row);
@@ -146,8 +148,8 @@ void ChessScene::loadPieces()
       pItem = addPixmap(img);
       pItem->setZValue(0);
 
-      x = m_game.toCol(file) * ChessSqSize + ChessOffset;
-      y = m_game.toRow(rank) * ChessSqSize + ChessOffset;
+      x = m_game.toCol(file) * ChessSqSize + ChessBoarder;
+      y = m_game.toRow(rank) * ChessSqSize + ChessBoarder;
 
       pItem->setPos(x, y);
 
@@ -186,8 +188,8 @@ void ChessScene::setupBoard()
 
       pItem = m_pixmapPiece[strId];
 
-      x = m_game.toCol(file) * ChessSqSize + ChessOffset;
-      y = m_game.toRow(rank) * ChessSqSize + ChessOffset;
+      x = m_game.toCol(file) * ChessSqSize + ChessBoarder;
+      y = m_game.toRow(rank) * ChessSqSize + ChessBoarder;
 
       pItem->setPos(x, y);
     }

@@ -172,30 +172,30 @@ void Move::fromAN(const string &strAN)
   }
 }
 
-string Move::toSAN(const ChessSquare &sqFrom, const ChessSquare &sqTo)
+string Move::toSAN(const ChessPos &posFrom, const ChessPos &posTo)
 {
   char san[5];
 
-  sprintf(san, "%c%c%c%c", sqFrom.m_file, sqFrom.m_rank,
-                           sqTo.m_file,   sqTo.m_rank);
+  sprintf(san, "%c%c%c%c", posFrom.m_file, posFrom.m_rank,
+                           posTo.m_file,   posTo.m_rank);
 
   return string(san);
 }
 
 void Move::fromSAN(const string &strSAN)
 {
-  m_sqFrom = NoMove;
-  m_sqTo   = NoMove;
+  m_posFrom = NoPos;
+  m_posTo   = NoPos;
 
   if( strSAN.size() >= 2 )
   {
-    m_sqFrom.m_file = strSAN[0];
-    m_sqFrom.m_rank = strSAN[1];
+    m_posFrom.m_file = strSAN[0];
+    m_posFrom.m_rank = strSAN[1];
   }
   if( strSAN.size() >= 4 )
   {
-    m_sqTo.m_file   = strSAN[2];
-    m_sqTo.m_rank   = strSAN[3];
+    m_posTo.m_file = strSAN[2];
+    m_posTo.m_rank = strSAN[3];
   }
 }
 
@@ -205,13 +205,13 @@ void Move::copy(const Move &src)
   m_player      = src.m_player;
   m_strAN       = src.m_strAN;
   m_piece       = src.m_piece;
-  m_sqFrom      = src.m_sqFrom;
-  m_sqTo        = src.m_sqTo;
+  m_posFrom     = src.m_posFrom;
+  m_posTo       = src.m_posTo;
   m_captured    = src.m_captured;
   m_en_passant  = src.m_en_passant;
   m_castle      = src.m_castle;
-  m_sqAuxAt     = src.m_sqAuxAt;
-  m_sqAuxTo     = src.m_sqAuxTo;
+  m_posAuxAt    = src.m_posAuxAt;
+  m_posAuxTo    = src.m_posAuxTo;
   m_promotion   = src.m_promotion;
   m_check       = src.m_check;
   m_winner      = src.m_winner;
@@ -226,13 +226,13 @@ void Move::clear()
   m_player      = NoColor;
   m_strAN.clear();
   m_piece       = NoPiece;
-  m_sqFrom      = NoMove;
-  m_sqTo        = NoMove;
+  m_posFrom     = NoPos;
+  m_posTo       = NoPos;
   m_captured    = NoPiece;
   m_en_passant  = false;
   m_castle      = NoCastle;
-  m_sqAuxAt     = NoMove;
-  m_sqAuxTo     = NoMove;
+  m_posAuxAt    = NoPos;
+  m_posAuxTo    = NoPos;
   m_promotion   = NoPiece;
   m_check       = false;
   m_winner      = NoColor;
@@ -245,8 +245,8 @@ ostream &chess_engine::operator<<(ostream &os, const Move &move)
 {
   os << move.m_nMove << ":";
   os << " " << nameOfColor(move.m_player);
-  os << " " << move.m_sqFrom.m_file << move.m_sqFrom.m_rank
-            << move.m_sqTo.m_file << move.m_sqTo.m_rank;
+  os << " " << move.m_posFrom.m_file << move.m_posFrom.m_rank
+            << move.m_posTo.m_file << move.m_posTo.m_rank;
   os << " " << move.m_strAN;
   os << " " << nameOfPiece(move.m_piece);
 
@@ -258,14 +258,14 @@ ostream &chess_engine::operator<<(ostream &os, const Move &move)
   if( move.m_en_passant )
   {
     os << " en_passant(xPawn="
-       << move.m_sqAuxAt.m_file << move.m_sqAuxAt.m_rank << ")";
+       << move.m_posAuxAt.m_file << move.m_posAuxAt.m_rank << ")";
   }
 
   if( move.m_castle != NoCastle )
   {
     os << " castle(" << nameOfCastling(move.m_castle) << ", Rook=";
-    os << move.m_sqAuxAt.m_file << move.m_sqAuxAt.m_rank
-       << move.m_sqAuxTo.m_file << move.m_sqAuxTo.m_rank << ")";
+    os << move.m_posAuxAt.m_file << move.m_posAuxAt.m_rank
+       << move.m_posAuxTo.m_file << move.m_posAuxTo.m_rank << ")";
   }
 
   if( move.m_promotion != NoPiece )

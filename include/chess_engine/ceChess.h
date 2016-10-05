@@ -99,15 +99,15 @@ namespace chess_engine
   const int NumOfRanks = 8; ///< number of standard chess board ranks
 
   /*!
-   * \brief Chess square.
+   * \brief Chess board position.
    */
-  struct ChessSquare
+  struct ChessPos
   {
     char  m_file;   ///< file (column)
     char  m_rank;   ///< rank (row)
   };
 
-  const ChessSquare NoMove = {NoFile, NoRank};  ///< no move or square
+  const ChessPos NoPos  = {NoFile, NoRank};  ///< no position or move
 
   /*!
    * \brief Chess player, piece, and move color.

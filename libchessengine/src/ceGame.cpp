@@ -242,10 +242,10 @@ int Game::sync(Move &move)
   //
   // Move source
   //
-  if( (pSrc = elem(move.m_sqFrom)) == NULL )
+  if( (pSrc = elem(move.m_posFrom)) == NULL )
   {
     printf("ROSLOG: Error: bad 'from' square = %c%c.\n",
-        move.m_sqFrom.m_file, move.m_sqFrom.m_rank);
+        move.m_posFrom.m_file, move.m_posFrom.m_rank);
     m_bIsPlaying  = false;
     move.m_result = GameFatal;
     return -CE_ECODE_CHESS_FATAL;
@@ -254,10 +254,10 @@ int Game::sync(Move &move)
   //
   // Move destination
   //
-  if( (pDst = elem(move.m_sqTo)) == NULL )
+  if( (pDst = elem(move.m_posTo)) == NULL )
   {
     printf("ROSLOG: Error: bad 'to' square = %c%c.\n",
-        move.m_sqTo.m_file, move.m_sqTo.m_rank);
+        move.m_posTo.m_file, move.m_posTo.m_rank);
     m_bIsPlaying  = false;
     move.m_result = GameFatal;
     return -CE_ECODE_CHESS_FATAL;
@@ -275,7 +275,7 @@ int Game::sync(Move &move)
   if( move.m_piece == NoPiece )
   {
     printf("ROSLOG: Error: no piece found on 'from' square %c%c.\n",
-        move.m_sqFrom.m_file, move.m_sqFrom.m_rank);
+        move.m_posFrom.m_file, move.m_posFrom.m_rank);
     m_bIsPlaying  = false;
     move.m_result = GameFatal;
     return -CE_ECODE_CHESS_SYNC;
@@ -286,7 +286,7 @@ int Game::sync(Move &move)
   {
     printf("ROSLOG: Error: piece %c != %c found on 'from' square %c%c.\n",
         move.m_piece, pSrc->m_piece,
-        move.m_sqFrom.m_file, move.m_sqFrom.m_rank);
+        move.m_posFrom.m_file, move.m_posFrom.m_rank);
     m_bIsPlaying  = false;
     move.m_result = GameFatal;
     return -CE_ECODE_CHESS_SYNC;
@@ -318,14 +318,14 @@ int Game::sync(Move &move)
     // white
     if( move.m_player == White )
     {
-      if( (move.m_sqFrom.m_rank == ChessRank5) &&
-          (move.m_sqTo.m_rank   == ChessRank6) &&
-          (move.m_sqFrom.m_file != move.m_sqTo.m_file) &&
+      if( (move.m_posFrom.m_rank == ChessRank5) &&
+          (move.m_posTo.m_rank   == ChessRank6) &&
+          (move.m_posFrom.m_file != move.m_posTo.m_file) &&
           (pDst->m_piece == NoPiece) )
       {
-        move.m_sqAuxAt.m_file = move.m_sqTo.m_file;
-        move.m_sqAuxAt.m_rank = move.m_sqFrom.m_rank;
-        p3rd = elem(move.m_sqAuxAt);
+        move.m_posAuxAt.m_file = move.m_posTo.m_file;
+        move.m_posAuxAt.m_rank = move.m_posFrom.m_rank;
+        p3rd = elem(move.m_posAuxAt);
         if( p3rd->m_piece == Pawn )
         {
           move.m_captured = p3rd->m_piece;
@@ -333,7 +333,7 @@ int Game::sync(Move &move)
         }
         else
         {
-          move.m_sqAuxAt = NoMove;
+          move.m_posAuxAt = NoPos;
         }
       }
     }
@@ -341,14 +341,14 @@ int Game::sync(Move &move)
     // black
     else
     {
-      if( (move.m_sqFrom.m_rank == ChessRank4) &&
-          (move.m_sqTo.m_rank   == ChessRank3) &&
-          (move.m_sqFrom.m_file != move.m_sqTo.m_file) &&
+      if( (move.m_posFrom.m_rank == ChessRank4) &&
+          (move.m_posTo.m_rank   == ChessRank3) &&
+          (move.m_posFrom.m_file != move.m_posTo.m_file) &&
           (pDst->m_piece == NoPiece) )
       {
-        move.m_sqAuxAt.m_file = move.m_sqTo.m_file;
-        move.m_sqAuxAt.m_rank = move.m_sqFrom.m_rank;
-        p3rd = elem(move.m_sqAuxAt);
+        move.m_posAuxAt.m_file = move.m_posTo.m_file;
+        move.m_posAuxAt.m_rank = move.m_posFrom.m_rank;
+        p3rd = elem(move.m_posAuxAt);
         if( p3rd->m_piece == Pawn )
         {
           move.m_captured = p3rd->m_piece;
@@ -356,7 +356,7 @@ int Game::sync(Move &move)
         }
         else
         {
-          move.m_sqAuxAt = NoMove;
+          move.m_posAuxAt = NoPos;
         }
       }
     }
@@ -367,19 +367,19 @@ int Game::sync(Move &move)
   //
   else if( move.m_castle == KingSide )
   {
-    move.m_sqAuxAt.m_file = move.m_sqTo.m_file + 1;
-    move.m_sqAuxAt.m_rank = move.m_sqTo.m_rank;
-    move.m_sqAuxTo.m_file = move.m_sqTo.m_file - 1;
-    move.m_sqAuxTo.m_rank = move.m_sqTo.m_rank;
-    movePiece(move.m_sqAuxAt, move.m_sqAuxTo);
+    move.m_posAuxAt.m_file = move.m_posTo.m_file + 1;
+    move.m_posAuxAt.m_rank = move.m_posTo.m_rank;
+    move.m_posAuxTo.m_file = move.m_posTo.m_file - 1;
+    move.m_posAuxTo.m_rank = move.m_posTo.m_rank;
+    movePiece(move.m_posAuxAt, move.m_posAuxTo);
   }
   else if( move.m_castle == QueenSide )
   {
-    move.m_sqAuxAt.m_file = move.m_sqTo.m_file - 2;
-    move.m_sqAuxAt.m_rank = move.m_sqTo.m_rank;
-    move.m_sqAuxTo.m_file = move.m_sqTo.m_file + 1;
-    move.m_sqAuxTo.m_rank = move.m_sqTo.m_rank;
-    movePiece(move.m_sqAuxAt, move.m_sqAuxTo);
+    move.m_posAuxAt.m_file = move.m_posTo.m_file - 2;
+    move.m_posAuxAt.m_rank = move.m_posTo.m_rank;
+    move.m_posAuxTo.m_file = move.m_posTo.m_file + 1;
+    move.m_posAuxTo.m_rank = move.m_posTo.m_rank;
+    movePiece(move.m_posAuxAt, move.m_posAuxTo);
   }
 
   //
@@ -411,12 +411,12 @@ int Game::getNumOfPlies()
 
 BoardElem *Game::getBoardElem(ChessFile file, ChessRank rank)
 {
-  ChessSquare sq;
+  ChessPos  pos;
 
-  sq.m_file = file;
-  sq.m_rank = rank;
+  pos.m_file = file;
+  pos.m_rank = rank;
 
-  return elem(sq);
+  return elem(pos);
 }
 
 std::vector<ChessPiece> &Game::getBoneYard(ChessColor color)
@@ -434,10 +434,10 @@ int Game::toCol(int file)
   return file - (int)ChessFileA;
 }
 
-int Game::toRowCol(const ChessSquare &sq, int &row, int &col)
+int Game::toRowCol(const ChessPos &pos, int &row, int &col)
 {
-  row = toRow(sq.m_rank);
-  col = toCol(sq.m_file);
+  row = toRow(pos.m_rank);
+  col = toCol(pos.m_file);
   if( (row < 0) || (row >= NumOfRanks) || (col < 0) || (col >= NumOfFiles) )
   {
     return -CE_ECODE_CHESS_FATAL;
@@ -468,20 +468,20 @@ ChessColor Game::getSquareColor(int file, int rank)
 //  Protected
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-BoardElem *Game::elem(const ChessSquare &sq)
+BoardElem *Game::elem(const ChessPos &pos)
 {
   int row, col;
 
-  if( toRowCol(sq, row, col) == CE_OK )
+  if( toRowCol(pos, row, col) == CE_OK )
   {
     return &m_board[row][col];
   }
   return NULL;
 }
 
-void Game::movePiece(const ChessSquare &sqFrom, const ChessSquare &sqTo)
+void Game::movePiece(const ChessPos &posFrom, const ChessPos &posTo)
 {
-  movePiece(elem(sqFrom), elem(sqTo));
+  movePiece(elem(posFrom), elem(posTo));
 }
 
 void Game::movePiece(BoardElem *pSrc, BoardElem *pDst)

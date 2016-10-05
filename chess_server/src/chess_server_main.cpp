@@ -108,13 +108,13 @@ static bool makeSAN(const string &strSAN, Move &move)
   // fake ROS request arguments
   move.fromSAN(strSAN);
 
-  if( (move.m_sqFrom.m_file < ChessFileA) || 
-      (move.m_sqFrom.m_file > ChessFileH) )
+  if( (move.m_posFrom.m_file < ChessFileA) || 
+      (move.m_posFrom.m_file > ChessFileH) )
   {
     return false;
   }
-  if( (move.m_sqFrom.m_rank < ChessRank1) || 
-      (move.m_sqFrom.m_rank > ChessRank8) )
+  if( (move.m_posFrom.m_rank < ChessRank1) || 
+      (move.m_posFrom.m_rank > ChessRank8) )
   {
     return false;
   }

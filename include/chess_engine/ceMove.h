@@ -80,13 +80,13 @@ namespace chess_engine
     ChessColor      m_player;     ///< player (and move) color
     std::string     m_strAN;      ///< algebraic notation of move
     ChessPiece      m_piece;      ///< moved piece
-    ChessSquare     m_sqFrom;     ///< moved piece starting from chess square
-    ChessSquare     m_sqTo;       ///< moved piece ending to chess square
+    ChessPos        m_posFrom;    ///< moved piece starting from chess square
+    ChessPos        m_posTo;      ///< moved piece ending to chess square
     ChessPiece      m_captured;   ///< captured piece, if any
     bool            m_en_passant; ///< en passant move did [not] occur
     ChessCastling   m_castle;     ///< [no] castle move
-    ChessSquare     m_sqAuxAt;    ///< castle rook or en passant opponent square
-    ChessSquare     m_sqAuxTo;    ///< castle rook destination chess square
+    ChessPos        m_posAuxAt;   ///< castle rook or en passant opponent square
+    ChessPos        m_posAuxTo;   ///< castle rook destination chess square
     ChessPiece      m_promotion;  ///< pawn promoted to this piece
     bool            m_check;      ///< opponent [not] placed in check
     ChessColor      m_winner;     ///< winner of the game, if any
@@ -112,11 +112,10 @@ namespace chess_engine
   
     std::string toSAN()
     {
-      return toSAN(m_sqFrom, m_sqTo);
+      return toSAN(m_posFrom, m_posTo);
     }
 
-    static std::string toSAN(const ChessSquare &sqFrom,
-                             const ChessSquare &sqTo);
+    static std::string toSAN(const ChessPos &posFrom, const ChessPos &posTo);
 
     void fromSAN(const std::string &strSAN);
 

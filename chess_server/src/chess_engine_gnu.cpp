@@ -496,22 +496,22 @@ int ChessEngineGnu::startNewGame(int colorPlayer)
 
 int ChessEngineGnu::makeAMove(ChessColor colorMove, Move &move)
 {
-  ChessSquare sqFrom;
-  ChessSquare sqTo;
-  int         rc;
+  ChessPos  posFrom;
+  ChessPos  posTo;
+  int       rc;
 
   // save target move
-  sqFrom  = move.m_sqFrom;
-  sqTo    = move.m_sqTo;
+  posFrom = move.m_posFrom;
+  posTo   = move.m_posTo;
 
   // clear move
   move.clear();
 
   // initialize known move data
-  move.m_nMove  = m_nMove;
-  move.m_player = colorMove;
-  move.m_sqFrom = sqFrom;
-  move.m_sqTo   = sqTo;
+  move.m_nMove    = m_nMove;
+  move.m_player   = colorMove;
+  move.m_posFrom  = posFrom;
+  move.m_posTo    = posTo;
 
   lock();
 

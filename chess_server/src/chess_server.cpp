@@ -255,10 +255,10 @@ bool ChessServer::makeAMove(chess_server::MakeAMoveSvc::Request  &req,
 
   ROS_DEBUG("make_a_move");
 
-  move.m_sqFrom.m_file = req.src.file;
-  move.m_sqFrom.m_rank = req.src.rank;
-  move.m_sqTo.m_file   = req.dst.file;
-  move.m_sqTo.m_rank   = req.dst.rank;
+  move.m_posFrom.m_file = req.src.file;
+  move.m_posFrom.m_rank = req.src.rank;
+  move.m_posTo.m_file   = req.dst.file;
+  move.m_posTo.m_rank   = req.dst.rank;
 
   rc = m_engine.makePlayersMove(move);
 
@@ -409,11 +409,11 @@ bool ChessServer::getBoardState(chess_server::GetBoardStateSvc::Request  &req,
   int           file;
   int           rank;
   BoardElem    *pElem;
-  ChessSquare   sq;
+  ChessPos      pos;
 
-  chess_server::ChessSquareMsg msgSquare;
-  chess_server::ChessColorMsg  msgColor;
-  chess_server::ChessPieceMsg  msgPiece;
+  chess_server::ChessSquareMsg  msgSquare;
+  chess_server::ChessColorMsg   msgColor;
+  chess_server::ChessPieceMsg   msgPiece;
 
   ROS_DEBUG("get_board_state");
 
@@ -665,17 +665,17 @@ void ChessServer::toMsgMove(const Move                 &move,
   msgMove.player.color     = move.m_player;
   msgMove.AN               = move.m_strAN;
   msgMove.moved.piece      = move.m_piece;
-  msgMove.src.file         = move.m_sqFrom.m_file;
-  msgMove.src.rank         = move.m_sqFrom.m_rank;
-  msgMove.dst.file         = move.m_sqTo.m_file;
-  msgMove.dst.rank         = move.m_sqTo.m_rank;
+  msgMove.src.file         = move.m_posFrom.m_file;
+  msgMove.src.rank         = move.m_posFrom.m_rank;
+  msgMove.dst.file         = move.m_posTo.m_file;
+  msgMove.dst.rank         = move.m_posTo.m_rank;
   msgMove.captured.piece   = move.m_captured;
   msgMove.en_passant       = move.m_en_passant;
   msgMove.castle.side      = move.m_castle;
-  msgMove.aux_src.file     = move.m_sqAuxAt.m_file;
-  msgMove.aux_src.rank     = move.m_sqAuxAt.m_rank;
-  msgMove.aux_dst.file     = move.m_sqAuxTo.m_file;
-  msgMove.aux_dst.rank     = move.m_sqAuxTo.m_rank;
+  msgMove.aux_src.file     = move.m_posAuxAt.m_file;
+  msgMove.aux_src.rank     = move.m_posAuxAt.m_rank;
+  msgMove.aux_dst.file     = move.m_posAuxTo.m_file;
+  msgMove.aux_dst.rank     = move.m_posAuxTo.m_rank;
   msgMove.promotion.piece  = move.m_promotion;
   msgMove.check            = move.m_check;
   msgMove.winner.color     = move.m_winner;

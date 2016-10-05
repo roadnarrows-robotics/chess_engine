@@ -73,10 +73,12 @@ namespace chess_engine
   /*!
    * \brief Chess board element.
    */
-  struct BoardElem
+  class BoardElem
   {
+  public:
     ChessColor  m_color;  ///< color
     ChessPiece  m_piece;  ///< piece
+    std::string m_strId;  ///< 
   };
 
   /*!
@@ -165,13 +167,13 @@ namespace chess_engine
     /*!
      * \brief Convert chess square coordinates to board array row and column.
      *
-     * \param [in] sq     Board square (file,rank).
+     * \param [in] pos    Board position (file,rank).
      * \param [out] row   Board row [0, 7]
      * \param [out] col   Board column [0, 7]
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    static int toRowCol(const ChessSquare &sq, int &row, int &col);
+    static int toRowCol(const ChessPos &pos, int &row, int &col);
 
     /*!
      * \brief Convert board array column to chess file.
@@ -210,9 +212,9 @@ namespace chess_engine
     std::vector<ChessPiece> m_boneYardBlack;  ///< captured black pieces
     bool                    m_bGui;           ///< [not] a gui stream output
 
-    BoardElem *elem(const ChessSquare &sq);
+    BoardElem *elem(const ChessPos &pos);
 
-    void movePiece(const ChessSquare &sqFrom, const ChessSquare &sqTo);
+    void movePiece(const ChessPos &posFrom, const ChessPos &posTo);
 
     void movePiece(BoardElem *pSrc, BoardElem *pDst);
 
