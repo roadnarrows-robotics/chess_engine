@@ -59,7 +59,7 @@
 namespace chess_engine
 {
 
-  const char ChessValNone = '0';    ///< comman 'no value' value
+  const char ChessValNone = '0';    ///< common 'no value' value
 
   /*!
    * \brief Chess board file (column).

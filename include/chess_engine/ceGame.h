@@ -80,11 +80,23 @@ namespace chess_engine
   class ChessSquare
   {
   public:
-
     /*!
      * \brief Default constructor.
      */
     ChessSquare();
+
+    /*!
+     * \brief Initialization constructor.
+     *
+     * \param [in] pos          Square position on board.
+     * \param [in] ePieceColor  Piece color [NoColor, White, Black].
+     * \param [in] ePieceType   Piece type [NoPiece, King, Queen, ..., Pawn].
+     * \param [in] strPieceId   Fixed unique piece id.
+     */
+    void ChessSquare(const ChessPos    &pos,
+                     const ChessColor  ePieceColor,
+                     const ChessPiece  ePieceType,
+                     const std::string &strPieceId);
 
     /*!
      * \brief Destructor.
@@ -101,47 +113,68 @@ namespace chess_engine
     ChessSquare operator==(const ChessSquare &rhs);
 
     /*!
-     * \brief Set chess square data.
+     * \brief Set the square position within the chess board.
      *
-     * \param [in] eColor       Piece color [NoColor, White, Black]
-     * \param [in] eType        Piece type [NoPiece, King, Queen, ..., Pawn]
+     * \param pos   Square's position.
+     */
+    void setPos(const ChessPos &pos);
+
+    /*!
+     * \brief Get the square's position on the chess board.
+     *
+     * \return Square's position.
+     */
+    ChessPos getPos();
+
+    /*!
+     * \brief Get this chess square's color.
+     *
+     * \return Square color [NoColor, White, Black]
+     */
+    ChessColor getColor();
+
+    /*!
+     * \brief Set the chess piece on the chess square.
+     *
+     * \param [in] ePieceColor  Piece color [NoColor, White, Black].
+     * \param [in] ePieceType   Piece type [NoPiece, King, Queen, ..., Pawn].
      * \param [in] strPieceId   Fixed unique piece id.
      */
-    void set(const ChessColor eColor,
-             const ChessPiece eType,
-             const std::string &strPieceId);
+    void setPiece(const ChessColor   ePieceColor,
+                  const ChessPiece   ePieceType,
+                  const std::string &strPieceId);
 
     /*!
-     * \brief Get chess square data.
+     * \brief Get chess piece info, if any, on the chess square.
      *
-     * \param [out] eColor      Piece color [NoColor, White, Black]
-     * \param [out] eType       Piece type [NoPiece, King, Queen, ..., Pawn]
+     * \param [out] ePieceColor Piece color [NoColor, White, Black].
+     * \param [out] ePieceType  Piece type [NoPiece, King, Queen, ..., Pawn].
      * \param [out] strPieceId  Fixed unique piece id.
      */
-    void get(ChessColor &eColor,
-             ChessPiece &eType,
-             std::string &strPieceId);
+    void getPiece(ChessColor  &ePieceColor,
+                  ChessPiece  &ePieceType,
+                  std::string &strPieceId);
 
     /*!
-     * \brief Copy this square's data to destination square.
+     * \brief Copy this square's piece to destination square.
      *
      * \param [out] dst   Destination square.
      */
-    void copy(ChessSquare &dst);
+    void copyPiece(ChessSquare &dst);
 
     /*!
-     * \brief Move this square's data to destination square.
+     * \brief Move this square's piece to destination square.
      *
      * \param [out] dst   Destination square.
      */
-    void move(ChessSquare &dst);
+    void movePiece(ChessSquare &dst);
 
     /*!
-     * \brief Remove this square's data.
+     * \brief Remove this square's piece from square.
      *
      * The square is without a chess piece. (isEmpty() is true).
      */
-    void remove();
+    void removePiece();
 
     /*!
      * \brief Test if square is empty (i.e. no piece).
@@ -151,16 +184,23 @@ namespace chess_engine
     bool isEmpty();
 
     /*!
+     * \brief Test if square is not associated with a board position.
+     *
+     * \return Returns true or false.
+     */
+    bool isNotOnBoard();
+
+    /*!
      * \brief Get this chess square's chess piece color.
      *
-     * \return Piece color [NoColor, White, Black]
+     * \return Piece color [NoColor, White, Black].
      */
     ChessColor getPieceColor();
 
     /*!
      * \brief Get this chess square's chess piece type.
      *
-     * \return Piece type [NoPiece, King, Queen, ..., Pawn]
+     * \return Piece type [NoPiece, King, Queen, ..., Pawn].
      */
     ChessPiece getPieceType();
 
@@ -171,10 +211,31 @@ namespace chess_engine
      */
     std::string getPieceId();
 
+    /*!
+     * \brief Determine color of a chess square.
+     *
+     * \param pos   Chess square position.
+     *
+     * \return Returns White, Black, NoColor
+     */
+    static ChessColor colorOfSquare(const ChessPos &pos);
+
+    /*!
+     * \brief Determine color of a chess square.
+     *
+     * \param file    Chess square file (column).
+     * \param rank    Chess square rank (row).
+     *
+     * \return Returns White, Black, NoColor
+     */
+    static ChessColor colorOfSquare(int file, int rank);
+
   protected:
-    ChessColor  m_eColor;     ///< piece color [NoColor, White, Black]
-    ChessPiece  m_eType;      ///< piece type [NoPiece, King, Queen, ..., Pawn]
-    std::string m_strPieceId; ///< fixed unique piece id (eg. "white-b-pawn")
+    ChessPos    m_pos;          ///< square location on board (file, rank)
+    ChessColor  m_eColor;       ///< square color [NoColor, White, Black]
+    ChessColor  m_ePieceColor;  ///< piece color [NoColor, White, Black]
+    ChessPiece  m_ePieceType;   ///< piece type [NoPiece, King, ..., Pawn]
+    std::string m_strPieceId;   ///< piece unique id (eg. "white-b-pawn")
   };
 
 
@@ -199,11 +260,18 @@ namespace chess_engine
     virtual ~Game() { }
   
     /*!
-     * \brief Set up board to start a game.
+     * \brief Set up for the start a (new) game.
      */
-    void setupBoard();
+    void setupGame();
   
-    int sync(Move &move);
+    /*!
+     * \brief Make the chess move.
+     *
+     * \param move  Fully specified chess move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int makeTheMove(Move &move);
 
     bool isPlaying()
     {
@@ -236,7 +304,27 @@ namespace chess_engine
       return m_history[i];
     }
 
-    BoardElem *getBoardElem(ChessFile file, ChessRank rank);
+    /*!
+     * \brief Get a reference to the board square.
+     *
+     * \param file  Chess board file.
+     * \param rank  Chess board rank.
+     *
+     * \return If in range, returns the reference to the board's square.\n
+     * If out-of-range, returns "no square" square (see ChessSquare.isNoSquare).
+     */
+    ChessSquare &getBoardSquare(const int file, const int rank);
+
+    /*!
+     * \brief Get a reference to the board square.
+     *
+     * \param pos   Chess board position.
+     *
+     * \return If in range, returns the reference to the board's square.\n
+     * If out-of-range, returns "no square" square
+     * (see ChessSquare::isNoSquare()).
+     */
+    ChessSquare &getBoardSquare(const ChessPos &pos);
 
     std::vector<ChessPiece> &getBoneYard(ChessColor color);
 
@@ -264,8 +352,8 @@ namespace chess_engine
      * \brief Convert chess square coordinates to board array row and column.
      *
      * \param [in] pos    Board position (file,rank).
-     * \param [out] row   Board row [0, 7]
-     * \param [out] col   Board column [0, 7]
+     * \param [out] row   Board row [0, 7].
+     * \param [out] col   Board column [0, 7].
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
@@ -274,7 +362,7 @@ namespace chess_engine
     /*!
      * \brief Convert board array column to chess file.
      *
-     * \param col  Board column [0, 7]
+     * \param col  Board column [0, 7].
      *
      * \reture Chess file ['a', 'h'].
      */
@@ -285,14 +373,45 @@ namespace chess_engine
      *
      * \note Rank 8 is row 7, ..., rank 1 is row 0.
      *
-     * \param row   Board row [0, 7]
+     * \param row   Board row [0, 7].
      *
      * \return Chess rank ['1', '8'].
      */
     static ChessRank toRank(int row);
 
+    /*!
+     * \brief Get the next file after the given file.
+     *
+     * \param file  Current chess board file.
+     *
+     * \returns Returns the next file. If no more files, then returns NoFile.
+     */
+    static ChessFile nextFile(int file);
+
+    /*!
+     * \brief Get the next rank after the given rank.
+     *
+     * \param rank  Current chess board rank.
+     *
+     * \returns Returns the next rank. If no more ranks, then returns NoRank.
+     */
+    static ChessRank nextRank(int rank);
+
+    /*!
+     * \brief Get the color of the square at the given board location.
+     *
+     * \param file    Chess file ['a', 'h'].
+     * \param rank    Chess rank ['1', '8'].
+     *
+     * \return Returns NoColor, White or Black.
+     */
     static ChessColor getSquareColor(int file, int rank);
 
+    /*!
+     * \brief Set unicode GUI state.
+     *
+     * \param on_off    State.
+     */
     void setGuiState(bool on_off)
     {
       m_bGui = on_off;
@@ -307,6 +426,57 @@ namespace chess_engine
     std::vector<ChessPiece> m_boneYardWhite;  ///< captured white pieces
     std::vector<ChessPiece> m_boneYardBlack;  ///< captured black pieces
     bool                    m_bGui;           ///< [not] a gui stream output
+
+    /*!
+     * \brief One-time board initialization.
+     */
+    void initBoard();
+  
+    /*!
+     * \brief Remove all pieces from the board.
+     */
+    void clearBoard();
+  
+    /*!
+     * \brief Set up board for the start a (new) game.
+     */
+    void setupBoard();
+  
+    /*!
+     * \brief Set up one side of the board for the start a game.
+     *
+     * \param eColor Side's color.
+     */
+    void setupBoard(ChessColor eColor);
+  
+    /*!
+     * \brief Make unique piece identification string.
+     *
+     * The id is used by external operations to follow, draw, render, etc.
+     *
+     * Id format: color[-modifier]-piece\n
+     *
+     * Examples:
+     * Identifier  | Description
+     * ----------  | -----------
+     *  black-c-Pawn | black pawn starting on the 'c' file.
+     *  white-h-Paw | white pawn starting on the 'h' file.
+     *  white-Queen-Rook | white queen's rook
+     *  white-King | white king
+     *  black-King-Bishop | black king's bishop
+     *
+     * \param file    Chess file ['a', 'h'].
+     * \param rank    Chess rank ['1', '8'].
+     * \param eColor  Piece color.
+     * \param ePiece  Piece type.
+     *
+     * \return String id.
+     */
+    std::string makePieceId(int file, int rank,
+                            ChessColor eColor, ChessPiece ePiece);
+
+
+
 
     BoardElem *elem(const ChessPos &pos);
 

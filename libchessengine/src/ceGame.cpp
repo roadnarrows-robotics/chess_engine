@@ -76,61 +76,134 @@ using namespace chess_engine;
 
 ChessSquare::ChessSquare()
 {
-  m_eColor = NoColor;
-  m_eType  = NoPiece;
+  m_pos         = NoPos;
+  m_eColor      = colorOfSquare(m_pos);
+  m_ePieceColor = NoColor;
+  m_ePieceType  = NoPiece;
+}
+
+void ChessSquare::ChessSquare(const ChessPos    &pos,
+                              const ChessColor  ePieceColor,
+                              const ChessPiece  ePieceType,
+                              const std::string &strPieceId)
+{
+  m_pos         = pos;
+  m_eColor      = colorOfSquare(pos);
+  m_ePieceColor = ePieceColor;
+  m_ePieceType  = ePieceType;
+  m_strPieceId  = strPiecedId;
 }
 
 ChessSquare ChessSquare::operator==(const ChessSquare &rhs)
 {
-  m_eColor      = rhs.m_eColor;
-  m_eType       = rhs.m_eType;
+  m_pos         = rhs.m_pos;
+  m_eColor      = colorOfSquare(m_pos);
+  m_ePieceColor = rhs.m_ePieceColor;
+  m_ePieceType  = rhs.m_ePieceType;
   m_strPieceId  = rhs.m_strPiecedId;
 
   return *this;
 }
 
-void ChessSquare::set(const ChessColor eColor,
-                      const ChessPiece eType,
-                      const std::string &strPieceId)
+void ChessSquare::setPos(const ChessPos &pos)
 {
-  m_eColor      = eColor;
-  m_eType       = eType;
+  m_pos = pos;
+
+  m_eColor = colorOfSquare(m_pos);
+}
+
+ChessPos ChessSquare::getPos();
+{
+  return m_pos;
+}
+
+ChessColor ChessSquare::getColor();
+{
+  return m_eColor;
+}
+
+void ChessSquare::setPiece(const ChessColor   ePieceColor,
+                           const ChessPiece   ePieceType,
+                           const std::string &strPieceId)
+{
+  m_ePieceColor = ePieceColor;
+  m_ePieceType  = ePieceType;
   m_strPieceId  = strPiecedId;
 }
 
-void ChessSquare::get(ChessColor &eColor,
-                      ChessPiece &eType,
-                      std::string &strPieceId)
+void ChessSquare::getPiece(ChessColor  &ePieceColor,
+                           ChessPiece  &ePieceType,
+                           std::string &strPieceId)
 {
-  eColor      = m_eColor;
-  eType       = m_eType;
+  eColor      = m_ePieceColor;
+  eType       = m_ePieceType;
   strPieceId  = m_strPiecedId;
 }
 
-void ChessSquare::copy(ChessSquare &dst)
+void ChessSquare::copyPiece(ChessSquare &dst)
 {
-  dst.m_eColor      = m_eColor;
-  dst.m_eType       = m_eType;
+  dst.m_ePieceColor = m_ePieceColor;
+  dst.m_ePieceType  = m_ePieceType;
   dst.m_strPieceId  = m_strPiecedId;
 }
 
-void ChessSquare::move(ChessSquare &dst)
+void ChessSquare::movePiece(ChessSquare &dst)
 {
-  copy(dst);
-  remove();
+  copyPiece(dst);
+  removePiece();
 }
 
-void ChessSquare::remove()
+void ChessSquare::removePiece()
 {
-  m_eColor = NoColor;
-  m_eType  = NoPiece;
+  m_ePieceColor = NoColor;
+  m_ePieceType  = NoPiece;
   m_strPieceId.clear();
 }
 
 bool ChessSquare::isEmpty()
 {
-  return m_eType == NoPiece;
+  return m_ePieceType == NoPiece;
 }
+
+bool ChessSquare::isNotOnBoard()
+{
+  return (m_pos.m_file == NoFile) || (m_pos.m_rank == NoRank);
+}
+
+ChessColor ChessSquare::getPieceColor()
+{
+  return m_ePieceColor;
+}
+
+ChessPiece ChessSquare::getPieceType()
+{
+  return m_ePieceType;
+}
+
+string ChessSquare::getPieceId()
+{
+  return m_strPieceId;
+}
+
+ChessColor ChessSquare::colorOfSquare(const ChessPos &pos)
+{
+  return ChessSquare::colorOfSquare(pos.m_file, pos.m_rank);
+}
+
+ChessColor ChessSquare::colorOfSquare(int file, int rank)
+{
+  if( (file == NoFile) || (rank == NoRank) )
+  {
+    return NoColor;
+  }
+  else
+  {
+    return ((file - ChessFileA) + (rank - ChessRank1)) % 2 == 0? Black: White;
+  }
+}
+
+
+static ChessNoSquare = ChessSquare();   ///< "no square" square
 
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -139,135 +212,20 @@ bool ChessSquare::isEmpty()
 
 Game::Game()
 {
-  setupBoard();
+  initBoard();
 
   m_bGui = false;
 }
 
-void Game::setupBoard()
+void Game::setupGame()
 {
-  int   row, col;
+  setupBoard();
 
-  //
-  // Erase board
-  //
-  for(col=0; col<NumOfFiles; ++col)
-  {
-    for(row=0; row<NumOfRanks; ++row)
-    {
-      m_board[row][col] = EmptyElem;
-    }
-  }
-
-  // 
-  // White
-  //
- 
-  // rank 1
-  row = toRow(ChessRank1);
-
-  col = toCol(ChessFileA);
-  m_board[row][col].m_color = White;
-  m_board[row][col].m_piece = Rook;
-
-  col = toCol(ChessFileB);
-  m_board[row][col].m_color = White;
-  m_board[row][col].m_piece = Knight;
-
-  col = toCol(ChessFileC);
-  m_board[row][col].m_color = White;
-  m_board[row][col].m_piece = Bishop;
-
-  col = toCol(ChessFileD);
-  m_board[row][col].m_color = White;
-  m_board[row][col].m_piece = Queen;
-
-  col = toCol(ChessFileE);
-  m_board[row][col].m_color = White;
-  m_board[row][col].m_piece = King;
-
-  col = toCol(ChessFileF);
-  m_board[row][col].m_color = White;
-  m_board[row][col].m_piece = Bishop;
-  
-  col = toCol(ChessFileG);
-  m_board[row][col].m_color = White;
-  m_board[row][col].m_piece = Knight;
-
-  col = toCol(ChessFileH);
-  m_board[row][col].m_color = White;
-  m_board[row][col].m_piece = Rook;
-  
-  // rank 2
-  row = toRow(ChessRank2);
-
-  for(col=0; col<NumOfFiles; ++col)
-  {
-    m_board[row][col].m_color = White;
-    m_board[row][col].m_piece = Pawn;
-  }
-
-  // 
-  // Black
-  //
-  
-  // rank 7
-  row = toRow(ChessRank7);
-
-  for(col=0; col<NumOfFiles; ++col)
-  {
-    m_board[row][col].m_color = Black;
-    m_board[row][col].m_piece = Pawn;
-  }
- 
-  // rank 8
-  row = toRow(ChessRank8);
-
-  col = toCol(ChessFileA);
-  m_board[row][col].m_color = Black;
-  m_board[row][col].m_piece = Rook;
-
-  col = toCol(ChessFileB);
-  m_board[row][col].m_color = Black;
-  m_board[row][col].m_piece = Knight;
-
-  col = toCol(ChessFileC);
-  m_board[row][col].m_color = Black;
-  m_board[row][col].m_piece = Bishop;
-
-  col = toCol(ChessFileD);
-  m_board[row][col].m_color = Black;
-  m_board[row][col].m_piece = Queen;
-
-  col = toCol(ChessFileE);
-  m_board[row][col].m_color = Black;
-  m_board[row][col].m_piece = King;
-
-  col = toCol(ChessFileF);
-  m_board[row][col].m_color = Black;
-  m_board[row][col].m_piece = Bishop;
-  
-  col = toCol(ChessFileG);
-  m_board[row][col].m_color = Black;
-  m_board[row][col].m_piece = Knight;
-
-  col = toCol(ChessFileH);
-  m_board[row][col].m_color = Black;
-  m_board[row][col].m_piece = Rook;
-
-  m_bIsPlaying  = true;
-  m_endReason   = NoResult;
-  m_winner      = NoColor;
+  // RDK clear history, boneyards. Reset state
 }
 
-int Game::sync(Move &move)
+int Game::makeTheMove(Move &move)
 {
-  BoardElem *pSrc, *pDst, *p3rd;
-
-  pSrc = NULL;
-  pDst = NULL;
-  p3rd = NULL;
-
   // sanity check
   if( !m_bIsPlaying )
   {
@@ -306,10 +264,13 @@ int Game::sync(Move &move)
       break;
   }
 
+  ChessSquare &sqSrc = getBoardSquare(move.m_posFrom);
+  ChessSquare &sqDst = getBoardSquare(move.m_posTo);
+
   //
   // Move source
   //
-  if( (pSrc = elem(move.m_posFrom)) == NULL )
+  if( sqSrc.isNotOnBoard() )
   {
     printf("ROSLOG: Error: bad 'from' square = %c%c.\n",
         move.m_posFrom.m_file, move.m_posFrom.m_rank);
@@ -321,7 +282,7 @@ int Game::sync(Move &move)
   //
   // Move destination
   //
-  if( (pDst = elem(move.m_posTo)) == NULL )
+  else if( sqDst.isNotOnBoard() )
   {
     printf("ROSLOG: Error: bad 'to' square = %c%c.\n",
         move.m_posTo.m_file, move.m_posTo.m_rank);
@@ -335,10 +296,10 @@ int Game::sync(Move &move)
   //
   if( move.m_piece == NoPiece )
   {
-    move.m_piece = pSrc->m_piece;
+    move.m_piece = sqSrc.getPieceType();
   }
 
-  // cannot move a piece that ain't there
+  // cannot move a piece that isn't there
   if( move.m_piece == NoPiece )
   {
     printf("ROSLOG: Error: no piece found on 'from' square %c%c.\n",
@@ -349,10 +310,10 @@ int Game::sync(Move &move)
   }
 
   // disagreement about what piece to move
-  else if( move.m_piece != pSrc->m_piece )
+  else if( move.m_piece != sqSrc.getPieceType() )
   {
     printf("ROSLOG: Error: piece %c != %c found on 'from' square %c%c.\n",
-        move.m_piece, pSrc->m_piece,
+        move.m_piece, sqSrc.getPieceType(),
         move.m_posFrom.m_file, move.m_posFrom.m_rank);
     m_bIsPlaying  = false;
     move.m_result = GameFatal;
@@ -365,7 +326,7 @@ int Game::sync(Move &move)
   if( move.m_promotion != NoPiece )
   {
     // promote here, move is at the end of this function
-    pSrc->m_piece = move.m_promotion;
+    sqSrc->m_piece = move.m_promotion;
   }
 
   //
@@ -476,14 +437,26 @@ int Game::getNumOfPlies()
   return (int)m_history.size();
 }
 
-BoardElem *Game::getBoardElem(ChessFile file, ChessRank rank)
+ChessSquare &Game::getBoardSquare(const int file, const int rank)
 {
   ChessPos  pos;
 
-  pos.m_file = file;
-  pos.m_rank = rank;
+  pos.m_file = (ChessFile)file;
+  pos.m_rank = (ChessRank)rank;
 
-  return elem(pos);
+  return getBoardSquare(pos);
+}
+
+ChessSquare &Game::getBoardSquare(const ChessPos &pos)
+{
+  if( toRowCol(pos, row, col) == CE_OK )
+  {
+    return m_board[row][col];
+  }
+  else
+  {
+    return ChessNoSquare;
+  }
 }
 
 std::vector<ChessPiece> &Game::getBoneYard(ChessColor color)
@@ -505,6 +478,7 @@ int Game::toRowCol(const ChessPos &pos, int &row, int &col)
 {
   row = toRow(pos.m_rank);
   col = toCol(pos.m_file);
+
   if( (row < 0) || (row >= NumOfRanks) || (col < 0) || (col >= NumOfFiles) )
   {
     return -CE_ECODE_CHESS_FATAL;
@@ -525,15 +499,194 @@ ChessRank Game::toRank(int row)
   return (ChessRank)((int)ChessRank1 + NumOfRanks - row - 1);
 }
 
+ChessFile Game::nextFile(int file)
+{
+  int col = toCol(file) + 1;
+
+  return col < NumOfFiles: toFile(col): NoFile;
+}
+
+ChessRank Game::nextRank(int rank)
+{
+  int row = toRow(rank) + 1;
+
+  return row < NumOfRanks: toRank(row): NoRank;
+}
+
 ChessColor Game::getSquareColor(int file, int rank)
 {
-  return ((file - ChessFileA) + (rank - ChessRank1)) % 2 == 0? Black: White;
+  return ChessSquare::colorOfSquare(file, rank);
 }
 
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 //  Protected
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+void Game::initBoard()
+{
+  int       row, col;
+  ChessPos  pos;
+
+  for(row = 0; row < NumOfRanks; ++row)
+  {
+    for(col = 0; col < NumOfFiles; ++col)
+    {
+      pos.m_file = toFile(col);
+      pos.m_rank = toRank(row);
+      m_board[row][col].setPos(pos);
+    }
+  }
+
+  setupBoard();
+}
+
+void Game::clearBoard()
+{
+  for(int col=0; col<NumOfFiles; ++col)
+  {
+    for(int row=0; row<NumOfRanks; ++row)
+    {
+      m_board[row][col].removePiece();
+    }
+  }
+}
+
+void Game::setupBoard()
+{
+  clearBoard();
+
+  setupBoard(White);
+  setupBoard(Black);
+}
+
+void Game::setupBoard(ChessColor eColor)
+{
+  ChessPiece  ePiece;
+  string      strId;
+  ChessFile   file;
+  ChessRank   rank;
+  int         row, col;
+  
+  // -----
+  // Back line
+  // -----
+  rank = eColor == White? ChessRank1: ChessRank8;
+  row  = toRow(rank);
+
+  //
+  // Pieces from left to right.
+  //
+  for(file = ChessFileA; file = nextFile(file); file != NoFile)
+  {
+    col = toCol(file);
+
+    switch( file )
+    {
+      // rooks
+      case ChessFileA:
+      case ChessFileH:
+        ePiece = Rook;
+        break;
+
+      // knights
+      case ChessFileB:
+      case ChessFileG:
+        ePiece = Knight;
+        break;
+
+      // bishops
+      case ChessFileC:
+      case ChessFileF:
+        ePiece = Bishop;
+        break;
+
+      // queen
+      case ChessFileD:
+        ePiece = Queen;
+        break;
+
+      // king
+      case ChessFileE:
+        ePiece = King;
+        break;
+    }
+
+    strId = makePieceId(file, rank, eColor, ePiece);
+
+    m_board[row][col].setPiece(eColor, ePiece, strId);
+  }
+
+  // -----
+  // Pawns
+  // -----
+  rank    = eColor == White? ChessRank2: ChessRank7;
+  row     = toRow(rank);
+  ePiece  = Pawn;
+
+  //
+  // Left to right files.
+  //
+  for(file = ChessFileA; file = nextFile(file); file != NoFile)
+  {
+    col   = toCol(file);
+    strId = makePieceId(file, rank, eColor, ePiece);
+
+    m_board[row][col].set(eColor, ePiece, strId);
+  }
+}
+
+string Game::makePieceId(int file, int rank,
+                         ChessColor eColor, ChessPiece ePiece)
+{
+  string  strId;
+  string  strMod;
+  string  strSep("-");
+
+  // pawns
+  if( (rank == ChessRank2) && (file != ChessRank7) )
+  {
+    strMod.assign(1, (char)file);
+  }
+
+  // the muscle pieces
+  else if( (rank == ChessRank1) && (file != ChessRank8) )
+  {
+    if( file <= ChessFileC )
+    {
+      strMod = nameOfPiece(Queen);
+    }
+    else if( file >= ChessFileF )
+    {
+      strMod = nameOfPiece(King);
+    }
+  }
+
+  // empty id
+  else
+  {
+    return strId;
+  }
+
+  // color-piece
+  if( strMod.empty() )
+  {
+    strId = nameOfColor(eColor) + strSep + nameOfPiece(ePiece);
+  }
+  // color-modifier-piece
+  else
+  {
+    strId = nameOfColor(eColor) + strSep + strMod + 
+                  strSep + nameOfPiece(ePiece);
+  }
+
+  return strId;
+}
+
+
+
+
+
 
 BoardElem *Game::elem(const ChessPos &pos)
 {
