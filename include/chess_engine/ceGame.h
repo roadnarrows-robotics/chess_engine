@@ -265,13 +265,15 @@ namespace chess_engine
     void setupGame();
   
     /*!
-     * \brief Make the chess move.
+     * \brief Fully quantify the chess move.
      *
-     * \param move  Fully specified chess move.
+     * The move is reasonably validated and additional move fields modified.
+     *
+     * \param [in,out] move   Chess move.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int makeTheMove(Move &move);
+    int quantify(Move &move);
 
     bool isPlaying()
     {

@@ -85,7 +85,7 @@ namespace chess_engine
     ChessPiece      m_captured;   ///< captured piece, if any
     bool            m_en_passant; ///< en passant move did [not] occur
     ChessCastling   m_castle;     ///< [no] castle move
-    ChessPos        m_posAuxAt;   ///< castle rook or en passant opponent square
+    ChessPos        m_posAuxFrom; ///< castle rook or en passant opponent square
     ChessPos        m_posAuxTo;   ///< castle rook destination chess square
     ChessPiece      m_promotion;  ///< pawn promoted to this piece
     bool            m_check;      ///< opponent [not] placed in check

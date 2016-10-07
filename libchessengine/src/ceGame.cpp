@@ -224,9 +224,13 @@ void Game::setupGame()
   // RDK clear history, boneyards. Reset state
 }
 
-int Game::makeTheMove(Move &move)
+int Game::quatify(Move &move)
 {
-  // sanity check
+  int   rc;
+
+  //
+  // Game state sanity checks.
+  //
   if( !m_bIsPlaying )
   {
     move.m_result = NoGame;
@@ -268,7 +272,7 @@ int Game::makeTheMove(Move &move)
   ChessSquare &sqDst = getBoardSquare(move.m_posTo);
 
   //
-  // Move source
+  // Source square is not on the board.
   //
   if( sqSrc.isNotOnBoard() )
   {
@@ -280,7 +284,7 @@ int Game::makeTheMove(Move &move)
   }
   
   //
-  // Move destination
+  // Destination square is not on the board.
   //
   else if( sqDst.isNotOnBoard() )
   {
@@ -292,14 +296,16 @@ int Game::makeTheMove(Move &move)
   }
   
   //
-  // Moved piece
+  // Set moved piece, if unset
   //
   if( move.m_piece == NoPiece )
   {
     move.m_piece = sqSrc.getPieceType();
   }
 
-  // cannot move a piece that isn't there
+  //
+  // Cannot move a non-existent piece.
+  //
   if( move.m_piece == NoPiece )
   {
     printf("ROSLOG: Error: no piece found on 'from' square %c%c.\n",
@@ -309,7 +315,9 @@ int Game::makeTheMove(Move &move)
     return -CE_ECODE_CHESS_SYNC;
   }
 
-  // disagreement about what piece to move
+  //
+  // Disagreement about what piece to move - game probably out of sync.
+  //
   else if( move.m_piece != sqSrc.getPieceType() )
   {
     printf("ROSLOG: Error: piece %c != %c found on 'from' square %c%c.\n",
@@ -321,103 +329,180 @@ int Game::makeTheMove(Move &move)
   }
 
   //
-  // Pawn Promotion
+  // Capture
   //
-  if( move.m_promotion != NoPiece )
+  if( sqDst.getPieceType() != NoPiece )
   {
-    // promote here, move is at the end of this function
-    sqSrc->m_piece = move.m_promotion;
+    rc = quantifyCapture(move);
   }
 
   //
-  // Capturing
-  //
-  if( pDst->m_piece != NoPiece )
-  {
-    move.m_captured = pDst->m_piece;
-    moveToBoneYard(pDst);
-  }
-
-  //
-  // En Passant (destination must be empty)
+  // En Passant (pawn's destination must be empty)
   //
   else if( move.m_piece == Pawn )
   {
-    // white
-    if( move.m_player == White )
-    {
+    rc = quantifyEnPassant(move);
+  }
+
+  //
+  // Castling (king's destination must be empty)
+  //
+  else if( move.m_castle != NoCastle )
+  {
+    rc = quantifyCastling(move);
+  }
+
+  //
+  // "Normal" move.
+  //
+  else
+  {
+    rc = CE_OK;
+  }
+
+  return rc;
+}
+
+int Game::quantifyCapture(Move &move)
+{
+  move.m_captured = getBoardSquare(move.m_posTo).getPieceType();
+  return CE_OK;
+}
+
+int Game::quantifyEnPassant(Move &move)
+{
+  move.m_en_passant = false;
+
+  if( move.m_piece != Pawn )
+  {
+    return CE_OK;
+  }
+
+  ChessSquare &sqDst = getBoardSquare(move.m_posTo);
+
+  switch( move.m_player )
+  {
+    case White:
       if( (move.m_posFrom.m_rank == ChessRank5) &&
           (move.m_posTo.m_rank   == ChessRank6) &&
           (move.m_posFrom.m_file != move.m_posTo.m_file) &&
-          (pDst->m_piece == NoPiece) )
+          (sqDst.getPieceType() == NoPiece) )
       {
-        move.m_posAuxAt.m_file = move.m_posTo.m_file;
-        move.m_posAuxAt.m_rank = move.m_posFrom.m_rank;
-        p3rd = elem(move.m_posAuxAt);
-        if( p3rd->m_piece == Pawn )
-        {
-          move.m_captured = p3rd->m_piece;
-          moveToBoneYard(p3rd);
-        }
-        else
-        {
-          move.m_posAuxAt = NoPos;
-        }
+        move.m_en_passant = true;
       }
-    }
-
-    // black
-    else
-    {
+      break;
+    case Black:
       if( (move.m_posFrom.m_rank == ChessRank4) &&
           (move.m_posTo.m_rank   == ChessRank3) &&
           (move.m_posFrom.m_file != move.m_posTo.m_file) &&
-          (pDst->m_piece == NoPiece) )
+          (sqDst.getPieceType() == NoPiece) )
       {
-        move.m_posAuxAt.m_file = move.m_posTo.m_file;
-        move.m_posAuxAt.m_rank = move.m_posFrom.m_rank;
-        p3rd = elem(move.m_posAuxAt);
-        if( p3rd->m_piece == Pawn )
-        {
-          move.m_captured = p3rd->m_piece;
-          moveToBoneYard(p3rd);
-        }
-        else
-        {
-          move.m_posAuxAt = NoPos;
-        }
+        move.m_en_passant = true;
       }
-    }
+      break;
+    default:
+      return -CE_ECODE_CHESS_MOVE;
+  }
+
+  if( !move.m_en_passant )
+  {
+    return CE_OK;
+  }
+
+  move.m_posAuxFrom.m_file = move.m_posTo.m_file;
+  move.m_posAuxFrom.m_rank = move.m_posFrom.m_rank;
+
+  ChessSquare &sqAux = getBoardSquare(move.m_posAuxFrom);
+
+  //
+  // Indeed, en passant.
+  //
+  if( sqAux.getPieceType() == Pawn )
+  {
+    move.m_captured = Pawn;
   }
 
   //
-  // Castling
+  // Something is amiss.
   //
-  else if( move.m_castle == KingSide )
+  else
   {
-    move.m_posAuxAt.m_file = move.m_posTo.m_file + 1;
-    move.m_posAuxAt.m_rank = move.m_posTo.m_rank;
-    move.m_posAuxTo.m_file = move.m_posTo.m_file - 1;
-    move.m_posAuxTo.m_rank = move.m_posTo.m_rank;
-    movePiece(move.m_posAuxAt, move.m_posAuxTo);
-  }
-  else if( move.m_castle == QueenSide )
-  {
-    move.m_posAuxAt.m_file = move.m_posTo.m_file - 2;
-    move.m_posAuxAt.m_rank = move.m_posTo.m_rank;
-    move.m_posAuxTo.m_file = move.m_posTo.m_file + 1;
-    move.m_posAuxTo.m_rank = move.m_posTo.m_rank;
-    movePiece(move.m_posAuxAt, move.m_posAuxTo);
+    printf("ROSLOG:\n");
+    move.m_en_passant = false;
+    move.m_posAuxFrom = NoPos;
+    return -CE_ECODE_CHESS_MOVE;
   }
 
-  //
-  // Finally, move the piece
-  //
+  return CE_OK;
+}
+
+int Game::quantifyCastling(Move &move)
+{
+  ChessRank rank = move.m_player == White? ChessRank1: ChessRank8;
+
+  if( move.m_piece != King )
+  {
+    move.m_castle = NoCastle;
+  }
+  else if( (move.m_posFrom.m_rank != rank) || (move.m_posTo.m_rank != file) )
+  {
+    move.m_castle = NoCastle;
+  }
+  else if( move.m_posFrom.m_file != ChessFileE )
+  {
+    move.m_castle = NoCastle;
+  }
+  else if( move.m_posTo.m_file == ChessFileG )
+  {
+    move.m_castle = KingSide;
+  }
+  else if( move.m_posTo.m_file == ChessFileC )
+  {
+    move.m_castle = QueenSide;
+  }
+  else
+  {
+    move.m_castle = NoCastle;
+  }
+ 
+  switch( move.m_castle )
+  {
+    // king side rook
+    case KingSide:
+      move.m_posAuxFrom.m_file  = ChessFileH;
+      move.m_posAuxFrom.m_rank  = rank
+      move.m_posAuxTo.m_file    = ChessFileF
+      move.m_posAuxTo.m_rank    = rank
+      break;
+    // queen side rook
+    case QueenSide:
+      move.m_posAuxFrom.m_file  = ChessFileA;
+      move.m_posAuxFrom.m_rank  = rank
+      move.m_posAuxTo.m_file    = ChessFileD
+      move.m_posAuxTo.m_rank    = rank
+      break;
+    default:
+      return CE_OK;
+  }
+
+  ChessSquare &sqAux = getBoardSquare(move.m_posAuxFrom);
+
+  if( sqAux.getPieceType() != ROOK )
+  {
+    printf("ROSLOG:\n");
+    return -CE_ECODE_CHESS_MOVE;
+  }
+
+  return CE_OK;
+}
+
+void Game::execMove(Move &move)
+{
+  boneyard
   movePiece(pSrc, pDst);
 
   recordHistory(move);
 
-  return CE_OK;
 }
 
 void Game::stopPlaying(ChessResult reason, ChessColor winner)
