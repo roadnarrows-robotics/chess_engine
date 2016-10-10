@@ -273,7 +273,7 @@ namespace chess_engine
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int quantify(Move &move);
+    int qualify(Move &move);
 
     bool isPlaying()
     {

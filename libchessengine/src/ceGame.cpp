@@ -224,7 +224,7 @@ void Game::setupGame()
   // RDK clear history, boneyards. Reset state
 }
 
-int Game::quatify(Move &move)
+int Game::qualify(Move &move)
 {
   int   rc;
 
@@ -333,7 +333,7 @@ int Game::quatify(Move &move)
   //
   if( sqDst.getPieceType() != NoPiece )
   {
-    rc = quantifyCapture(move);
+    rc = qualifyCapture(move);
   }
 
   //
@@ -341,7 +341,7 @@ int Game::quatify(Move &move)
   //
   else if( move.m_piece == Pawn )
   {
-    rc = quantifyEnPassant(move);
+    rc = qualifyEnPassant(move);
   }
 
   //
@@ -349,7 +349,7 @@ int Game::quatify(Move &move)
   //
   else if( move.m_castle != NoCastle )
   {
-    rc = quantifyCastling(move);
+    rc = qualifyCastling(move);
   }
 
   //
@@ -363,13 +363,13 @@ int Game::quatify(Move &move)
   return rc;
 }
 
-int Game::quantifyCapture(Move &move)
+int Game::qualifyCapture(Move &move)
 {
   move.m_captured = getBoardSquare(move.m_posTo).getPieceType();
   return CE_OK;
 }
 
-int Game::quantifyEnPassant(Move &move)
+int Game::qualifyEnPassant(Move &move)
 {
   move.m_en_passant = false;
 
@@ -436,7 +436,7 @@ int Game::quantifyEnPassant(Move &move)
   return CE_OK;
 }
 
-int Game::quantifyCastling(Move &move)
+int Game::qualifyCastling(Move &move)
 {
   ChessRank rank = move.m_player == White? ChessRank1: ChessRank8;
 
