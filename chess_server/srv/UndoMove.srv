@@ -1,0 +1,10 @@
+### Undo last move.
+#
+# After the undo, the chess engine backs up one ply (half move).
+#
+# The requesting player's color must match the the last move's color.
+#
+
+ChessColor  player    # requesting player: white or black
+---
+int8 rc   # 0 = ok, <0 = error

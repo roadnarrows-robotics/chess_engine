@@ -1,4 +1,7 @@
-### Retrieve game play history service.
+### Retrieve chess_serve game play history. 
+#
+# The game history is stored in vectors of Algebraic Notation strings.
+#
 
 ---
 string[]  whiteAN     # white moves in Algebraic Notation

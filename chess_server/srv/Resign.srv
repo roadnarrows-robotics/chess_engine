@@ -1,4 +1,8 @@
-### Resign from current game service. You Lose! 
+### Resign from current game. You Lose! 
+#
+# After resigning, a new game may be started by making a StartNewGame request.
+#
 
+ChessColor player # requesting player: white or black
 ---
 int8 rc   # 0 = ok, <0 = error

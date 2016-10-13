@@ -1,4 +1,4 @@
-### Move results code message.
+### Move/game results code message.
 
 ### code enumeration constants
 uint8 NoResult  =  48 # '0' (ascii zero)

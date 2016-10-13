@@ -1,6 +1,15 @@
-### Retrieve current board state service.
+### Retrieve current board and game state.
+#
+# The current chess_server node board state is retrieved. This service allows
+# connecting nodes to "catch up" with the play. It can also be used if the
+# requesting node's board state is corrupted or suspect.
+#
 
 ---
-ChessPos[]    squares   # {file}{rank}. Standard board has 64 squares
-ChessColor[]  colors    # piece color, at chess position
-ChessPiece[]  pieces    # piece type, at chess position
+string        white_name  # white player's name
+string        black_name  # black player's name
+ChessPos[]    squares     # {file}{rank}. Standard board has 64 squares
+ChessColor[]  colors      # piece color, at chess position
+ChessPiece[]  pieces      # piece type, at chess position
+ChessColor    game_winner # who won, if any winner
+ChessResult   game_state  # current game state

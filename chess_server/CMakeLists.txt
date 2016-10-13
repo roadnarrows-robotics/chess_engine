@@ -50,9 +50,11 @@ add_service_files(
     GetPlayHistory.srv
     MakeAMoveSAN.srv
     MakeAMove.srv
+    MoveCompleted.srv
     Resign.srv
     SetDifficulty.srv
     StartNewGame.srv
+    UndoMove.srv
 )
 
 add_action_files(

@@ -1,6 +1,22 @@
-### Make a move using chess square source and destination notation service.
+### Make a move using chess source and destination square notation.
+#
+# This service can also be used by a robot node (sub)system to initiate a
+# physical chess move.
+#
+# After making a valid chess move, the engine will automatically advance
+# to the next player.
+#
+# The requesting player's color must match the current color's play.
+#
+# This service can be used to determine whether a move is valid by looking at
+# the result field in the response move message. A valid move advances the play,
+# however. To undo, an UndoMove request must be made to back up one ply.
+#
+# Note that the response time is dependent of the difficulty level of the game
+# and can be very long if the search depth is deep.
 
-ChessPos    src   # {file}{rank}
-ChessPos    dst   # {file}{rank}
+ChessColor  player  # requesting player: white or black
+ChessPos    src     # {file}{rank}
+ChessPos    dst     # {file}{rank}
 ---
-ChessMove   move  # the actual move, fully quantified
+ChessMove   move    # engine's fully quantified move

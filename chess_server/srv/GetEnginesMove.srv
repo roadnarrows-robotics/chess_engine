@@ -1,4 +1,16 @@
-### Get backend chess engine's move service.
+### Get the backend chess engine's move.
+#
+# After getting the chess engine's move, the engine will automatically advance
+# to the next player.
+#
+# The requesting player's color must match the current color's play.
+#
+# Note that the response time is dependent of the difficulty level of the game
+# and can be very long if the search depth is deep. 
+#
 
+ChessColor  player    # requesting player: white or black
 ---
-ChessMove move   # engine's fully quantified move
+ChessMove move        # engine's fully quantified move
+string    white_name  # white player's name
+string    black_name  # black player's name

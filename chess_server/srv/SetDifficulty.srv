@@ -1,4 +1,6 @@
-### Set backend chess engine difficulty service.
+### Set the backend chess engine difficulty.
+#
+# The difficulty scale is a multiplier to the chess engine's search depth.
 
 float32 difficulty  # scale from 1.0 - 10.0 with 1.0 being the easiest
 ---

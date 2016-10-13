@@ -1,0 +1,13 @@
+### Move completed.
+#
+# After a complete move is made, this service must be sent to the chess_server.
+#
+# The requesting player's color must match the current color's play.
+#
+# A move is composed of two parts: 1) determine the move, and 2) physically
+# moving the effected piece(s).
+#
+
+ChessColor  player    # requesting player: white or black
+---
+int8 rc   # 0 = ok, <0 = error

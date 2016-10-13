@@ -1,7 +1,20 @@
-### Run or stop autoplay service.
+### Run or stop autoplay.
+#
+# When autoplay is started/resumed, the chess engine will play both sides for
+# the given number of moves or when the game ends. Between plies, a delay of
+# the specified seconds will be inserted. Note that the actual move time is
+# dependent of the difficulty level of the game and can be much longer if the
+# search depth is very deep. 
+#
+# Autoplay is stopped/paused when the run state is false.
+#
+# Autoplay may resume by issuing this request again with the run state true.
+#
+# The response is made prior to starting/stopping autoplay.
+#
 
-bool    run         # run [stop] autoplay
-uint16  num_moves   # maximum number of autoplay moves 
-float32 speed       # target play speed in seconds (engine may take longer)
+bool    run         # run [stop] autoplay state
+uint16  num_moves   # maximum number of moves [0 == run to end of game]
+float32 delay       # delay between moves [seconds, 0.0 == no delay]
 ---
 int8 rc   # 0 = ok, <0 = error

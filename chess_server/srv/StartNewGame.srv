@@ -1,5 +1,10 @@
-### Start new chess game service.
+### Start new chess game.
+#
+# Determining who is white (and black) are accomplish by the (engine) move
+# requests. White always moves first.
+#
 
-ChessColor player   # white or black
+string  white_name  # white player's name 
+string  black_name  # black player's name
 ---
 int8 rc   # 0 = ok, <0 = error
