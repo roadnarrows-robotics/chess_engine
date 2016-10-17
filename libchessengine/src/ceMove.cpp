@@ -72,21 +72,32 @@ using namespace chess_engine;
 // ---------------------------------------------------------------------------
 
 
+/*
+ * \brief Fixed strings used in regular expressions.
+ */
 static string strPiece("[KQRBNP]");
+static string strPieceNoPawn("[KQRBN]");
 static string strFile("[a-h]");
 static string strRank("[1-8]");
 static string strRankPenult("[27]");
 static string strRankUlt("[18]");
 
+/*
+ * \brief Coordinate and Standard Algebraic Notation regular expressions.
+ *
+ * CAN:
+ *
+ * 
+ */
 static boost::regex reCastleWhiteKingSide("(e1g1|O-O)");
 static boost::regex reCastleWhiteQueenSide("(e1c1|O-O-O)");
 static boost::regex reCastleBlackKingSide("(e8g8|O-O)");
 static boost::regex reCastleBlackQueenSide("(e8c8|O-O-O)");
 static boost::regex reCastleKingSide("^(e1g1|e8g8|O-O)$");
 static boost::regex reCastleQueenSide("^(e1c1|e8c8|O-O-O)$");
-static boost::regex rePawnPromotion("[a-h][27]?[a-h]?[18]=?("+strPiece+")\\S*");
+static boost::regex rePawnPromotion("[a-h][27]?[a-h]?[18]=?("+strPieceNoPawn+")\\S*");
 //static boost::regex rePawnPromotion("\\w+=?("+strPiece+")$");
-static boost::regex reSAN("^("+strFile+")("+strRank+")("
+static boost::regex reCAN("^("+strFile+")("+strRank+")("
                               +strFile+")("+strRank+")$");
 static boost::regex rePiece("^("+strPiece+").+$");
 static boost::regex rePawn("^("+strFile+").+$");
@@ -95,84 +106,84 @@ static boost::regex reModifier(".+([+#])$");
 
 
 // -----------------------------------------------------------------------------
-// Class Move
+// Class ChessMove
 // -----------------------------------------------------------------------------
 
-void Move::fromAN(const string &strAN)
+void ChessMove::fromSAN(const string &strSAN)
 {
   boost::cmatch what;
   ChessModifier modifier;
 
-  m_strAN = strAN;
+  m_strSAN = strSAN;
 
   // king side castle
-  if( boost::regex_match(strAN.c_str(), what, reCastleKingSide) )
+  if( boost::regex_match(strSAN.c_str(), what, reCastleKingSide) )
   {
-    m_piece  = King;
-    m_castle = KingSide;
+    m_ePieceMoved  = King;
+    m_eCastling = KingSide;
   }
   // queen side castle
-  else if( boost::regex_match(strAN.c_str(), what, reCastleQueenSide) )
+  else if( boost::regex_match(strSAN.c_str(), what, reCastleQueenSide) )
   {
-    m_piece  = King;
-    m_castle = QueenSide;
+    m_ePieceMoved  = King;
+    m_eCastling = QueenSide;
   }
   // pawn promotion
-  else if( boost::regex_match(strAN.c_str(), what, rePawnPromotion) )
+  else if( boost::regex_match(strSAN.c_str(), what, rePawnPromotion) )
   {
-    m_piece     = Pawn;
-    m_promotion = (ChessPiece)what[1].str()[0];
+    m_ePieceMoved     = Pawn;
+    m_ePiecePromoted = (ChessPiece)what[1].str()[0];
   }
 
   // Standard Algebraic Notation
-  else if( boost::regex_match(strAN.c_str(), what, reSAN) )
+  else if( boost::regex_match(strSAN.c_str(), what, reCAN) )
   {
   }
 
   // a simple, non-pawn move
-  else if( boost::regex_match(strAN.c_str(), what, rePiece) )
+  else if( boost::regex_match(strSAN.c_str(), what, rePiece) )
   {
-    m_piece = (ChessPiece)what[1].str()[0];
+    m_ePieceMoved = (ChessPiece)what[1].str()[0];
   }
 
   // a simple or en passant pawn move
-  else if( boost::regex_match(strAN.c_str(), what, rePawn) )
+  else if( boost::regex_match(strSAN.c_str(), what, rePawn) )
   {
-    m_piece = Pawn;
+    m_ePieceMoved = Pawn;
   }
 
   // capture
-  if( boost::regex_match(strAN.c_str(), what, reCapture) )
+  if( boost::regex_match(strSAN.c_str(), what, reCapture) )
   {
     m_bCapture = true;
   }
 
   // check or checkmate
-  if( boost::regex_match(strAN.c_str(), what, reModifier) )
+  if( boost::regex_match(strSAN.c_str(), what, reModifier) )
   {
     modifier = (ChessModifier)what[1].str()[0];
     if( modifier == ModCheck )
     {
-      m_check = true;
+      m_bCheck = true;
     }
-    switch( m_result )
+    switch( m_eResult )
     {
       case NoResult:
       case Ok:
-        m_result = modifier == ModCheckmate? Checkmate: Ok;
+        m_eResult = modifier == ModCheckmate? Checkmate: Ok;
         break;
       default:
         break;
     }
   }
 
-  if( m_result == NoResult )
+  if( m_eResult == NoResult )
   {
-    m_result = Ok;
+    m_eResult = Ok;
   }
 }
 
-string Move::toSAN(const ChessPos &posFrom, const ChessPos &posTo)
+string ChessMove::toCAN(const ChessPos &posFrom, const ChessPos &posTo)
 {
   char san[5];
 
@@ -182,110 +193,110 @@ string Move::toSAN(const ChessPos &posFrom, const ChessPos &posTo)
   return string(san);
 }
 
-void Move::fromSAN(const string &strSAN)
+void ChessMove::fromCAN(const string &strCAN)
 {
-  m_posFrom = NoPos;
-  m_posTo   = NoPos;
+  m_posSrc = NoPos;
+  m_posDst   = NoPos;
 
-  if( strSAN.size() >= 2 )
+  if( strCAN.size() >= 2 )
   {
-    m_posFrom.m_file = strSAN[0];
-    m_posFrom.m_rank = strSAN[1];
+    m_posSrc.m_file = strCAN[0];
+    m_posSrc.m_rank = strCAN[1];
   }
-  if( strSAN.size() >= 4 )
+  if( strCAN.size() >= 4 )
   {
-    m_posTo.m_file = strSAN[2];
-    m_posTo.m_rank = strSAN[3];
+    m_posDst.m_file = strCAN[2];
+    m_posDst.m_rank = strCAN[3];
   }
 }
 
-void Move::copy(const Move &src)
+void ChessMove::copy(const ChessMove &src)
 {
-  m_nMove       = src.m_nMove;
-  m_player      = src.m_player;
-  m_strAN       = src.m_strAN;
-  m_piece       = src.m_piece;
-  m_posFrom     = src.m_posFrom;
-  m_posTo       = src.m_posTo;
-  m_captured    = src.m_captured;
-  m_en_passant  = src.m_en_passant;
-  m_castle      = src.m_castle;
-  m_posAuxAt    = src.m_posAuxAt;
-  m_posAuxTo    = src.m_posAuxTo;
-  m_promotion   = src.m_promotion;
-  m_check       = src.m_check;
-  m_winner      = src.m_winner;
-  m_result      = src.m_result;
+  m_nMoveNum        = src.m_nMoveNum;
+  m_ePlayer         = src.m_ePlayer;
+  m_strSAN          = src.m_strSAN;
+  m_posSrc          = src.m_posSrc;
+  m_posDst          = src.m_posDst;
+  m_ePieceMoved     = src.m_ePieceMoved;
+  m_ePiecedCaptured = src.m_ePiecedCaptured;
+  m_ePiecePromoted  = src.m_ePiecePromoted;
+  m_bIsEnPassant    = src.m_bIsEnPassant;
+  m_eCastling       = src.m_eCastling;
+  m_posAuxSrc       = src.m_posAuxSrc;
+  m_posAuxDst       = src.m_posAuxDst;
+  m_bCheck          = src.m_bCheck;
+  m_eWinner         = src.m_eWinner;
+  m_eResult         = src.m_eResult;
 
   m_bCapture    = src.m_bCapture;
 }
 
-void Move::clear()
+void ChessMove::clear()
 {
-  m_nMove       = 0;
-  m_player      = NoColor;
-  m_strAN.clear();
-  m_piece       = NoPiece;
-  m_posFrom     = NoPos;
-  m_posTo       = NoPos;
-  m_captured    = NoPiece;
-  m_en_passant  = false;
-  m_castle      = NoCastle;
-  m_posAuxAt    = NoPos;
-  m_posAuxTo    = NoPos;
-  m_promotion   = NoPiece;
-  m_check       = false;
-  m_winner      = NoColor;
-  m_result      = NoResult;
+  m_nMoveNum       = 0;
+  m_ePlayer      = NoColor;
+  m_strSAN.clear();
+  m_ePieceMoved       = NoPiece;
+  m_posSrc     = NoPos;
+  m_posDst       = NoPos;
+  m_ePiecedCaptured    = NoPiece;
+  m_bIsEnPassant  = false;
+  m_eCastling      = NoCastle;
+  m_posAuxSrc    = NoPos;
+  m_posAuxDst    = NoPos;
+  m_ePiecePromoted   = NoPiece;
+  m_bCheck       = false;
+  m_eWinner      = NoColor;
+  m_eResult      = NoResult;
 
   m_bCapture    = false;
 }
 
-ostream &chess_engine::operator<<(ostream &os, const Move &move)
+ostream &chess_engine::operator<<(ostream &os, const ChessMove &move)
 {
-  os << move.m_nMove << ":";
-  os << " " << nameOfColor(move.m_player);
-  os << " " << move.m_posFrom.m_file << move.m_posFrom.m_rank
-            << move.m_posTo.m_file << move.m_posTo.m_rank;
-  os << " " << move.m_strAN;
-  os << " " << nameOfPiece(move.m_piece);
+  os << move.m_nMoveNum << ":";
+  os << " " << nameOfColor(move.m_ePlayer);
+  os << " " << move.m_posSrc.m_file << move.m_posSrc.m_rank
+            << move.m_posDst.m_file << move.m_posDst.m_rank;
+  os << " " << move.m_strSAN;
+  os << " " << nameOfPiece(move.m_ePieceMoved);
 
-  if( move.m_captured != NoPiece )
+  if( move.m_ePiecedCaptured != NoPiece )
   {
-    os << " captured(" << nameOfPiece(move.m_captured) << ")";
+    os << " captured(" << nameOfPiece(move.m_ePiecedCaptured) << ")";
   }
 
-  if( move.m_en_passant )
+  if( move.m_bIsEnPassant )
   {
     os << " en_passant(xPawn="
-       << move.m_posAuxAt.m_file << move.m_posAuxAt.m_rank << ")";
+       << move.m_posAuxSrc.m_file << move.m_posAuxSrc.m_rank << ")";
   }
 
-  if( move.m_castle != NoCastle )
+  if( move.m_eCastling != NoCastle )
   {
-    os << " castle(" << nameOfCastling(move.m_castle) << ", Rook=";
-    os << move.m_posAuxAt.m_file << move.m_posAuxAt.m_rank
-       << move.m_posAuxTo.m_file << move.m_posAuxTo.m_rank << ")";
+    os << " castle(" << nameOfCastling(move.m_eCastling) << ", Rook=";
+    os << move.m_posAuxSrc.m_file << move.m_posAuxSrc.m_rank
+       << move.m_posAuxDst.m_file << move.m_posAuxDst.m_rank << ")";
   }
 
-  if( move.m_promotion != NoPiece )
+  if( move.m_ePiecePromoted != NoPiece )
   {
-    os << " promotion(" << nameOfPiece(move.m_promotion) << ")";
+    os << " promotion(" << nameOfPiece(move.m_ePiecePromoted) << ")";
   }
 
-  if( move.m_check )
+  if( move.m_bCheck )
   {
     os << " check";
   }
 
-  if( move.m_winner != NoColor )
+  if( move.m_eWinner != NoColor )
   {
-    os << " winner(" << nameOfColor(move.m_winner) << ")";
+    os << " winner(" << nameOfColor(move.m_eWinner) << ")";
   }
 
-  if( move.m_result != NoResult )
+  if( move.m_eResult != NoResult )
   {
-    os << " " << nameOfResult(move.m_result);
+    os << " " << nameOfResult(move.m_eResult);
   }
 
   return os;

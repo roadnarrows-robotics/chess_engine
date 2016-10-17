@@ -66,72 +66,142 @@
 namespace chess_engine
 {
   /*!
-   * \brief Move Class.
+   * \brief ChessMove Class.
    *
    * Each move or action during play if fully captured by instances of this
    * class. The hope is that a robotic entity can play chess without having
    * any deep knowledge of chess nor having to keep extensive game state
    * information.
    */
-  class Move
+  class ChessMove
   {
   public:
-    int             m_nMove;      ///< move number (2 plies/move)
-    ChessColor      m_player;     ///< player (and move) color
-    std::string     m_strAN;      ///< algebraic notation of move
-    ChessPiece      m_piece;      ///< moved piece
-    ChessPos        m_posFrom;    ///< moved piece starting from chess square
-    ChessPos        m_posTo;      ///< moved piece ending to chess square
-    ChessPiece      m_captured;   ///< captured piece, if any
-    bool            m_en_passant; ///< en passant move did [not] occur
-    ChessCastling   m_castle;     ///< [no] castle move
-    ChessPos        m_posAuxFrom; ///< castle rook or en passant opponent square
-    ChessPos        m_posAuxTo;   ///< castle rook destination chess square
-    ChessPiece      m_promotion;  ///< pawn promoted to this piece
-    bool            m_check;      ///< opponent [not] placed in check
-    ChessColor      m_winner;     ///< winner of the game, if any
-    ChessResult     m_result;     ///< result of move
+    int           m_nMoveNum;       ///< move number (2 plies/move)
+    ChessColor    m_ePlayer;        ///< player (and move) color
+    std::string   m_strSAN;         ///< standard algebraic notation of move
+    ChessPos      m_posSrc;         ///< moved piece source chess square
+    ChessPos      m_posDst;         ///< moved piece destination chess square
+    ChessPiece    m_ePieceMoved;    ///< moved piece
+    ChessPiece    m_ePieceCaptured; ///< captured piece, if any
+    ChessPiece    m_ePiecePromoted; ///< promoted pawn piece, if any
+    bool          m_bIsEnPassant;   ///< en passant move did [not] occur
+    ChessCastling m_eCastling;      ///< [no] castling move
+    ChessPos      m_posAuxSrc;      ///< castling rook or en passant pawn square
+    ChessPos      m_posAuxDst;      ///< castling rook destination chess square
+    bool          m_bCheck;         ///< opponent [not] placed in check
+    ChessColor    m_eWinner;        ///< winner of the game, if any
+    ChessResult   m_eResult;        ///< result of move
 
-    Move()
+    /*!
+     * \brief Default constructor.
+     */
+    ChessMove()
     {
       clear();
     }
 
-    Move(const Move &src)
+    /*!
+     * \brief Copy constructor.
+     *
+     * \param src Source object.
+     */
+    ChessMove(const ChessMove &src)
     {
       copy(src);
     }
 
-    virtual ~Move() { };
+    /*!
+     * \brief Destructor.
+     */
+    virtual ~ChessMove() { };
 
-    Move operator=(const Move &rhs)
+    /*!
+     * \brief Assignment operator.
+     *
+     * \param rhs   Right hand side object
+     *
+     * \return This.
+     */
+    ChessMove operator=(const ChessMove &rhs)
     {
       copy(rhs);
       return *this;
     }
   
-    std::string toSAN()
-    {
-      return toSAN(m_posFrom, m_posTo);
-    }
+    /*!
+     * \brief Convert move state to Coordinate Algebraic Notation string.
+     *
+     * \return String.
+     */
+    std::string toCAN();
 
-    static std::string toSAN(const ChessPos &posFrom, const ChessPos &posTo);
+    /*!
+     * \brief Convert Coordinate Algebraic Notation to move's state.
+     *
+     * \note Conversion will only partially modify the state since
+     * neither the board nor game context is included.
+     *
+     * \param strCAN    Coordinate Algebraic Notation string.
+     */
+    void fromCAN(const std::string &strCAN);
 
+    /*!
+     * \brief Convert move state to Standard Algebraic Notation string.
+     *
+     * \return String.
+     */
+    std::string toSAN();
+
+    /*!
+     * \brief Convert Standard Algebraic Notation to move's state.
+     *
+     * \note Conversion will only partially modify the state since
+     * neither the board nor game context is included.
+     *
+     * \param strSAN    Standard Algebraic Notation string.
+     */
     void fromSAN(const std::string &strSAN);
 
-    void fromAN(const std::string &strAN);
+    /*!
+     * \brief Convert chess board source and destination squares to position
+     * string.
+     *
+     * Format: "{src_file}{src_rank}[{dst_file}{dst_rank}]"
+     *
+     * \return String.
+     */
+    static std::string toPos(const ChessPos &posSrc, const ChessPos &posDst);
 
+    /*!
+     * \brief Clear move.
+     */
     void clear();
 
-    friend std::ostream &operator<<(std::ostream &os, const Move &move);
+    /*!
+     * \brief Friends.
+     */
+    friend std::ostream &operator<<(std::ostream &os, const ChessMove &move);
     
   protected:
     bool  m_bCapture;     ///< some type of piece capture occurred
 
-    void copy(const Move &src);
+    /*!
+     * \brief Copy move object.
+     *
+     * \param src Source object.
+     */
+    void copy(const ChessMove &src);
   };
 
-  extern std::ostream &operator<<(std::ostream &os, const Move &move);
+  /*!
+   * \brief Stream move state to output stream.
+   *
+   * \param os    Output stream.
+   * \param move  Chess move object
+   *
+   * \return Reference to output stream.
+   */
+  extern std::ostream &operator<<(std::ostream &os, const ChessMove &move);
 } // namespace chess_engine
 
 

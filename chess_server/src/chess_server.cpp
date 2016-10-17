@@ -221,7 +221,7 @@ bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
 
   if( rc == CE_OK )
   {
-    rc = m_game.sync(move);
+    rc = m_game.qualify(move);
     ROS_DEBUG_STREAM("g: " << move << endl);
   }
 
@@ -266,7 +266,7 @@ bool ChessServer::makeAMove(chess_server::MakeAMove::Request  &req,
 
   if( rc == CE_OK )
   {
-    rc = m_game.sync(move);
+    rc = m_game.qualify(move);
     ROS_DEBUG_STREAM("g: " << move << endl);
   }
 
@@ -305,7 +305,7 @@ bool ChessServer::getEnginesMove(chess_server::GetEnginesMove::Request  &req,
 
   if( rc == CE_OK )
   {
-    rc = m_game.sync(move);
+    rc = m_game.qualify(move);
     ROS_DEBUG_STREAM("g: " << move << endl);
   }
 

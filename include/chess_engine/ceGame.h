@@ -246,18 +246,18 @@ namespace chess_engine
   /*!
    * \brief Chess game class.
    */
-  class Game
+  class ChessGame
   {
   public:
     /*!
      * \brief Default constructor.
      */
-    Game();
+    ChessGame();
   
     /*!
      * \brief Destructor.
      */
-    virtual ~Game() { }
+    virtual ~ChessGame() { }
   
     /*!
      * \brief Set up for the start a (new) game.
@@ -273,7 +273,7 @@ namespace chess_engine
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int qualify(Move &move);
+    int qualify(ChessMove &move);
 
     bool isPlaying()
     {
@@ -296,12 +296,12 @@ namespace chess_engine
       return m_endReason;
     }
 
-    std::vector<Move> &getGameHistory()
+    std::vector<ChessMove> &getGameHistory()
     {
       return m_history;
     }
 
-    Move &operator[](int i)
+    ChessMove &operator[](int i)
     {
       return m_history[i];
     }
@@ -424,7 +424,7 @@ namespace chess_engine
     bool                    m_bIsPlaying;     ///< is [not] playing a game
     ChessResult             m_endReason;      ///< end of game reason
     ChessColor              m_winner;         ///< end of game winner, if any
-    std::vector<Move>       m_history;        ///< game history
+    std::vector<ChessMove>  m_history;        ///< game history
     std::vector<ChessPiece> m_boneYardWhite;  ///< captured white pieces
     std::vector<ChessPiece> m_boneYardBlack;  ///< captured black pieces
     bool                    m_bGui;           ///< [not] a gui stream output
@@ -486,14 +486,14 @@ namespace chess_engine
 
     void movePiece(BoardElem *pSrc, BoardElem *pDst);
 
-    void recordHistory(Move &move);
+    void recordHistory(ChessMove &move);
 
     void moveToBoneYard(BoardElem *pDeadPiece);
 
-    friend std::ostream &operator<<(std::ostream &os, const Game &game);
+    friend std::ostream &operator<<(std::ostream &os, const ChessGame &game);
   };
 
-  extern std::ostream &operator<<(std::ostream &os, const Game &game);
+  extern std::ostream &operator<<(std::ostream &os, const ChessGame &game);
 
 } // chess_engine
 

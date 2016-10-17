@@ -224,7 +224,7 @@ void Game::setupGame()
   // RDK clear history, boneyards. Reset state
 }
 
-int Game::qualify(Move &move)
+int Game::qualify(ChessMove &move)
 {
   int   rc;
 
@@ -353,7 +353,7 @@ int Game::qualify(Move &move)
   }
 
   //
-  // "Normal" move.
+  // Basic move.
   //
   else
   {
@@ -363,13 +363,13 @@ int Game::qualify(Move &move)
   return rc;
 }
 
-int Game::qualifyCapture(Move &move)
+int Game::qualifyCapture(ChessMove &move)
 {
   move.m_captured = getBoardSquare(move.m_posTo).getPieceType();
   return CE_OK;
 }
 
-int Game::qualifyEnPassant(Move &move)
+int Game::qualifyEnPassant(ChessMove &move)
 {
   move.m_en_passant = false;
 
@@ -436,7 +436,7 @@ int Game::qualifyEnPassant(Move &move)
   return CE_OK;
 }
 
-int Game::qualifyCastling(Move &move)
+int Game::qualifyCastling(ChessMove &move)
 {
   ChessRank rank = move.m_player == White? ChessRank1: ChessRank8;
 
@@ -496,7 +496,7 @@ int Game::qualifyCastling(Move &move)
   return CE_OK;
 }
 
-void Game::execMove(Move &move)
+void Game::execMove(ChessMove &move)
 {
   boneyard
   movePiece(pSrc, pDst);
@@ -795,7 +795,7 @@ void Game::movePiece(BoardElem *pSrc, BoardElem *pDst)
   *pSrc = EmptyElem;
 }
 
-void Game::recordHistory(Move &move)
+void Game::recordHistory(ChessMove &move)
 {
   m_history.push_back(move);
 }
