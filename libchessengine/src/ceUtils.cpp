@@ -73,82 +73,174 @@ using namespace boost::assign;
 namespace chess_engine
 {
   /*! name of chess colors */
-  static map<int, string> NameColors = map_list_of
+  static const map<int, string> NameColors = map_list_of
     (NoColor, "nocolor")
     (White,   "white")
-    (Black,   "black");
+    (Black,   "black")
+  ;
   
   /*! name of chess pieces */
-  static map<int, string> NamePieces = map_list_of
+  static const map<int, string> NamePieces = map_list_of
     (NoPiece, "nopiece")
     (King,    "King")
     (Queen,   "Queen")
     (Rook,    "Rook")
     (Bishop,  "Bishop")
     (Knight,  "Knight")
-    (Pawn,    "Pawn");
+    (Pawn,    "Pawn")
+  ;
   
   /*! unicode of white chess figurines */
-  static map<int, string> FigurineWhitePieces = map_list_of
+  static const map<int, string> FigurineWhitePieces = map_list_of
     (NoPiece,   " ")
     (King,    "\U00002654")
     (Queen,   "\U00002655")
     (Rook,    "\U00002656")
     (Bishop,  "\U00002657")
     (Knight,  "\U00002658")
-    (Pawn,    "\U00002659");
+    (Pawn,    "\U00002659")
+  ;
   
   /*! unicode of black chess figurines */
-  static map<int, string> FigurineBlackPieces = map_list_of
+  static const map<int, string> FigurineBlackPieces = map_list_of
     (NoPiece,   " ")
     (King,    "\U0000265A")
     (Queen,   "\U0000265B")
     (Rook,    "\U0000265C")
     (Bishop,  "\U0000265D")
     (Knight,  "\U0000265E")
-    (Pawn,    "\U0000265F");
+    (Pawn,    "\U0000265F")
+  ;
   
   /*! name of chess castle moves */
-  static map<int, string> NameCastling = map_list_of
-    (NoCastle,  "nocastle")
-    (KingSide,  "kingside")
-    (QueenSide, "queenside");
+  static const map<int, string> NameCastling = map_list_of
+    (NoCastling,  "nocastling")
+    (KingSide,    "kingside")
+    (QueenSide,   "queenside")
+  ;
   
   /*! name of chess action results */
-  static map<int, string> NameResults = map_list_of
-    (NoResult,  "noresult")
-    (Ok,        "ok")
-    (BadMove,   "badmove")
-    (OutOfTurn, "outofturn")
-    (Checkmate, "checkmate")
-    (Draw,      "draw")
-    (Resign,    "resign")
-    (NoGame,    "nogame")
-    (GameFatal, "gamefatal");
+  static const map<int, string> NameResults = map_list_of
+    (NoResult,      "noresult")
+    (Ok,            "ok")
+    (BadMove,       "badmove")
+    (OutOfTurn,     "outofturn")
+    (Checkmate,     "checkmate")
+    (Draw,          "draw")
+    (Resign,        "resign")
+    (Disqualified,  "disqualified")
+    (NoGame,        "nogame")
+    (GameFatal,     "gamefatal")
+  ;
   
-  string nameOfColor(ChessColor color)
+  /*! name of chess check modifiers */
+  static const std::map<int, std::string> NameCheckModName = map_list_of
+    (NoCheckMod,      "nocheck")
+    (ModCheck,        "check")
+    (ModDoubleCheck,  "doublecheck")
+    (ModCheckmate,    "checkmate")
+  ;
+
+  /*! name of chess algebras */
+  static const std::map<int, std::string> NameAlgebra = map_list_of
+    (UnknownAN, "unknown")
+    (CAN,       "Coordinate Algebra Notation")
+    (SAN,       "Standard Algebra Notation")
+  ;
+
+  // name map iterator type
+  typedef std::map<int, std::string>::const_iterator name_iter;
+
+  const string nameOfColor(ChessColor color)
   {
-    return NameColors[color];
+    name_iter iter = NameColors.find(color);
+
+    return iter != NameColors.end()? iter->second: NameColors.at(NoColor);
   }
   
-  string nameOfPiece(ChessPiece piece)
+  const string nameOfPiece(ChessPiece piece)
   {
-    return NamePieces[piece];
+    name_iter iter = NamePieces.find(piece);
+
+    return iter != NamePieces.end()? iter->second: NamePieces.at(NoPiece);
   }
   
-  string figurineOfPiece(ChessColor color, ChessPiece piece)
+  const string figurineOfPiece(ChessColor color, ChessPiece piece)
   {
-    return color==White? FigurineWhitePieces[piece]: FigurineBlackPieces[piece];
+    static const strUnknown = "\U00002047"; // "??"
+
+    name_iter iter;
+
+    switch( color )
+    {
+      case White:
+        iter = FigurineWhitePieces.find(piece);
+        return iter != FigurineWhitePieces.end()? iter->second: strUnknown;
+      case Black:
+        iter = FigurineBlackPieces.find(piece);
+        return iter != FigurineBlackPieces.end()? iter->second: strUnknown;
+      default:
+        return strUnknown;
+    }
   }
   
-  string nameOfCastling(ChessCastling side)
+  const string nameOfCastling(ChessCastling side)
   {
-    return NameCastling[side];
+    name_iter iter = NameCastling.find(side);
+
+    return iter != NameCastling.end()?  iter->second:
+                                        NameCastling.at(NoCastling);
   }
   
-  string nameOfResult(ChessResult result)
+  const string nameOfResult(ChessResult result)
   {
-    return NameResults[result];
+    name_iter iter = NameResults.find(result);
+
+    return iter != NameResults.end()? iter->second: NameResults.at(NoResult);
+  }
+
+  const string nameOfCheckMod(ChessCheckMod checkmod)
+  {
+    name_iter iter = NameCheckMod.find(checkmod);
+
+    return iter != NameCheckMod.end()? iter->second:
+                                       NameCheckMod.at(NoCheckMod);
+  }
+
+  const string nameOfAlgebra(ChessAlgebra algebra)
+  {
+    name_iter iter = NameAlgebra.find(algebra);
+
+    return iter != NameAlgebra.end()? iter->second: NameAlgebra.at(UnknownAN);
+  }
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // ChessPos Structure
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  ChessPos::ChessPos()
+  {
+    m_file = NoFile;
+    m_rank = NoRank;
+  }
+
+  ChessPos::ChessPos(const ChessPos &src)
+  {
+    m_file = src.m_file;
+    m_rank = src.m_rank;
+  }
+
+  void ChessPos::clear()
+  {
+    m_file = NoFile;
+    m_rank = NoRank;
+  }
+
+  ChessPos::isOnBoard()
+  {
+    int col = m_file - (int)ChessFileA;
+    int row = NumOfRanks - (m_rank - (int)ChessRank1) - 1;
+
+    return (col >= 0) && (col < NumOfFiles) && (row >= 0) && (col < NumOfRanks);
   }
 
 } // namespace chess_engine

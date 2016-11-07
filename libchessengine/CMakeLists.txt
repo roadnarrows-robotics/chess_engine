@@ -39,9 +39,13 @@ include_directories(
 )
 
 add_library(chessengine
+  src/ceBoard.cpp
+  src/ceCore.cpp
   src/ceError.cpp
   src/ceGame.cpp
   src/ceMove.cpp
+  src/ceParser.cpp
+  src/ceSquare.cpp
   src/ceUtils.cpp
 )
 

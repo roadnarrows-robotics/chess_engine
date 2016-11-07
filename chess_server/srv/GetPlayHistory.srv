@@ -1,4 +1,4 @@
-### Retrieve chess_serve game play history. 
+### Retrieve chess_server game play history. 
 #
 # The game history is stored in vectors of Algebraic Notation strings.
 #

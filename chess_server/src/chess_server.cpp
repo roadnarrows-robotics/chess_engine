@@ -205,13 +205,32 @@ bool ChessServer::startNewGame(chess_server::StartNewGame::Request  &req,
   return rc == CE_OK? true: false;
 }
 
-bool ChessServer::makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
-                               chess_server::MakeAMoveSAN::Response &rsp)
+bool ChessServer::makeAMoveAN(chess_server::MakeAMoveSAN::Request  &req,
+                              chess_server::MakeAMoveSAN::Response &rsp)
 {
   Move  move;
   int   rc;
 
-  ROS_DEBUG("make_a_move_san");
+  ROS_DEBUG("make_a_move_an");
+
+  // RDK 
+
+  rc = m_engine.makePlayersMove(req.AN);
+
+  strSAN = m_engine.getSAN();
+
+  m_parser.parse(strSAN, move);
+
+  m_game.qualify(move);
+  
+  m_game.execMove(move);
+
+  move.toRosMoveMsg(rsp.move);
+
+  m_engine.getResult(); ??;
+  publishResult();
+
+  // RDK 
 
   move.fromSAN(req.SAN);
 

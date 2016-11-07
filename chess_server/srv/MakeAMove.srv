@@ -15,8 +15,9 @@
 # Note that the response time is dependent of the difficulty level of the game
 # and can be very long if the search depth is deep.
 
-ChessColor  player  # requesting player: white or black
-ChessPos    src     # {file}{rank}
-ChessPos    dst     # {file}{rank}
+ChessColor  player          # requesting player: white or black
+ChessPos    src             # {file}{rank}
+ChessPos    dst             # {file}{rank}
+ChessPiece  piece_promoted  # pawn promoted to this piece. NoPiece if none.
 ---
-ChessMove   move    # engine's fully quantified move
+ChessMove   move            # engine's fully qualified move

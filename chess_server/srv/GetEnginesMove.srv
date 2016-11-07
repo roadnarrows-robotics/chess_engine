@@ -11,6 +11,6 @@
 
 ChessColor  player    # requesting player: white or black
 ---
-ChessMove move        # engine's fully quantified move
+ChessMove move        # engine's fully qualified move
 string    white_name  # white player's name
 string    black_name  # black player's name

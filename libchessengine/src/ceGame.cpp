@@ -59,177 +59,65 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <stringstream>
 
-#include "rnr/color.h"
-
-#include "chess_engine/ceChess.h"
+#include "chess_engine/ceTypes.h"
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceGame.h"
+#include "chess_engine/ceUtils.h"
 
 using namespace std;
 using namespace chess_engine;
 
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Chess board square class.
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-ChessSquare::ChessSquare()
-{
-  m_pos         = NoPos;
-  m_eColor      = colorOfSquare(m_pos);
-  m_ePieceColor = NoColor;
-  m_ePieceType  = NoPiece;
-}
-
-void ChessSquare::ChessSquare(const ChessPos    &pos,
-                              const ChessColor  ePieceColor,
-                              const ChessPiece  ePieceType,
-                              const std::string &strPieceId)
-{
-  m_pos         = pos;
-  m_eColor      = colorOfSquare(pos);
-  m_ePieceColor = ePieceColor;
-  m_ePieceType  = ePieceType;
-  m_strPieceId  = strPiecedId;
-}
-
-ChessSquare ChessSquare::operator==(const ChessSquare &rhs)
-{
-  m_pos         = rhs.m_pos;
-  m_eColor      = colorOfSquare(m_pos);
-  m_ePieceColor = rhs.m_ePieceColor;
-  m_ePieceType  = rhs.m_ePieceType;
-  m_strPieceId  = rhs.m_strPiecedId;
-
-  return *this;
-}
-
-void ChessSquare::setPos(const ChessPos &pos)
-{
-  m_pos = pos;
-
-  m_eColor = colorOfSquare(m_pos);
-}
-
-ChessPos ChessSquare::getPos();
-{
-  return m_pos;
-}
-
-ChessColor ChessSquare::getColor();
-{
-  return m_eColor;
-}
-
-void ChessSquare::setPiece(const ChessColor   ePieceColor,
-                           const ChessPiece   ePieceType,
-                           const std::string &strPieceId)
-{
-  m_ePieceColor = ePieceColor;
-  m_ePieceType  = ePieceType;
-  m_strPieceId  = strPiecedId;
-}
-
-void ChessSquare::getPiece(ChessColor  &ePieceColor,
-                           ChessPiece  &ePieceType,
-                           std::string &strPieceId)
-{
-  eColor      = m_ePieceColor;
-  eType       = m_ePieceType;
-  strPieceId  = m_strPiecedId;
-}
-
-void ChessSquare::copyPiece(ChessSquare &dst)
-{
-  dst.m_ePieceColor = m_ePieceColor;
-  dst.m_ePieceType  = m_ePieceType;
-  dst.m_strPieceId  = m_strPiecedId;
-}
-
-void ChessSquare::movePiece(ChessSquare &dst)
-{
-  copyPiece(dst);
-  removePiece();
-}
-
-void ChessSquare::removePiece()
-{
-  m_ePieceColor = NoColor;
-  m_ePieceType  = NoPiece;
-  m_strPieceId.clear();
-}
-
-bool ChessSquare::isEmpty()
-{
-  return m_ePieceType == NoPiece;
-}
-
-bool ChessSquare::isNotOnBoard()
-{
-  return (m_pos.m_file == NoFile) || (m_pos.m_rank == NoRank);
-}
-
-ChessColor ChessSquare::getPieceColor()
-{
-  return m_ePieceColor;
-}
-
-ChessPiece ChessSquare::getPieceType()
-{
-  return m_ePieceType;
-}
-
-string ChessSquare::getPieceId()
-{
-  return m_strPieceId;
-}
-
-ChessColor ChessSquare::colorOfSquare(const ChessPos &pos)
-{
-  return ChessSquare::colorOfSquare(pos.m_file, pos.m_rank);
-}
-
-ChessColor ChessSquare::colorOfSquare(int file, int rank)
-{
-  if( (file == NoFile) || (rank == NoRank) )
-  {
-    return NoColor;
-  }
-  else
-  {
-    return ((file - ChessFileA) + (rank - ChessRank1)) % 2 == 0? Black: White;
-  }
-}
-
-
-static ChessNoSquare = ChessSquare();   ///< "no square" square
-
-
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 // Chess game class.
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-Game::Game()
+ChessGame::ChessGame()
 {
-  initBoard();
+  m_bIsPlaying  = false;
+  m_eEoGReason  = NoResult;
+  m_eWinner     = NoColor;
+
+  m_eTurnToMove  = NoColor;
 
   m_bGui = false;
 }
 
-void Game::setupGame()
+ChessGame::~ChessGame()
 {
-  setupBoard();
-
-  // RDK clear history, boneyards. Reset state
 }
 
-int Game::qualify(ChessMove &move)
+int ChessGame::startNewGame(const string &strWhite, const string &strBlack)
 {
-  int   rc;
+  setupGame();
+
+  m_bIsPlaying  = true;
+  m_eEoGReason  = NoResult;
+  m_eWinner     = NoColor;
+
+  m_eTurnToMove           = White;
+  m_playerName[White]     = strWhite;
+  m_playerName[Black]     = strBlack;
+  m_numPromotions[White]  = 0;
+  m_numPromotions[Black]  = 0;
+
+}
+
+int ChessGame::endCurrentGame(ChessResult eReason, ChessColor eWinner)
+{
+  m_bIsPlaying  = false;
+  m_eEoGReason  = eReason;
+  m_eWinner     = eWinner;
+}
+
+int ChessGame::qualifyMove(ChessMove &move)
+{
+  ChessPiece  ePieceSrc;
 
   //
-  // Game state sanity checks.
+  // ChessGame state sanity checks.
   //
   if( !m_bIsPlaying )
   {
@@ -247,19 +135,16 @@ int Game::qualify(ChessMove &move)
     case OutOfTurn:
       return -CE_ECODE_CHESS_OUT_OF_TURN;
     case NoGame:
-      m_bIsPlaying  = false;
-      m_endReason   = move.m_result;
+      endCurrentGame(move.m_result);
       return -CE_ECODE_CHESS_SYNC;
     case GameFatal:
-      m_bIsPlaying  = false;
-      m_endReason   = move.m_result;
+      endCurrentGame(move.m_result);
       return -CE_ECODE_CHESS_FATAL;
     case Checkmate:
     case Draw:
     case Resign:
-      m_bIsPlaying  = false;
-      m_endReason   = move.m_result;
-      m_winner      = move.m_winner;
+    case Disqualified:
+      endCurrentGame(move.m_result);
       // there is still a move to process
       break;
     case Ok:
@@ -268,273 +153,197 @@ int Game::qualify(ChessMove &move)
       break;
   }
 
-  ChessSquare &sqSrc = getBoardSquare(move.m_posFrom);
-  ChessSquare &sqDst = getBoardSquare(move.m_posTo);
+  if( move.m_ePlayer != m_eTurnToMove )
+  {
+    LOGERROR();
+    return -CE_ECODE_CHESS_SYNC;
+  }
 
   //
-  // Source square is not on the board.
+  // Castling special move
   //
-  if( sqSrc.isNotOnBoard() )
+  if( move.m_eCastling != NoCastling )
+  {
+    ChessMove::getCastlingKingMove(move.m_ePlayer, move.m_eCastling,
+                                   move.m_posSrc, move.m_posDst);
+  }
+
+  //
+  // Set source of all other moves. Destination must be fully specified.
+  //
+  else
+  {
+    m_board.setMoveSrcPos(move);
+  }
+
+  //
+  // Source position is not fully specified or is not on the board.
+  //
+  if( !ChessBoard::isOnChessBoard(move.m_posSrc) )
   {
     printf("ROSLOG: Error: bad 'from' square = %c%c.\n",
         move.m_posFrom.m_file, move.m_posFrom.m_rank);
-    m_bIsPlaying  = false;
-    move.m_result = GameFatal;
+    endCurrentGame(GameFatal);
     return -CE_ECODE_CHESS_FATAL;
   }
   
   //
-  // Destination square is not on the board.
+  // Destination position is not fully specified or is not on the board.
   //
-  else if( sqDst.isNotOnBoard() )
+  else if( !ChessBoard::isOnChessBoard(move.m_posDst) )
   {
     printf("ROSLOG: Error: bad 'to' square = %c%c.\n",
         move.m_posTo.m_file, move.m_posTo.m_rank);
-    m_bIsPlaying  = false;
-    move.m_result = GameFatal;
+    endCurrentGame(GameFatal);
     return -CE_ECODE_CHESS_FATAL;
   }
   
+  // chess piece at source position
+  ePieceSrc = m_board.at(move.m_posSrc).getPieceType();
+
   //
   // Set moved piece, if unset
   //
-  if( move.m_piece == NoPiece )
+  if( move.m_ePiecedMoved == NoPiece )
   {
-    move.m_piece = sqSrc.getPieceType();
+    move.m_ePiecedMoved = ePieceSrc;
   }
 
   //
   // Cannot move a non-existent piece.
   //
-  if( move.m_piece == NoPiece )
+  if( move.m_ePiecedMoved == NoPiece )
   {
     printf("ROSLOG: Error: no piece found on 'from' square %c%c.\n",
         move.m_posFrom.m_file, move.m_posFrom.m_rank);
-    m_bIsPlaying  = false;
-    move.m_result = GameFatal;
+    endCurrentGame(GameFatal);
     return -CE_ECODE_CHESS_SYNC;
   }
 
   //
   // Disagreement about what piece to move - game probably out of sync.
   //
-  else if( move.m_piece != sqSrc.getPieceType() )
+  else if( move.m_ePiecedMoved = ePieceSrc )
   {
     printf("ROSLOG: Error: piece %c != %c found on 'from' square %c%c.\n",
-        move.m_piece, sqSrc.getPieceType(),
+        move.m_ePiecedMoved, sqSrc.getPieceType(),
         move.m_posFrom.m_file, move.m_posFrom.m_rank);
-    m_bIsPlaying  = false;
-    move.m_result = GameFatal;
+    endCurrentGame(GameFatal);
     return -CE_ECODE_CHESS_SYNC;
   }
 
-  //
-  // Capture
-  //
-  if( sqDst.getPieceType() != NoPiece )
-  {
-    rc = qualifyCapture(move);
-  }
-
-  //
-  // En Passant (pawn's destination must be empty)
-  //
-  else if( move.m_piece == Pawn )
-  {
-    rc = qualifyEnPassant(move);
-  }
-
-  //
-  // Castling (king's destination must be empty)
-  //
-  else if( move.m_castle != NoCastle )
-  {
-    rc = qualifyCastling(move);
-  }
-
-  //
-  // Basic move.
-  //
-  else
-  {
-    rc = CE_OK;
-  }
-
-  return rc;
-}
-
-int Game::qualifyCapture(ChessMove &move)
-{
-  move.m_captured = getBoardSquare(move.m_posTo).getPieceType();
   return CE_OK;
 }
 
-int Game::qualifyEnPassant(ChessMove &move)
+int ChessGame::execMove(ChessMove &move)
 {
-  move.m_en_passant = false;
-
-  if( move.m_piece != Pawn )
-  {
-    return CE_OK;
-  }
-
-  ChessSquare &sqDst = getBoardSquare(move.m_posTo);
-
-  switch( move.m_player )
-  {
-    case White:
-      if( (move.m_posFrom.m_rank == ChessRank5) &&
-          (move.m_posTo.m_rank   == ChessRank6) &&
-          (move.m_posFrom.m_file != move.m_posTo.m_file) &&
-          (sqDst.getPieceType() == NoPiece) )
-      {
-        move.m_en_passant = true;
-      }
-      break;
-    case Black:
-      if( (move.m_posFrom.m_rank == ChessRank4) &&
-          (move.m_posTo.m_rank   == ChessRank3) &&
-          (move.m_posFrom.m_file != move.m_posTo.m_file) &&
-          (sqDst.getPieceType() == NoPiece) )
-      {
-        move.m_en_passant = true;
-      }
-      break;
-    default:
-      return -CE_ECODE_CHESS_MOVE;
-  }
-
-  if( !move.m_en_passant )
-  {
-    return CE_OK;
-  }
-
-  move.m_posAuxFrom.m_file = move.m_posTo.m_file;
-  move.m_posAuxFrom.m_rank = move.m_posFrom.m_rank;
-
-  ChessSquare &sqAux = getBoardSquare(move.m_posAuxFrom);
-
   //
-  // Indeed, en passant.
+  // En passant move.
   //
-  if( sqAux.getPieceType() == Pawn )
+  if( move.m_en_passant )
   {
-    move.m_captured = Pawn;
+    ChessPos  posCapture;
+
+    // determine captured pawn's position.
+    ChessMove::getEnPassantCapturedPawnPos(move.m_ePlayer,
+                                           move.m_posDst,
+                                           posCapture);
+
+    // remove captured pawn and drop it into the player's bone yard.
+    dropInBoneYard(move.m_ePlayer, posCapture);
   }
 
   //
-  // Something is amiss.
+  // Basic capture.
   //
-  else
+  else if( move.m_capture )
   {
-    printf("ROSLOG:\n");
-    move.m_en_passant = false;
-    move.m_posAuxFrom = NoPos;
-    return -CE_ECODE_CHESS_MOVE;
+    // remove captured piece and drop it into the player's bone yard.
+    dropInBoneYard(move.m_ePlayer, move.m_posDst);
   }
 
-  return CE_OK;
-}
+  //
+  // Move the piece.
+  //
+  m_board.movePiece(move.m_posSrc, move.m_posDst);
 
-int Game::qualifyCastling(ChessMove &move)
-{
-  ChessRank rank = move.m_player == White? ChessRank1: ChessRank8;
+  //
+  // Castling move.
+  // Note:  By the rules of chess, the king (above) must move first,
+  //        then the rook.
+  //
+  if( move.m_eCastling != NoCastling )
+  {
+    ChessPos posRookSrc, posRookDst;
 
-  if( move.m_piece != King )
-  {
-    move.m_castle = NoCastle;
-  }
-  else if( (move.m_posFrom.m_rank != rank) || (move.m_posTo.m_rank != file) )
-  {
-    move.m_castle = NoCastle;
-  }
-  else if( move.m_posFrom.m_file != ChessFileE )
-  {
-    move.m_castle = NoCastle;
-  }
-  else if( move.m_posTo.m_file == ChessFileG )
-  {
-    move.m_castle = KingSide;
-  }
-  else if( move.m_posTo.m_file == ChessFileC )
-  {
-    move.m_castle = QueenSide;
-  }
-  else
-  {
-    move.m_castle = NoCastle;
-  }
- 
-  switch( move.m_castle )
-  {
-    // king side rook
-    case KingSide:
-      move.m_posAuxFrom.m_file  = ChessFileH;
-      move.m_posAuxFrom.m_rank  = rank
-      move.m_posAuxTo.m_file    = ChessFileF
-      move.m_posAuxTo.m_rank    = rank
-      break;
-    // queen side rook
-    case QueenSide:
-      move.m_posAuxFrom.m_file  = ChessFileA;
-      move.m_posAuxFrom.m_rank  = rank
-      move.m_posAuxTo.m_file    = ChessFileD
-      move.m_posAuxTo.m_rank    = rank
-      break;
-    default:
-      return CE_OK;
+    // get castling rook's source and destination positions.
+    ChessMove::getCastlingRookMove(move.m_ePlayer, move.m_eCastling,
+                                   posRookSrc, posRookDst);
+
+    // move the rook
+    m_board.movePiece(posRookSrc, posRookDst);
   }
 
-  ChessSquare &sqAux = getBoardSquare(move.m_posAuxFrom);
-
-  if( sqAux.getPieceType() != ROOK )
+  //
+  // Pawn promotion move.
+  //
+  if( move.m_ePiecePromoted != NoPiece )
   {
-    printf("ROSLOG:\n");
-    return -CE_ECODE_CHESS_MOVE;
+    std::string strPieceId;
+
+    // remove the pawn from the board and drop in the player's bone yard.
+    dropInBoneYard(move.m_ePlayer, move.m_posDst);
+
+    // make the new promoted piece's unique id
+    str = ChessFqPiece::makePieceId(move.m_ePlayer,
+                                    move.m_ePiecePromoted,
+                                    move.m_posDst,
+                                    m_numPromotions[move.m_ePlayer]);
+
+    // place promoted piece on the board
+    m_board.setPiece(move.m_posDst, move.m_ePlayer, move.m_ePiecePromoted,
+                      strPieceId);
+
+    // incremented players number of promotions
+    m_numPromotions[move.m_ePlayer] = m_numPromotions[move.m_ePlayer] + 1;
   }
 
-  return CE_OK;
-}
-
-void Game::execMove(ChessMove &move)
-{
-  boneyard
-  movePiece(pSrc, pDst);
-
+  // record move
   recordHistory(move);
 
+  // RDK alternate
+
+  return CE_OK;
 }
 
-void Game::stopPlaying(ChessResult reason, ChessColor winner)
+void ChessGame::setupGame()
 {
-  m_bIsPlaying  = false;
-  m_endReason   = reason;
-  m_winner      = winner;
+  m_history.clear();
+  m_boneyardWhite.clear();
+  m_boneyardBlack.clear();
+  m_board.setupBoard();
 }
 
-int Game::getNumOfMoves()
+int ChessGame::getNumOfMoves()
 {
   return ((int)m_history.size() + 1) / 2;
 }
 
-int Game::getNumOfPlies()
+int ChessGame::getNumOfPlies()
 {
   return (int)m_history.size();
 }
 
-ChessSquare &Game::getBoardSquare(const int file, const int rank)
+ChessSquare &ChessGame::getBoardSquare(const int file, const int rank)
 {
-  ChessPos  pos;
-
-  pos.m_file = (ChessFile)file;
-  pos.m_rank = (ChessRank)rank;
+  ChessPos  pos(file, rank);
 
   return getBoardSquare(pos);
 }
 
-ChessSquare &Game::getBoardSquare(const ChessPos &pos)
+ChessSquare &ChessGame::getBoardSquare(const ChessPos &pos)
 {
-  if( toRowCol(pos, row, col) == CE_OK )
+  if( ChessBoard::toRowCol(pos, row, col) == CE_OK )
   {
     return m_board[row][col];
   }
@@ -544,277 +353,32 @@ ChessSquare &Game::getBoardSquare(const ChessPos &pos)
   }
 }
 
-std::vector<ChessPiece> &Game::getBoneYard(ChessColor color)
-{
-  return color == White? m_boneYardWhite: m_boneYardBlack;
 }
-
-int Game::toRow(int rank)
-{
-  return NumOfRanks - (rank - (int)ChessRank1) - 1;
-}
-
-int Game::toCol(int file)
-{
-  return file - (int)ChessFileA;
-}
-
-int Game::toRowCol(const ChessPos &pos, int &row, int &col)
-{
-  row = toRow(pos.m_rank);
-  col = toCol(pos.m_file);
-
-  if( (row < 0) || (row >= NumOfRanks) || (col < 0) || (col >= NumOfFiles) )
-  {
-    return -CE_ECODE_CHESS_FATAL;
-  }
-  else
-  {
-    return CE_OK;
-  }
-}
-
-ChessFile Game::toFile(int col)
-{
-  return (ChessFile)((int)ChessFileA + col);
-}
-
-ChessRank Game::toRank(int row)
-{
-  return (ChessRank)((int)ChessRank1 + NumOfRanks - row - 1);
-}
-
-ChessFile Game::nextFile(int file)
-{
-  int col = toCol(file) + 1;
-
-  return col < NumOfFiles: toFile(col): NoFile;
-}
-
-ChessRank Game::nextRank(int rank)
-{
-  int row = toRow(rank) + 1;
-
-  return row < NumOfRanks: toRank(row): NoRank;
-}
-
-ChessColor Game::getSquareColor(int file, int rank)
-{
-  return ChessSquare::colorOfSquare(file, rank);
-}
-
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 //  Protected
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-void Game::initBoard()
-{
-  int       row, col;
-  ChessPos  pos;
-
-  for(row = 0; row < NumOfRanks; ++row)
-  {
-    for(col = 0; col < NumOfFiles; ++col)
-    {
-      pos.m_file = toFile(col);
-      pos.m_rank = toRank(row);
-      m_board[row][col].setPos(pos);
-    }
-  }
-
-  setupBoard();
-}
-
-void Game::clearBoard()
-{
-  for(int col=0; col<NumOfFiles; ++col)
-  {
-    for(int row=0; row<NumOfRanks; ++row)
-    {
-      m_board[row][col].removePiece();
-    }
-  }
-}
-
-void Game::setupBoard()
-{
-  clearBoard();
-
-  setupBoard(White);
-  setupBoard(Black);
-}
-
-void Game::setupBoard(ChessColor eColor)
-{
-  ChessPiece  ePiece;
-  string      strId;
-  ChessFile   file;
-  ChessRank   rank;
-  int         row, col;
-  
-  // -----
-  // Back line
-  // -----
-  rank = eColor == White? ChessRank1: ChessRank8;
-  row  = toRow(rank);
-
-  //
-  // Pieces from left to right.
-  //
-  for(file = ChessFileA; file = nextFile(file); file != NoFile)
-  {
-    col = toCol(file);
-
-    switch( file )
-    {
-      // rooks
-      case ChessFileA:
-      case ChessFileH:
-        ePiece = Rook;
-        break;
-
-      // knights
-      case ChessFileB:
-      case ChessFileG:
-        ePiece = Knight;
-        break;
-
-      // bishops
-      case ChessFileC:
-      case ChessFileF:
-        ePiece = Bishop;
-        break;
-
-      // queen
-      case ChessFileD:
-        ePiece = Queen;
-        break;
-
-      // king
-      case ChessFileE:
-        ePiece = King;
-        break;
-    }
-
-    strId = makePieceId(file, rank, eColor, ePiece);
-
-    m_board[row][col].setPiece(eColor, ePiece, strId);
-  }
-
-  // -----
-  // Pawns
-  // -----
-  rank    = eColor == White? ChessRank2: ChessRank7;
-  row     = toRow(rank);
-  ePiece  = Pawn;
-
-  //
-  // Left to right files.
-  //
-  for(file = ChessFileA; file = nextFile(file); file != NoFile)
-  {
-    col   = toCol(file);
-    strId = makePieceId(file, rank, eColor, ePiece);
-
-    m_board[row][col].set(eColor, ePiece, strId);
-  }
-}
-
-string Game::makePieceId(int file, int rank,
-                         ChessColor eColor, ChessPiece ePiece)
-{
-  string  strId;
-  string  strMod;
-  string  strSep("-");
-
-  // pawns
-  if( (rank == ChessRank2) && (file != ChessRank7) )
-  {
-    strMod.assign(1, (char)file);
-  }
-
-  // the muscle pieces
-  else if( (rank == ChessRank1) && (file != ChessRank8) )
-  {
-    if( file <= ChessFileC )
-    {
-      strMod = nameOfPiece(Queen);
-    }
-    else if( file >= ChessFileF )
-    {
-      strMod = nameOfPiece(King);
-    }
-  }
-
-  // empty id
-  else
-  {
-    return strId;
-  }
-
-  // color-piece
-  if( strMod.empty() )
-  {
-    strId = nameOfColor(eColor) + strSep + nameOfPiece(ePiece);
-  }
-  // color-modifier-piece
-  else
-  {
-    strId = nameOfColor(eColor) + strSep + strMod + 
-                  strSep + nameOfPiece(ePiece);
-  }
-
-  return strId;
-}
-
-
-
-
-
-
-BoardElem *Game::elem(const ChessPos &pos)
-{
-  int row, col;
-
-  if( toRowCol(pos, row, col) == CE_OK )
-  {
-    return &m_board[row][col];
-  }
-  return NULL;
-}
-
-void Game::movePiece(const ChessPos &posFrom, const ChessPos &posTo)
-{
-  movePiece(elem(posFrom), elem(posTo));
-}
-
-void Game::movePiece(BoardElem *pSrc, BoardElem *pDst)
-{
-  *pDst = *pSrc;
-  *pSrc = EmptyElem;
-}
-
-void Game::recordHistory(ChessMove &move)
+void ChessGame::recordHistory(ChessMove &move)
 {
   m_history.push_back(move);
 }
 
-void Game::moveToBoneYard(BoardElem *pDeadPiece)
+void ChessGame::dropInBoneYard(const ChessColor ePlayer, const ChessPos &pos)
 {
-  if( pDeadPiece->m_piece != NoPiece )
+  switch( ePlayer )
   {
-    if( pDeadPiece->m_color == White )
-    {
-      m_boneYardWhite.push_back(pDeadPiece->m_piece);
-    }
-    else if( pDeadPiece->m_color == Black )
-    {
-      m_boneYardBlack.push_back(pDeadPiece->m_piece);
-    }
+    case White:
+      m_boneyardWhite.push_back(m_board.at(pos).getFqPiece());
+      break;
+    case Black:
+      m_boneyardBlack.push_back(m_board.at(pos).getFqPiece());
+      break;
+    default:
+      break;
   }
 
-  *pDeadPiece = EmptyElem;
+  m_board.removePiece(pos);
 }
 
 
@@ -822,7 +386,7 @@ void Game::moveToBoneYard(BoardElem *pDeadPiece)
 //  Friends
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-ostream &chess_engine::operator<<(ostream &os, const Game &game)
+ostream &chess_engine::operator<<(ostream &os, const ChessGame &game)
 {
   int         file, rank;       // chess board file,rank
   int         row, col;         // board matrix row,column

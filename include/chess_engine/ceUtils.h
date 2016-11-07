@@ -62,20 +62,93 @@
 
 namespace chess_engine
 {
+  /*!
+   * \brief Get your opponent's color.
+   *
+   * \param color Your color.
+   *
+   * \return Opponent's color.
+   */
   inline ChessColor opponent(ChessColor color)
   {
     return color == White? Black: White;
   }
 
-  extern std::string nameOfColor(ChessColor color);
+  /*!
+   * \brief Get the name of the chess color.
+   *
+   * \param color Chess color enumeration.
+   *
+   * \return String.
+   */
+  extern const std::string nameOfColor(ChessColor color);
 
-  extern std::string nameOfPiece(ChessPiece piece);
+  /*!
+   * \brief Get the name of the chess piece.
+   *
+   * \param color Chess piece enumeration.
+   *
+   * \return String.
+   */
+  extern const std::string nameOfPiece(ChessPiece piece);
 
-  extern std::string figurineOfPiece(ChessColor color, ChessPiece piece);
+  /*!
+   * \brief Get the chess figurine unicode string.
+   *
+   * \param color Chess color enumeration.
+   * \param color Chess piece enumeration.
+   *
+   * \return String.
+   */
+  extern const std::string figurineOfPiece(ChessColor color, ChessPiece piece);
 
-  extern std::string nameOfCastling(ChessCastling side);
+  /*!
+   * \brief Get the name of the chess castling move.
+   *
+   * \param color Chess castling side enumeration.
+   *
+   * \return String.
+   */
+  extern const std::string nameOfCastling(ChessCastling side);
 
-  extern std::string nameOfResult(ChessResult result);
+  /*!
+   * \brief Get the name of the chess play/game action result.
+   *
+   * \param color Chess result enumeration.
+   *
+   * \return String.
+   */
+  extern const std::string nameOfResult(ChessResult result);
+
+  /*!
+   * \brief Get the name of check modifier.
+   *
+   * \param checkmod  Chess check modifier enumeration.
+   *
+   * \return String.
+   */
+  extern const std::string nameOfCheckMod(ChessCheckMod checkmod);
+
+  /*!
+   * \brief Get the name of the chess algebra notation.
+   *
+   * \param algebra   Chess algebra notation enumeration.
+   *
+   * \return String.
+   */
+  extern const std::string nameOfAlgebra(ChessAlgebra algebra);
+  
+  /*!
+   * \brief Get boolean's value string equivalent.
+   *
+   * \param v   Boolean vale.
+   *
+   * \return String.
+   */
+  std::string nameOfBool(bool v)
+  {
+    return v? "true": "false";
+  }
 
 } // namespace chess_engine
 

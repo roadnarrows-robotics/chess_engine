@@ -84,36 +84,27 @@ namespace chess_engine
     ChessPiece    m_ePieceMoved;    ///< moved piece
     ChessPiece    m_ePieceCaptured; ///< captured piece, if any
     ChessPiece    m_ePiecePromoted; ///< promoted pawn piece, if any
-    bool          m_bIsEnPassant;   ///< en passant move did [not] occur
+    bool          m_bIsEnPassant;   ///< is [not] en passant move
     ChessCastling m_eCastling;      ///< [no] castling move
-    ChessPos      m_posAuxSrc;      ///< castling rook or en passant pawn square
-    ChessPos      m_posAuxDst;      ///< castling rook destination chess square
-    bool          m_bCheck;         ///< opponent [not] placed in check
-    ChessColor    m_eWinner;        ///< winner of the game, if any
+    ChessCheckMod m_eCheck;         ///< opponent [not] placed in check
     ChessResult   m_eResult;        ///< result of move
 
     /*!
      * \brief Default constructor.
      */
-    ChessMove()
-    {
-      clear();
-    }
+    ChessMove();
 
     /*!
      * \brief Copy constructor.
      *
      * \param src Source object.
      */
-    ChessMove(const ChessMove &src)
-    {
-      copy(src);
-    }
+    ChessMove(const ChessMove &src);
 
     /*!
      * \brief Destructor.
      */
-    virtual ~ChessMove() { };
+    virtual ~ChessMove();
 
     /*!
      * \brief Assignment operator.
@@ -122,12 +113,11 @@ namespace chess_engine
      *
      * \return This.
      */
-    ChessMove operator=(const ChessMove &rhs)
-    {
-      copy(rhs);
-      return *this;
-    }
+    ChessMove operator=(const ChessMove &rhs);
   
+
+
+
     /*!
      * \brief Convert move state to Coordinate Algebraic Notation string.
      *
@@ -178,19 +168,61 @@ namespace chess_engine
     void clear();
 
     /*!
-     * \brief Friends.
-     */
-    friend std::ostream &operator<<(std::ostream &os, const ChessMove &move);
-    
-  protected:
-    bool  m_bCapture;     ///< some type of piece capture occurred
-
-    /*!
      * \brief Copy move object.
      *
      * \param src Source object.
      */
     void copy(const ChessMove &src);
+
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Static Member Functions
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    /*!
+     * \brief Get en passant move's captured opponent pawn position.
+     *
+     * \param ePlayer           En passant player.
+     * \param posDst            Destination chess position of moved pawn.
+     * \param [out] posCapture  Position of captured pawn.
+     */
+    void getEnPassantCapturedPawnPos(const ChessColor ePlayer,
+                                     const ChessPos   &posDst,
+                                     ChessPos         &posCapture);
+
+    /*!
+     * \brief Get the castling king's source and destination positions.
+     *
+     * \param ePlayer           Castling player.
+     * \param eCastling         Castling side.
+     * \param [out] posDst      Source chess position of king.
+     * \param [out] posDst      Destination chess position of king.
+     */
+    void getCastlingKingMove(const ChessColor     ePlayer,
+                             const ChessCastling  eCastling,
+                             ChessPos             &posSrc,
+                             ChessPos             &posDst);
+
+    /*!
+     * \brief Get the castling king's rook source and destination positions.
+     *
+     * \param ePlayer           Castling player.
+     * \param eCastling         Castling side.
+     * \param [out] posDst      Source chess position of rook.
+     * \param [out] posDst      Destination chess position of rook.
+     */
+    void getCastlingRookMove(const ChessColor     ePlayer,
+                             const ChessCastling  eCastling,
+                             ChessPos             &posSrc,
+                             ChessPos             &posDst);
+
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Friends.
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    friend std::ostream &operator<<(std::ostream &os, const ChessMove &move);
+    
+  protected:
   };
 
   /*!

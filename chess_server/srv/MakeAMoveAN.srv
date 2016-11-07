@@ -1,7 +1,16 @@
-### Make a move using Standard Algebraic Notation.
+### Make a move using Algebraic Notation.
 #
 # This service can also be used by a robot node (sub)system to initiate a
 # physical chess move.
+#
+# The algebraic notation supports both Coordinate Algebraic Notation (CAN) and
+# Standard Algebraic Notation (SAN).
+#
+# Examples:
+#   "a2a4"  CAN 
+#   "g8f6"  CAN
+#   "Qb6"   SAN
+#   "Nxc2+" SAN
 #
 # After making a valid chess move, the engine will automatically advance
 # to the next player.
@@ -17,6 +26,6 @@
 #
 
 ChessColor  player # requesting player: white or black
-string      SAN    # string of format: {file}{rank}{file}{rank}. Example: "a2a4"
+string      AN     # algebraic notation string
 ---
-ChessMove move     # engine's fully quantified move
+ChessMove move     # engine's fully qualified move

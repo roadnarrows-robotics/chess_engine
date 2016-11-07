@@ -59,10 +59,13 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 
-#include "chess_engine/ceChess.h"
-#include "chess_engine/ceError.h"
+#include "chess_engine/ceTypes.h"
+#include "chess_engine/ceSquare.h"
+#include "chess_engine/ceBoard.h"
 #include "chess_engine/ceMove.h"
+#include "chess_engine/ceError.h"
 #include "chess_engine/ceUtils.h"
 
 /*!
@@ -70,178 +73,9 @@
  */
 namespace chess_engine
 {
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  // Class ChessSquare
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-  /*!
-   * \brief Chess board square class.
-   */
-  class ChessSquare
-  {
-  public:
-    /*!
-     * \brief Default constructor.
-     */
-    ChessSquare();
-
-    /*!
-     * \brief Initialization constructor.
-     *
-     * \param [in] pos          Square position on board.
-     * \param [in] ePieceColor  Piece color [NoColor, White, Black].
-     * \param [in] ePieceType   Piece type [NoPiece, King, Queen, ..., Pawn].
-     * \param [in] strPieceId   Fixed unique piece id.
-     */
-    void ChessSquare(const ChessPos    &pos,
-                     const ChessColor  ePieceColor,
-                     const ChessPiece  ePieceType,
-                     const std::string &strPieceId);
-
-    /*!
-     * \brief Destructor.
-     */
-    virtual ~ChessSquare() { };
-
-    /*!
-     * \brief Assignment operator.
-     *
-     * \param rhs   Right-hand side source object.
-     *
-     * \return Dereferenced this
-     */
-    ChessSquare operator==(const ChessSquare &rhs);
-
-    /*!
-     * \brief Set the square position within the chess board.
-     *
-     * \param pos   Square's position.
-     */
-    void setPos(const ChessPos &pos);
-
-    /*!
-     * \brief Get the square's position on the chess board.
-     *
-     * \return Square's position.
-     */
-    ChessPos getPos();
-
-    /*!
-     * \brief Get this chess square's color.
-     *
-     * \return Square color [NoColor, White, Black]
-     */
-    ChessColor getColor();
-
-    /*!
-     * \brief Set the chess piece on the chess square.
-     *
-     * \param [in] ePieceColor  Piece color [NoColor, White, Black].
-     * \param [in] ePieceType   Piece type [NoPiece, King, Queen, ..., Pawn].
-     * \param [in] strPieceId   Fixed unique piece id.
-     */
-    void setPiece(const ChessColor   ePieceColor,
-                  const ChessPiece   ePieceType,
-                  const std::string &strPieceId);
-
-    /*!
-     * \brief Get chess piece info, if any, on the chess square.
-     *
-     * \param [out] ePieceColor Piece color [NoColor, White, Black].
-     * \param [out] ePieceType  Piece type [NoPiece, King, Queen, ..., Pawn].
-     * \param [out] strPieceId  Fixed unique piece id.
-     */
-    void getPiece(ChessColor  &ePieceColor,
-                  ChessPiece  &ePieceType,
-                  std::string &strPieceId);
-
-    /*!
-     * \brief Copy this square's piece to destination square.
-     *
-     * \param [out] dst   Destination square.
-     */
-    void copyPiece(ChessSquare &dst);
-
-    /*!
-     * \brief Move this square's piece to destination square.
-     *
-     * \param [out] dst   Destination square.
-     */
-    void movePiece(ChessSquare &dst);
-
-    /*!
-     * \brief Remove this square's piece from square.
-     *
-     * The square is without a chess piece. (isEmpty() is true).
-     */
-    void removePiece();
-
-    /*!
-     * \brief Test if square is empty (i.e. no piece).
-     *
-     * \return Returns true or false.
-     */
-    bool isEmpty();
-
-    /*!
-     * \brief Test if square is not associated with a board position.
-     *
-     * \return Returns true or false.
-     */
-    bool isNotOnBoard();
-
-    /*!
-     * \brief Get this chess square's chess piece color.
-     *
-     * \return Piece color [NoColor, White, Black].
-     */
-    ChessColor getPieceColor();
-
-    /*!
-     * \brief Get this chess square's chess piece type.
-     *
-     * \return Piece type [NoPiece, King, Queen, ..., Pawn].
-     */
-    ChessPiece getPieceType();
-
-    /*!
-     * \brief Get this chess square's chess piece unique string id.
-     *
-     * \return Fixed unique piece id.
-     */
-    std::string getPieceId();
-
-    /*!
-     * \brief Determine color of a chess square.
-     *
-     * \param pos   Chess square position.
-     *
-     * \return Returns White, Black, NoColor
-     */
-    static ChessColor colorOfSquare(const ChessPos &pos);
-
-    /*!
-     * \brief Determine color of a chess square.
-     *
-     * \param file    Chess square file (column).
-     * \param rank    Chess square rank (row).
-     *
-     * \return Returns White, Black, NoColor
-     */
-    static ChessColor colorOfSquare(int file, int rank);
-
-  protected:
-    ChessPos    m_pos;          ///< square location on board (file, rank)
-    ChessColor  m_eColor;       ///< square color [NoColor, White, Black]
-    ChessColor  m_ePieceColor;  ///< piece color [NoColor, White, Black]
-    ChessPiece  m_ePieceType;   ///< piece type [NoPiece, King, ..., Pawn]
-    std::string m_strPieceId;   ///< piece unique id (eg. "white-b-pawn")
-  };
-
-
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // ---------------------------------------------------------------------------
   // Class ChessGame
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // ---------------------------------------------------------------------------
 
   /*!
    * \brief Chess game class.
@@ -249,6 +83,14 @@ namespace chess_engine
   class ChessGame
   {
   public:
+    //
+    // Types
+    //
+    typedef std::vector<ChessFqPiece> ChessBoneYard;    ///< captured pieces
+    typedef std::vector<ChessMove>    ChessHistory;     ///< game history
+    typedef std::map<ChessColor, int> ChessPromotion;   ///< promotions/player
+    typedef std::map<ChessColor, std::string> ChessPlayer; ///< player names
+
     /*!
      * \brief Default constructor.
      */
@@ -257,54 +99,99 @@ namespace chess_engine
     /*!
      * \brief Destructor.
      */
-    virtual ~ChessGame() { }
+    virtual ~ChessGame();
   
     /*!
-     * \brief Set up for the start a (new) game.
-     */
-    void setupGame();
-  
-    /*!
-     * \brief Fully quantify the chess move.
+     * \brief Start a new game.
      *
-     * The move is reasonably validated and additional move fields modified.
+     * White moves first.
+     *
+     * \param strWhite    White player's nom de guerre.
+     * \param strBlack    Black player's nom de guerre.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int startNewGame(const std::string &strWhite, const std::string &strBlack);
+    
+    /*!
+     * \brief Eng current game.
+     *
+     * \param eReason   Reason game ended.
+     * \param eWinner   Declared winner, if any.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int endCurrentGame(ChessResult eReason, ChessColor eWinner = NoColor);
+    
+    /*!
+     * \brief Fully qualify the chess move.
+     *
+     * The move is reasonably verified and additional move fields are set
+     * by examining the game and board state.
      *
      * \param [in,out] move   Chess move.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int qualify(ChessMove &move);
+    int qualifyMove(ChessMove &move);
 
+    /*!
+     * \brief Execute player's move.
+     *
+     * \param [in] move   Chess move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int execMove(ChessMove &move);
+    
+    /*!
+     * \brief Set up the game.
+     */
+    void setupGame();
+  
+    /*!
+     * \brief Test if a game is being played.
+     *
+     * \return Returns true or false.
+     */
     bool isPlaying()
     {
       return m_bIsPlaying;
     }
 
-    void stopPlaying(ChessResult reason, ChessColor winner=NoColor);
-
-    int getNumOfMoves();
-
-    int getNumOfPlies();
-
+    /*!
+     * \brief Get the game's winner, if any.
+     *
+     * \return Returns White, Black, or NoColor.
+     */
     ChessColor getWinner()
     {
-      return m_winner;
+      return m_eWinner;
     }
 
+    /*!
+     * Get the reason for the gaming ending.
+     *
+     * \return Returns reason code.
+     */
     ChessResult getEndOfGameReason()
     {
-      return m_endReason;
+      return m_eEoGReason;
     }
 
-    std::vector<ChessMove> &getGameHistory()
-    {
-      return m_history;
-    }
+    /*!
+     * \brief Get the number of moves played.
+     *
+     * \return Number of moves.
+     */
+    int getNumOfMoves();
 
-    ChessMove &operator[](int i)
-    {
-      return m_history[i];
-    }
+    /*!
+     * \brief Get the number of plies (half-moves) played.
+     *
+     * \return Number of plies.
+     */
+    int getNumOfPlies();
 
     /*!
      * \brief Get a reference to the board square.
@@ -313,7 +200,8 @@ namespace chess_engine
      * \param rank  Chess board rank.
      *
      * \return If in range, returns the reference to the board's square.\n
-     * If out-of-range, returns "no square" square (see ChessSquare.isNoSquare).
+     * If out-of-range, returns "no square" square
+     * (check with ChessSquare.isOnChessBoard).
      */
     ChessSquare &getBoardSquare(const int file, const int rank);
 
@@ -324,90 +212,41 @@ namespace chess_engine
      *
      * \return If in range, returns the reference to the board's square.\n
      * If out-of-range, returns "no square" square
-     * (see ChessSquare::isNoSquare()).
+     * (check with ChessSquare.isOnChessBoard).
      */
     ChessSquare &getBoardSquare(const ChessPos &pos);
 
-    std::vector<ChessPiece> &getBoneYard(ChessColor color);
+    /*!
+     * \brief Get the chess board state.
+     *
+     * \return Reference to board.
+     */
+    const ChessBoard &getBoard()
+    {
+      return m_board;
+    }
 
     /*!
-     * \brief Convert chess rank to board array row.
+     * \brief Get the player's bone yard (captured pieces).
      *
-     * \note Rank 8 is row 7, ..., rank 1 is row 0.
+     * \param ePlayer   Player and color of captured piece.
      *
-     * \param rank    Chess rank ['1', '8'].
-     *
-     * \return Board row [0, 7]
+     * \return Reference to bone yard.
      */
-    static int toRow(int rank);
+    const ChessBoneYard &getBoneYard(const ChessColor ePlayer)
+    {
+      return ePlayer == White? m_boneyardWhite: m_boneyardBlack;
+    }
 
     /*!
-     * \brief Convert chess file to board array column.
+     * \brief Get the game history.
      *
-     * \param file    Chess file ['a', 'h'].
-     *
-     * \return Board column [0, 7]
+     * \return Reference to history.
      */
-    static int toCol(int file);
-
-    /*!
-     * \brief Convert chess square coordinates to board array row and column.
-     *
-     * \param [in] pos    Board position (file,rank).
-     * \param [out] row   Board row [0, 7].
-     * \param [out] col   Board column [0, 7].
-     *
-     * \return Returns CE_OK on success, negative error code on failure.
-     */
-    static int toRowCol(const ChessPos &pos, int &row, int &col);
-
-    /*!
-     * \brief Convert board array column to chess file.
-     *
-     * \param col  Board column [0, 7].
-     *
-     * \reture Chess file ['a', 'h'].
-     */
-    static ChessFile toFile(int col);
-
-    /*!
-     * \brief Convert board array row to chess rank.
-     *
-     * \note Rank 8 is row 7, ..., rank 1 is row 0.
-     *
-     * \param row   Board row [0, 7].
-     *
-     * \return Chess rank ['1', '8'].
-     */
-    static ChessRank toRank(int row);
-
-    /*!
-     * \brief Get the next file after the given file.
-     *
-     * \param file  Current chess board file.
-     *
-     * \returns Returns the next file. If no more files, then returns NoFile.
-     */
-    static ChessFile nextFile(int file);
-
-    /*!
-     * \brief Get the next rank after the given rank.
-     *
-     * \param rank  Current chess board rank.
-     *
-     * \returns Returns the next rank. If no more ranks, then returns NoRank.
-     */
-    static ChessRank nextRank(int rank);
-
-    /*!
-     * \brief Get the color of the square at the given board location.
-     *
-     * \param file    Chess file ['a', 'h'].
-     * \param rank    Chess rank ['1', '8'].
-     *
-     * \return Returns NoColor, White or Black.
-     */
-    static ChessColor getSquareColor(int file, int rank);
+    const ChessHistory &getGameHistory()
+    {
+      return m_history;
+    }
 
     /*!
      * \brief Set unicode GUI state.
@@ -419,76 +258,61 @@ namespace chess_engine
       m_bGui = on_off;
     }
 
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Static Member Functions
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
   protected:
-    ChessSquare             m_board[NumOfRanks][NumOfFiles]; ///< board matrix
-    bool                    m_bIsPlaying;     ///< is [not] playing a game
-    ChessResult             m_endReason;      ///< end of game reason
-    ChessColor              m_winner;         ///< end of game winner, if any
-    std::vector<ChessMove>  m_history;        ///< game history
-    std::vector<ChessPiece> m_boneYardWhite;  ///< captured white pieces
-    std::vector<ChessPiece> m_boneYardBlack;  ///< captured black pieces
+    //
+    // Layout
+    //
+    ChessBoard    m_board;          ///< the standard chess board
+    ChessBoneYard m_boneyardWhite;  ///< captured white pieces
+    ChessBoneYard m_boneyardBlack;  ///< captured black pieces
+    ChessHistory  m_history;        ///< game history
+
+    //
+    // Game state
+    //
+    bool          m_bIsPlaying;     ///< is [not] playing a game
+    ChessResult   m_eEoGReason;     ///< end of game reason, if any
+    ChessColor    m_eWinner;        ///< end of game winner, if any
+
+    //
+    // Player state
+    //
+    ChessColor      m_eTurnToMove;    ///< current player's turn to move
+    ChessPlayer     m_playerName;     ///< player's name 
+    ChessPromotion  m_numPromotions;  ///< number of promotions/player
+
+    //
+    // Other
+    //
     bool                    m_bGui;           ///< [not] a gui stream output
 
     /*!
-     * \brief One-time board initialization.
+     * \brief Record game history.
+     *
+     * \param move    Move to record.
      */
-    void initBoard();
-  
-    /*!
-     * \brief Remove all pieces from the board.
-     */
-    void clearBoard();
-  
-    /*!
-     * \brief Set up board for the start a (new) game.
-     */
-    void setupBoard();
-  
-    /*!
-     * \brief Set up one side of the board for the start a game.
-     *
-     * \param eColor Side's color.
-     */
-    void setupBoard(ChessColor eColor);
-  
-    /*!
-     * \brief Make unique piece identification string.
-     *
-     * The id is used by external operations to follow, draw, render, etc.
-     *
-     * Id format: color[-modifier]-piece\n
-     *
-     * Examples:
-     * Identifier  | Description
-     * ----------  | -----------
-     *  black-c-Pawn | black pawn starting on the 'c' file.
-     *  white-h-Paw | white pawn starting on the 'h' file.
-     *  white-Queen-Rook | white queen's rook
-     *  white-King | white king
-     *  black-King-Bishop | black king's bishop
-     *
-     * \param file    Chess file ['a', 'h'].
-     * \param rank    Chess rank ['1', '8'].
-     * \param eColor  Piece color.
-     * \param ePiece  Piece type.
-     *
-     * \return String id.
-     */
-    std::string makePieceId(int file, int rank,
-                            ChessColor eColor, ChessPiece ePiece);
-
-
-
-
-    BoardElem *elem(const ChessPos &pos);
-
-    void movePiece(const ChessPos &posFrom, const ChessPos &posTo);
-
-    void movePiece(BoardElem *pSrc, BoardElem *pDst);
-
     void recordHistory(ChessMove &move);
 
-    void moveToBoneYard(BoardElem *pDeadPiece);
+    /*!
+     * \brief Drop piece into the player's bone yard.
+     *
+     * The piece is removed from the board.
+     *
+     * \param ePlayer   Player and color of captured piece.
+     * \param pos       Board position of piece.
+     */
+    void dropInBoneYard(const ChessColor ePlayer, const ChessPos &pos);
+
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Friends
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     friend std::ostream &operator<<(std::ostream &os, const ChessGame &game);
   };
