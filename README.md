@@ -6,11 +6,7 @@ chess_engine
 A ROS package to enable the easy integration of the GNU chess engine into your
 robotic applications. 
 
-## Status
-Nearing completion. (About time!) I need to add:
-* <em>rqt_chess</em> visualizer
-* a secondary chess engine backend
-* refine the ROS messages and services.
+# &#20742; Under construction. Does not compile!
 
 ## License
 MIT
