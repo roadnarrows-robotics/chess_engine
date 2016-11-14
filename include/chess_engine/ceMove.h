@@ -59,7 +59,7 @@
 #include <string>
 #include <iostream>
 
-#include "chess_engine/ceChess.h"
+#include "chess_engine/ceTypes.h"
 #include "chess_engine/ceUtils.h"
 
 
@@ -77,16 +77,20 @@ namespace chess_engine
   {
   public:
     int           m_nMoveNum;       ///< move number (2 plies/move)
-    ChessColor    m_ePlayer;        ///< player (and move) color
+    ChessColor    m_ePlayer;        ///< player (and piece) color
     std::string   m_strSAN;         ///< standard algebraic notation of move
+
+    ChessPiece    m_ePieceMoved;    ///< moved piece
     ChessPos      m_posSrc;         ///< moved piece source chess square
     ChessPos      m_posDst;         ///< moved piece destination chess square
-    ChessPiece    m_ePieceMoved;    ///< moved piece
+
     ChessPiece    m_ePieceCaptured; ///< captured piece, if any
-    ChessPiece    m_ePiecePromoted; ///< promoted pawn piece, if any
-    bool          m_bIsEnPassant;   ///< is [not] en passant move
-    ChessCastling m_eCastling;      ///< [no] castling move
+    ChessPiece    m_ePiecePromoted; ///< promoted piece, if any
+    bool          m_bIsEnPassant;   ///< is [not] an en passant move
+    ChessCastling m_eCastling;      ///< castling side, if any
+
     ChessCheckMod m_eCheck;         ///< opponent [not] placed in check
+
     ChessResult   m_eResult;        ///< result of move
 
     /*!
@@ -115,52 +119,19 @@ namespace chess_engine
      */
     ChessMove operator=(const ChessMove &rhs);
   
-
-
-
     /*!
      * \brief Convert move state to Coordinate Algebraic Notation string.
      *
      * \return String.
      */
-    std::string toCAN();
-
-    /*!
-     * \brief Convert Coordinate Algebraic Notation to move's state.
-     *
-     * \note Conversion will only partially modify the state since
-     * neither the board nor game context is included.
-     *
-     * \param strCAN    Coordinate Algebraic Notation string.
-     */
-    void fromCAN(const std::string &strCAN);
+    std::string CAN();
 
     /*!
      * \brief Convert move state to Standard Algebraic Notation string.
      *
      * \return String.
      */
-    std::string toSAN();
-
-    /*!
-     * \brief Convert Standard Algebraic Notation to move's state.
-     *
-     * \note Conversion will only partially modify the state since
-     * neither the board nor game context is included.
-     *
-     * \param strSAN    Standard Algebraic Notation string.
-     */
-    void fromSAN(const std::string &strSAN);
-
-    /*!
-     * \brief Convert chess board source and destination squares to position
-     * string.
-     *
-     * Format: "{src_file}{src_rank}[{dst_file}{dst_rank}]"
-     *
-     * \return String.
-     */
-    static std::string toPos(const ChessPos &posSrc, const ChessPos &posDst);
+    std::string SAN();
 
     /*!
      * \brief Clear move.
@@ -186,9 +157,9 @@ namespace chess_engine
      * \param posDst            Destination chess position of moved pawn.
      * \param [out] posCapture  Position of captured pawn.
      */
-    void getEnPassantCapturedPawnPos(const ChessColor ePlayer,
-                                     const ChessPos   &posDst,
-                                     ChessPos         &posCapture);
+    static void getEnPassantCapturedPawnPos(const ChessColor ePlayer,
+                                            const ChessPos   &posDst,
+                                            ChessPos         &posCapture);
 
     /*!
      * \brief Get the castling king's source and destination positions.
@@ -198,10 +169,10 @@ namespace chess_engine
      * \param [out] posDst      Source chess position of king.
      * \param [out] posDst      Destination chess position of king.
      */
-    void getCastlingKingMove(const ChessColor     ePlayer,
-                             const ChessCastling  eCastling,
-                             ChessPos             &posSrc,
-                             ChessPos             &posDst);
+    static void getCastlingKingMove(const ChessColor     ePlayer,
+                                    const ChessCastling  eCastling,
+                                    ChessPos             &posSrc,
+                                    ChessPos             &posDst);
 
     /*!
      * \brief Get the castling king's rook source and destination positions.
@@ -211,10 +182,73 @@ namespace chess_engine
      * \param [out] posDst      Source chess position of rook.
      * \param [out] posDst      Destination chess position of rook.
      */
-    void getCastlingRookMove(const ChessColor     ePlayer,
-                             const ChessCastling  eCastling,
-                             ChessPos             &posSrc,
-                             ChessPos             &posDst);
+    static void getCastlingRookMove(const ChessColor     ePlayer,
+                                    const ChessCastling  eCastling,
+                                    ChessPos             &posSrc,
+                                    ChessPos             &posDst);
+
+
+    /*!
+     * \brief Convert move state to Coordinate Algebraic Notation string.
+     *
+     * \param move  Chess move.
+     *
+     * \return String.
+     */
+    static std::string CAN(ChessMove &move);
+
+    /*!
+     * \brief Convert to Coordinate Algebraic Notation string.
+     *
+     * \param posSrc          Source square position.
+     * \param posDst          Deistinate square position.
+     * \param ePiecePromoted  Promoted piece, if any.
+     *
+     * \return String.
+     */
+    static std::string CAN(const ChessPos   &posSrc,
+                           const ChessPos   &posDst,
+                           const ChessPiece ePiecePromoted = NoPiece);
+
+    /*!
+     * \brief Convert move state to Standard Algebraic Notation string.
+     *
+     * \param move  Chess move.
+     *
+     * \return String.
+     */
+    static std::string SAN(ChessMove &move);
+    
+    /*!
+     * \brief Parse Coordinate Algebraic Notation string to populate move
+     * values.
+     *
+     * This parse variation uses regular expressions to determine the move.
+     *
+     * \note Conversion will only partially set the move state since
+     * neither the board nor game context is included.
+     *
+     * \param strCAN      Coordinate Algebraic Notation string.
+     * \param [out] move  Chess move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    static int parseCAN(const std::string &strCAN, ChessMove &move);
+    
+    /*!
+     * \brief Parse Standard Algebraic Notation string to populate move values.
+     *
+     * This parse variation uses regular expressions to determine the move.
+     *
+     * \note Conversion will only partially modify the state since
+     * neither the board nor game context is included.
+     *
+     * \param strSAN      Standard Algebraic Notation string.
+     * \param [out] move  Chess move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    static int parseSAN(const std::string &strSAN, ChessMove &move);
 
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

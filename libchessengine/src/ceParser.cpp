@@ -68,8 +68,14 @@
 #include <string>
 #include <map>
 
-#include "chess_engine/ceChess.h"
+#include <ros/console.h>
+
+#include "chess_engine/ceTypes.h"
+#include "chess_engine/ceError.h"
 #include "chess_engine/ceUtils.h"
+#include "chess_engine/ceMove.h"
+#include "chess_engine/ceBoard.h"
+#include "chess_engine/ceParser.h"
 
 
 //------------------------------------------------------------------------------
@@ -237,7 +243,7 @@ namespace chess_engine
 BOOST_FUSION_ADAPT_STRUCT(
     chess_engine::ChessPos,
     (chess_engine::ChessFile, m_file)   // 0
-    (chess_engine::ChessFile, m_rank)   // 1
+    (chess_engine::ChessRank, m_rank)   // 1
 )
 
 //
@@ -860,16 +866,16 @@ namespace chess_engine
     qi::rule<Iterator, ChessPiece()>  promotion;
 
     // position
-    qi::rule<Iterator, chess_pos()> file_only_pos;
-    qi::rule<Iterator, chess_pos()> rank_only_pos;
-    qi::rule<Iterator, chess_pos()> file_or_rank;
-    qi::rule<Iterator, chess_pos()> pos;
-    qi::rule<Iterator, chess_pos()> disambig;
-    qi::rule<Iterator, chess_pos()> disambig_pawn;
-    qi::rule<Iterator, chess_pos()> en_passant_src_pos;
-    qi::rule<Iterator, chess_pos()> en_passant_dst_pos;
-    qi::rule<Iterator, chess_pos()> promotion_src_pos;
-    qi::rule<Iterator, chess_pos()> promotion_dst_pos;
+    qi::rule<Iterator, ChessPos()> file_only_pos;
+    qi::rule<Iterator, ChessPos()> rank_only_pos;
+    qi::rule<Iterator, ChessPos()> file_or_rank;
+    qi::rule<Iterator, ChessPos()> pos;
+    qi::rule<Iterator, ChessPos()> disambig;
+    qi::rule<Iterator, ChessPos()> disambig_pawn;
+    qi::rule<Iterator, ChessPos()> en_passant_src_pos;
+    qi::rule<Iterator, ChessPos()> en_passant_dst_pos;
+    qi::rule<Iterator, ChessPos()> promotion_src_pos;
+    qi::rule<Iterator, ChessPos()> promotion_dst_pos;
 
     // modifier
     qi::rule<Iterator, ChessCheckMod()> check_or_mate;
@@ -892,9 +898,10 @@ class impl
 public:
   typedef std::string::const_iterator iterator_type;
   typedef chess_engine::an_grammar<iterator_type> an_grammar;
+  typedef chess_engine::an_move an_move;
 
-  an_grammar    m_grammar;    ///< the grammar
-  an_move       m_an_move;    ///< parsed output
+  an_grammar  m_grammar;    ///< the grammar
+  an_move     m_an_move;    ///< parsed output
 
   /*!
    * \brief Default constructor.
@@ -919,36 +926,40 @@ public:
 // Class ChessANparser
 //----------------------------------------------------------------------------
 
-/*! parse error preface string */
-const static std::string ErrorPreface("Parse error: ");
+using namespace std;
+using namespace chess_engine;
 
-chess_engine::ChessANParser()
+/*! parse error preface string */
+const static string ErrorPreface("Parse error: ");
+
+ChessANParser::ChessANParser()
 {
   m_impl    = new impl;
   m_bTrace  = false;
 }
 
-~chess_engine::ChessANParser()
+ChessANParser::~ChessANParser()
 {
   delete IMPL(m_impl);
 }
 
-bool chess_engine::ChessANParser::parse(const std::string &strAN)
+int ChessANParser::parse(const string &strAN,
+                         ChessMove    &move)
 {
-  std::string::const_iterator iter  = strAN.begin();
-  std::string::const_iterator end   = strAN.end();
+  string::const_iterator iter  = strAN.begin();
+  string::const_iterator end   = strAN.end();
   
-  bool r;   // parse result
+  bool bOk;   // parse result
 
   if( m_bTrace )
   {
-    std::cout << "Input: " << strAN << std::endl << std::endl;
+    cout << "Input: " << strAN << endl << endl;
   }
 
   // clear errors
   clearErrors();
 
-  r = qi::parse(iter, end, IMPL_GRAMMAR(m_impl), IMPL_MOVE(m_impl));
+  bOk = qi::parse(iter, end, IMPL_GRAMMAR(m_impl), IMPL_MOVE(m_impl));
 
   // do this after parse which clears move data prior to parse
   IMPL_MOVE(m_impl).associateAN(strAN);
@@ -956,30 +967,39 @@ bool chess_engine::ChessANParser::parse(const std::string &strAN)
   // unparsed trailing tokens
   if( iter != end )
   {
-    r = false;
+    bOk = false;
   }
 
   if( m_bTrace )
   {
-    std::cout << "parsed move: " << IMPL_MOVE(m_impl) << std::endl;
+    cout << "parsed move: " << IMPL_MOVE(m_impl) << endl;
   }
 
-  if( r )
+  //
+  // The parse succeeded. Now perform post-processing.
+  //
+  if( bOk )
   {
-    r = postprocess();
+    bOk = postprocess();
 
-    if( r && m_bTrace )
+    if( bOk && m_bTrace )
     {
-      std::cout << "post-processed move: " << IMPL_MOVE(m_impl) << std::endl;
+      cout << "post-processed move: " << IMPL_MOVE(m_impl) << endl;
     }
   }
+
+  //
+  // The parse failed. 
+  //
   else
   {
-    std::string strError(IMPL_GRAMMAR(m_impl).m_ssError.str());
+    // error message from parse handler
+    string strError(IMPL_GRAMMAR(m_impl).m_ssError.str());
 
+    // no error caught from parse handler, so create error message here
     if( strError.empty() )
     {
-      std::string sstr(iter, end);
+      string sstr(iter, end);
 
       strError = "Bad syntax, stopped at \"" + sstr + "\"";
     }
@@ -987,18 +1007,15 @@ bool chess_engine::ChessANParser::parse(const std::string &strAN)
     m_strError = ErrorPreface + strError;
   }
 
-  if( !r )
+  if( !bOk & m_bTrace )
   {
-    if( m_bTrace )
-    {
-      std::cout << m_strError << std::endl;
-    }
+    cout << m_strError << endl;
   }
 
-  return r;
+  return bOk? CE_OK: -CE_ECODE_CHESS_PARSE;
 }
 
-bool chess_engine::ChessANParser::postprocess()
+bool ChessANParser::postprocess()
 {
   if( IMPL_MOVE(m_impl).m_castling != NoCastling )
   {
@@ -1015,7 +1032,7 @@ bool chess_engine::ChessANParser::postprocess()
     return postprocPromotion();
   }
 
-  // can add other move here, especially pawn moves
+  // can add other postprocs here, especially pawn moves
  
   else
   {
@@ -1028,9 +1045,9 @@ bool chess_engine::ChessANParser::postprocess()
 //
 // Without piece color, only source and destinaion files are known.
 //
-bool chess_engine::ChessANParser::postprocCastling()
+bool ChessANParser::postprocCastling()
 {
-  chess_engine::an_move &m = IMPL_MOVE(m_impl);
+  an_move &m = IMPL_MOVE(m_impl);
 
   //
   // Kingside castling.
@@ -1058,12 +1075,12 @@ bool chess_engine::ChessANParser::postprocCastling()
 //
 // Without game state, only the source rank can be determined.
 //
-bool chess_engine::ChessANParser::postprocEnPassant()
+bool ChessANParser::postprocEnPassant()
 {
-  chess_engine::an_move &m = IMPL_MOVE(m_impl);
+  an_move &m = IMPL_MOVE(m_impl);
 
   ChessRank         rank;
-  std::stringstream ssError;
+  stringstream ssError;
   bool              verified = false;
 
   //
@@ -1112,13 +1129,13 @@ bool chess_engine::ChessANParser::postprocEnPassant()
   }
 
   // en passant move to the right
-  else if( m.m_src.m_file == shiftFile(m.m_dst.m_file, -1) )
+  else if( m.m_src.m_file == ChessBoard::ChessBoard::shiftFile(m.m_dst.m_file, -1) )
   {
     verified = true;
   }
 
   // en passant move to the left
-  else if( m.m_src.m_file == shiftFile(m.m_dst.m_file, 1) )
+  else if( m.m_src.m_file == ChessBoard::ChessBoard::shiftFile(m.m_dst.m_file, 1) )
   {
     verified = true;
   }
@@ -1140,12 +1157,12 @@ bool chess_engine::ChessANParser::postprocEnPassant()
 //
 // Without game state the source can only be partially determined.
 //
-bool chess_engine::ChessANParser::postprocPromotion()
+bool ChessANParser::postprocPromotion()
 {
-  chess_engine::an_move &m = IMPL_MOVE(m_impl);
+  an_move &m = IMPL_MOVE(m_impl);
 
   ChessRank         rank;
-  std::stringstream ssError;
+  stringstream ssError;
   bool              verified = false;
 
   //
@@ -1197,14 +1214,14 @@ bool chess_engine::ChessANParser::postprocPromotion()
     }
 
     // capture move to the right
-    else if( m.m_src.m_file == shiftFile(m.m_dst.m_file, -1) )
+    else if( m.m_src.m_file == ChessBoard::shiftFile(m.m_dst.m_file, -1) )
     {
       m.m_capture = true;
       verified    = true;
     }
 
     // capture move to the left
-    else if( m.m_src.m_file == shiftFile(m.m_dst.m_file, 1) )
+    else if( m.m_src.m_file == ChessBoard::shiftFile(m.m_dst.m_file, 1) )
     {
       m.m_capture = true;
       verified    = true;
@@ -1223,13 +1240,13 @@ bool chess_engine::ChessANParser::postprocPromotion()
     }
 
     // capture move to the right
-    else if( m.m_src.m_file == shiftFile(m.m_dst.m_file, -1) )
+    else if( m.m_src.m_file == ChessBoard::shiftFile(m.m_dst.m_file, -1) )
     {
       verified = true;
     }
 
     // capture move to the left
-    else if( m.m_src.m_file == shiftFile(m.m_dst.m_file, 1) )
+    else if( m.m_src.m_file == ChessBoard::shiftFile(m.m_dst.m_file, 1) )
     {
       verified = true;
     }
@@ -1266,12 +1283,59 @@ bool chess_engine::ChessANParser::postprocPromotion()
   return verified;
 }
 
-void chess_engine::ChessANParser::clearErrors()
+void ChessANParser::toChessMove(ChessMove &move)
+{
+  an_move &parsed = IMPL_MOVE(m_impl);
+
+  //
+  // SAN: piece and destination are known, source may (partially) be known
+  // CAN: unknown piece, source and destination are known
+  //
+  move.m_ePieceMoved  = parsed.m_piece;
+  move.m_posSrc       = parsed.m_src;
+  move.m_posDst       = parsed.m_dst;
+
+  //
+  // SAN: capture is known, piece usually unknown
+  // CAN: unknown
+  //
+  if( parsed.m_capture )
+  {
+    move.m_ePieceCaptured = parsed.m_en_passant? Pawn: UndefPiece;
+  }
+
+  //
+  // SAN: known
+  // CAN: known
+  //
+  move.m_ePiecePromoted = parsed.m_promotion;
+
+  //
+  // SAN: known
+  // CAN: unknown
+  //
+  move.m_bIsEnPassant = parsed.m_en_passant;
+
+  //
+  // SAN: known
+  // CAN: unknown
+  //
+  move.m_eCastling    = parsed.m_castling;
+
+  //
+  // SAN: known
+  // CAN: unknown
+  //
+  move.m_eCheck         = parsed.m_check;       // SAN known
+}
+
+void ChessANParser::clearErrors()
 {
   IMPL_GRAMMAR(m_impl).m_ssError.str("");
   m_strError.clear();
 }
 
+#if 0 // RDK
 
 ////////////////////////////////////////////////////////////////////////////
 //  Main program
@@ -1320,3 +1384,4 @@ int main()
 
   return 0;
 }
+#endif // RDK

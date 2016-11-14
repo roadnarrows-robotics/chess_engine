@@ -60,18 +60,18 @@
 #include <vector>
 #include <map>
 
-#include "rnr/color.h"
+#include <ros/console.h>
 
-#include "chess_engine/ceChess.h"
+#include "chess_engine/ceTypes.h"
 #include "chess_engine/ceBoard.h"
 
 using namespace std;
 using namespace chess_engine;
 
 
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Chess board square class.
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// -----------------------------------------------------------------------------
+// Class ChessSquare
+// -----------------------------------------------------------------------------
 
 ChessSquare::ChessSquare()
 {
@@ -79,22 +79,21 @@ ChessSquare::ChessSquare()
   m_eColor  = colorOfSquare(m_pos);
 }
 
-void ChessSquare::ChessSquare(const ChessPos     &pos,
-                              const ChessFqPiece &fqPiece)
+ChessSquare::ChessSquare(const ChessPos &pos, const ChessFqPiece &fqPiece)
 {
   m_pos     = pos;
   m_eColor  = colorOfSquare(pos);
   m_fqPiece = fqPiece;
 }
 
-void ChessSquare::ChessSquare(const ChessPos    &pos,
-                              const ChessColor  ePieceColor,
-                              const ChessPiece  ePieceType,
-                              const std::string &strPieceId)
+ChessSquare::ChessSquare(const ChessPos    &pos,
+                         const ChessColor  ePieceColor,
+                         const ChessPiece  ePieceType,
+                         const string      &strPieceId)
 {
   m_pos     = pos;
   m_eColor  = colorOfSquare(pos);
-  m_fqPiece.set(ePieceColor, ePieceType, strPiecedId);
+  m_fqPiece.set(ePieceColor, ePieceType, strPieceId);
 }
 
 ChessSquare ChessSquare::operator==(const ChessSquare &rhs)
@@ -113,12 +112,12 @@ void ChessSquare::setPos(const ChessPos &pos)
   m_eColor = colorOfSquare(m_pos);
 }
 
-ChessPos ChessSquare::getPos();
+ChessPos ChessSquare::getPos() const
 {
   return m_pos;
 }
 
-ChessColor ChessSquare::getColor();
+ChessColor ChessSquare::getColor() const
 {
   return m_eColor;
 }
@@ -128,25 +127,40 @@ void ChessSquare::setPiece(const ChessFqPiece &fqPiece)
   m_fqPiece = fqPiece;
 }
 
-void ChessSquare::setPiece(const ChessColor   ePieceColor,
-                           const ChessPiece   ePieceType,
-                           const std::string &strPieceId)
+void ChessSquare::setPiece(const ChessColor ePieceColor,
+                           const ChessPiece ePieceType,
+                           const string     &strPieceId)
 {
-  m_fqPiece.set(ePieceColor, ePieceType, strPiecedId);
+  m_fqPiece.set(ePieceColor, ePieceType, strPieceId);
 }
 
-void ChessSquare::getPiece(ChessFqPiece &fqPiece)
+ChessFqPiece &ChessSquare::getPiece()
 {
-  fqPiece = m_fqPiece;
+  return m_fqPiece;
 }
 
 void ChessSquare::getPiece(ChessColor  &ePieceColor,
                            ChessPiece  &ePieceType,
-                           std::string &strPieceId)
+                           string      &strPieceId) const
 {
   ePieceColor = m_fqPiece.m_ePieceColor;
   ePieceType  = m_fqPiece.m_ePieceType;
-  strPieceId  = m_fqPiece.m_strPiecedId;
+  strPieceId  = m_fqPiece.m_strPieceId;
+}
+
+ChessColor ChessSquare::getPieceColor() const
+{
+  return m_fqPiece.m_ePieceColor;
+}
+
+ChessPiece ChessSquare::getPieceType() const
+{
+  return m_fqPiece.m_ePieceType;
+}
+
+string ChessSquare::getPieceId() const
+{
+  return m_fqPiece.m_strPieceId;
 }
 
 void ChessSquare::copyPiece(ChessSquare &dst)
@@ -165,29 +179,14 @@ void ChessSquare::removePiece()
   m_fqPiece.clear();
 }
 
-bool ChessSquare::isEmpty()
+bool ChessSquare::isEmpty() const
 {
   return m_fqPiece.m_ePieceType == NoPiece;
 }
 
-bool ChessSquare::isOnChessBoard()
+bool ChessSquare::isOnChessBoard() const
 {
   return ChessBoard::isOnChessBoard(m_pos);
-}
-
-ChessColor ChessSquare::getPieceColor()
-{
-  return m_fqPiece.m_ePieceColor;
-}
-
-ChessPiece ChessSquare::getPieceType()
-{
-  return m_fqPiece.m_ePieceType;
-}
-
-string ChessSquare::getPieceId()
-{
-  return m_fqPiece.m_strPieceId;
 }
 
 
@@ -202,7 +201,7 @@ ChessColor ChessSquare::colorOfSquare(const ChessPos &pos)
 
 ChessColor ChessSquare::colorOfSquare(int file, int rank)
 {
-  if( ChessBoard::isOnChessBoard(m_pos) )
+  if( ChessBoard::isOnChessBoard(ChessPos(file, rank)) )
   {
     return ((file - ChessFileA) + (rank - ChessRank1)) % 2 == 0? Black: White;
   }

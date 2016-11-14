@@ -56,11 +56,16 @@
 #include <stdio.h>
 
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #include <boost/regex.hpp>
 
-#include "chess_engine/ceChess.h"
+#include <ros/console.h>
+
+#include "chess_engine/ceTypes.h"
+#include "chess_engine/ceError.h"
+#include "chess_engine/ceUtils.h"
 #include "chess_engine/ceMove.h"
 
 using namespace std;
@@ -71,192 +76,164 @@ using namespace chess_engine;
 // Private Interface 
 // ---------------------------------------------------------------------------
 
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Algebraic Notation Regular Expressions
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-/*
- * \brief Fixed strings used in regular expressions.
+/*!
+ * \brief Regular expression helper macros.
  */
-static string strFile("[a-h]");
-static string strRank("[1-8]");
-static string strRankPenult("[27]");
-static string strRankUlt("[18]");
+#define SOL "^"                           ///< start of line
+#define EOL "$"                           ///< end of line
+#define G(expr) string("(" + expr + ")")  ///< match group expression
 
-static string strPiece("[KQRBNP]");
-static string strPieceMajor("[KQRBN]");
-static string strPiecePromo("[QRBN]");
+/*!
+ * \brief Helper (marked) sub-expression strings used in regular expressions.
+ */
+static const string exprFile("[a-h]");
+static const string exprRank("[1-8]");
+static const string exprRankPenult("[27]");
+static const string exprRankUlt("[18]");
 
-static string strCastlingKingside("0-0|O-O");
-static string strCastlingQueenside("0-0-0|O-O-O");
+static const string exprPiece("[KQRBNP]");
+static const string exprPieceMajor("[KQRBN]");
+static const string exprPiecePromo("[QRBN]");
 
-static string strModCapture("x|:");
-static string strModEnPassant("e.p");
-static string strModPromotion("[=/]");
-static string strModCheck("+|++");
-static string strModCheckmate("#");
+static const string exprCastlingKingSide("0-0|O-O");
+static const string exprCastlingQueenSide("0-0-0|O-O-O");
 
+static const string exprModCapture("x|:");
+static const string exprModEnPassant("e.p");
+static const string exprModPromotion("[=/]");
+static const string exprModCheck("+|++|#");
 
-/*
+static const string grpDisambig(G(exprFile + "?" + exprRank + "?"));
+static const string grpPos(G(exprFile+exprRank));
+static const string grpPosPenult(G(exprFile + exprRankPenult));
+static const string grpPosUlt(G(exprFile + exprRankUlt));
+
+/*!
  * \brief Coordinate and Standard Algebraic Notation regular expressions.
- *
- * CAN:
- *
- * 
  */
 
-static boost::regex reCastleWhiteKingSide("(e1g1|O-O)");
-static boost::regex reCastleWhiteQueenSide("(e1c1|O-O-O)");
-static boost::regex reCastleBlackKingSide("(e8g8|O-O)");
-static boost::regex reCastleBlackQueenSide("(e8c8|O-O-O)");
-static boost::regex reCastleKingSide("^(e1g1|e8g8|O-O)$");
-static boost::regex reCastleQueenSide("^(e1c1|e8c8|O-O-O)$");
-static boost::regex rePawnPromotion("[a-h][27]?[a-h]?[18]=?("+strPieceMajor+")\\S*");
-//static boost::regex rePawnPromotion("\\w+=?("+strPiece+")$");
-static boost::regex reCAN("^("+strFile+")("+strRank+")("
-                              +strFile+")("+strRank+")$");
-static boost::regex rePiece("^("+strPiece+").+$");
-static boost::regex rePawn("^("+strFile+").+$");
-static boost::regex reCapture(".+(x:).+");
-static boost::regex reModifier(".+([+#])$");
+// 2 groups. "a2a4" "g6a6" ...
+static boost::regex reCAN(SOL + grpPos + grpPos + EOL);
+
+// 3 groups. "c7c8=Q" "b2a1/N" "d2d1Q" ...
+static boost::regex reCANPromotion1(SOL + grpPosPenult + grpPosUlt
+                                        + exprModPromotion
+                                        + G(exprPiecePromo)
+                                      + EOL);
+
+// 3 groups. "c7c8(Q)" ...
+static boost::regex reCANPromotion2(SOL + grpPosPenult + grpPosUlt
+                                        + "\\("+G(exprPiecePromo)+"\\)"
+                                      + EOL);
+
+// 1 group. 0-0 ...
+static boost::regex reCastleKingSide(SOL + G(exprCastlingKingSide) + EOL);
+
+// 1 group. 0-0-0 ...
+static boost::regex reCastleQueenSide(SOL + G(exprCastlingQueenSide) + EOL);
+
+// 2 groups. "bxc6e.p" "gxf3e.p" "b5xc6e.p" ...
+static boost::regex reEnPassant(SOL + grpDisambig + exprModCapture
+                                    + grpPos + exprModEnPassant
+                                  + EOL);
+
+// 3 groups. "c8=Q" "bxa1/Q" "d1Q" "axb8=N" ...
+static boost::regex rePawnPromotion1(SOL + grpDisambig + ".?" + grpPos
+                                         + exprModPromotion + G(exprPiecePromo)
+                                      + EOL);
+
+// 3 groups. "c7c8(Q)" "dxc8(R)" ...
+static boost::regex rePawnPromotion2(SOL + grpDisambig + ".?" + grpPos
+                                        + "\\("+G(exprPiecePromo)+"\\)"
+                                      + EOL);
+
+// 2 groups. "a4" "exf5" "a2a4" ...
+static boost::regex rePawnMove(SOL + grpDisambig + ".?" + grpPos + EOL);
+
+// 3 groups. "Ba4" "Qxf5" "Ra2a4" ...
+static boost::regex reMajorMove(SOL + G(exprPieceMajor)
+                                    + grpDisambig + ".?" + grpPos
+                                  + EOL);
+
+// 1 group. "x" ...
+static boost::regex reModCapture(".+" + G(exprModCapture) + ".+");
+
+// 1 group. "+" ...
+static boost::regex reModCheck(".+" + G(exprModCheck) + EOL);
+
+/*!
+ * \brief RegEx helper to parse position.
+ *
+ * \param strExpr   Move (sub)position.
+ * \param [out] pos Position.
+ */
+static void _position(const string &strExpr, ChessPos &pos)
+{
+  pos.m_file = (ChessFile)strExpr[0];
+  pos.m_rank = (ChessRank)strExpr[1];
+}
+
+/*!
+ * \brief RegEx helper to parse disambiguous position.
+ *
+ * \param strExpr   Move (sub)position.
+ * \param [out] pos Position.
+ */
+static void _disambiguate(const string &strExpr, ChessPos &pos)
+{
+  if( strExpr.size() == 2 )
+  {
+    _position(strExpr, pos);
+  }
+  else if( (strExpr[0] >= (char)ChessFileA) && 
+           (strExpr[0] <= (char)ChessFileH) )
+  {
+    pos.m_file = (ChessFile)strExpr[0];
+  }
+  else if( (strExpr[0] >= (char)ChessRank1) && 
+           (strExpr[0] <= (char)ChessRank8) )
+  {
+    pos.m_rank = (ChessRank)strExpr[0];
+  }
+}
 
 
 // -----------------------------------------------------------------------------
 // Class ChessMove
 // -----------------------------------------------------------------------------
 
-ChessMove()
+ChessMove::ChessMove()
 {
   clear();
 }
 
-ChessMove(const ChessMove &src)
+ChessMove::ChessMove(const ChessMove &src)
 {
   copy(src);
 }
 
-~ChessMove()
+ChessMove::~ChessMove()
 {
 };
 
-ChessMove operator=(const ChessMove &rhs)
+ChessMove ChessMove::operator=(const ChessMove &rhs)
 {
   copy(rhs);
   return *this;
 }
 
-
-
-
-
-void ChessMove::fromAN(const string &strAN)
+string ChessMove::CAN()
 {
-  boost::cmatch what;
-
-  // king side castle
-  if( boost::regex_match(strAN.c_str(), what, reCANPosPos) )
-  {
-    m_ePieceMoved  = King;
-    m_eCastling = KingSide;
-  }
+  return CAN(m_posSrc, m_posDst, m_ePiecePromoted);
 }
 
-void ChessMove::fromSAN(const string &strSAN)
+string ChessMove::SAN()
 {
-  boost::cmatch what;
-  ChessModifier modifier;
-
-  m_strSAN = strSAN;
-
-  // king side castle
-  if( boost::regex_match(strSAN.c_str(), what, reCastleKingSide) )
-  {
-    m_ePieceMoved  = King;
-    m_eCastling = KingSide;
-  }
-  // queen side castle
-  else if( boost::regex_match(strSAN.c_str(), what, reCastleQueenSide) )
-  {
-    m_ePieceMoved  = King;
-    m_eCastling = QueenSide;
-  }
-  // pawn promotion
-  else if( boost::regex_match(strSAN.c_str(), what, rePawnPromotion) )
-  {
-    m_ePieceMoved     = Pawn;
-    m_ePiecePromoted = (ChessPiece)what[1].str()[0];
-  }
-
-  // Standard Algebraic Notation
-  else if( boost::regex_match(strSAN.c_str(), what, reCAN) )
-  {
-  }
-
-  // a simple, non-pawn move
-  else if( boost::regex_match(strSAN.c_str(), what, rePiece) )
-  {
-    m_ePieceMoved = (ChessPiece)what[1].str()[0];
-  }
-
-  // a simple or en passant pawn move
-  else if( boost::regex_match(strSAN.c_str(), what, rePawn) )
-  {
-    m_ePieceMoved = Pawn;
-  }
-
-  // capture
-  if( boost::regex_match(strSAN.c_str(), what, reCapture) )
-  {
-    m_bCapture = true;
-  }
-
-  // check or checkmate
-  if( boost::regex_match(strSAN.c_str(), what, reModifier) )
-  {
-    modifier = (ChessModifier)what[1].str()[0];
-    if( modifier == ModCheck )
-    {
-      m_eCheck = true;
-    }
-    switch( m_eResult )
-    {
-      case NoResult:
-      case Ok:
-        m_eResult = modifier == ModCheckmate? Checkmate: Ok;
-        break;
-      default:
-        break;
-    }
-  }
-
-  if( m_eResult == NoResult )
-  {
-    m_eResult = Ok;
-  }
-}
-
-string ChessMove::toCAN(const ChessPos &posFrom, const ChessPos &posTo)
-{
-  char san[5];
-
-  sprintf(san, "%c%c%c%c", posFrom.m_file, posFrom.m_rank,
-                           posTo.m_file,   posTo.m_rank);
-
-  return string(san);
-}
-
-void ChessMove::fromCAN(const string &strCAN)
-{
-  m_posSrc = NoPos;
-  m_posDst   = NoPos;
-
-  if( strCAN.size() >= 2 )
-  {
-    m_posSrc.m_file = strCAN[0];
-    m_posSrc.m_rank = strCAN[1];
-  }
-  if( strCAN.size() >= 4 )
-  {
-    m_posDst.m_file = strCAN[2];
-    m_posDst.m_rank = strCAN[3];
-  }
+  return SAN(*this);
 }
 
 void ChessMove::copy(const ChessMove &src)
@@ -264,37 +241,31 @@ void ChessMove::copy(const ChessMove &src)
   m_nMoveNum        = src.m_nMoveNum;
   m_ePlayer         = src.m_ePlayer;
   m_strSAN          = src.m_strSAN;
+  m_ePieceMoved     = src.m_ePieceMoved;
   m_posSrc          = src.m_posSrc;
   m_posDst          = src.m_posDst;
-  m_ePieceMoved     = src.m_ePieceMoved;
-  m_ePiecedCaptured = src.m_ePiecedCaptured;
+  m_ePieceCaptured  = src.m_ePieceCaptured;
   m_ePiecePromoted  = src.m_ePiecePromoted;
   m_bIsEnPassant    = src.m_bIsEnPassant;
   m_eCastling       = src.m_eCastling;
   m_eCheck          = src.m_eCheck;
-  m_eWinner         = src.m_eWinner;
   m_eResult         = src.m_eResult;
-
-  m_bCapture    = src.m_bCapture;
 }
 
 void ChessMove::clear()
 {
   m_nMoveNum       = 0;
-  m_ePlayer      = NoColor;
+  m_ePlayer         = NoColor;
   m_strSAN.clear();
-  m_ePieceMoved       = NoPiece;
-  m_posSrc     = NoPos;
-  m_posDst       = NoPos;
-  m_ePiecedCaptured    = NoPiece;
-  m_bIsEnPassant  = false;
-  m_eCastling      = NoCastle;
-  m_ePiecePromoted   = NoPiece;
-  m_eCheck       = false;
-  m_eWinner      = NoColor;
-  m_eResult      = NoResult;
-
-  m_bCapture    = false;
+  m_ePieceMoved     = NoPiece;
+  m_posSrc.clear();
+  m_posDst.clear();
+  m_ePieceCaptured  = NoPiece;
+  m_ePiecePromoted  = NoPiece;
+  m_bIsEnPassant    = false;
+  m_eCastling       = NoCastling;
+  m_eCheck          = NoCheckMod;
+  m_eResult         = NoResult;
 }
 
 
@@ -330,16 +301,16 @@ void ChessMove::getCastlingKingMove(const ChessColor    ePlayer,
   {
     case KingSide:
       posSrc.m_file = ChessFileE;
-      posDst.m_file = ChessRankG;
-      break
+      posDst.m_file = ChessFileG;
+      break;
     case QueenSide:
       posSrc.m_file = ChessFileE;
-      posDst.m_file = ChessRankC;
-      break
+      posDst.m_file = ChessFileC;
+      break;
     default:
       posSrc.m_file = NoFile;
       posDst.m_file = NoFile;
-      break
+      break;
   }
 
   switch( ePlayer )
@@ -354,7 +325,8 @@ void ChessMove::getCastlingKingMove(const ChessColor    ePlayer,
       break;
     default:
       posSrc.m_rank = NoRank;
-      posDst.m_rank = NoRank
+      posDst.m_rank = NoRank;
+      break;
   }
 }
 
@@ -367,16 +339,16 @@ void ChessMove::getCastlingRookMove(const ChessColor    ePlayer,
   {
     case KingSide:
       posSrc.m_file = ChessFileH;
-      posDst.m_file = ChessRankF;
-      break
+      posDst.m_file = ChessFileF;
+      break;
     case QueenSide:
       posSrc.m_file = ChessFileA;
-      posDst.m_file = ChessRankD;
-      break
+      posDst.m_file = ChessFileD;
+      break;
     default:
       posSrc.m_file = NoFile;
       posDst.m_file = NoFile;
-      break
+      break;
   }
 
   switch( ePlayer )
@@ -391,8 +363,141 @@ void ChessMove::getCastlingRookMove(const ChessColor    ePlayer,
       break;
     default:
       posSrc.m_rank = NoRank;
-      posDst.m_rank = NoRank
+      posDst.m_rank = NoRank;
+      break;
   }
+}
+
+string ChessMove::CAN(ChessMove &move)
+{
+  return CAN(move.m_posSrc, move.m_posDst, move.m_ePiecePromoted);
+}
+
+string ChessMove::CAN(const ChessPos    &posSrc,
+                      const ChessPos    &posDst,
+                      const ChessPiece  ePiecePromoted)
+{
+  stringstream  ss;
+
+  ss << posSrc << posDst;
+
+  if( ePiecePromoted != NoPiece )
+  {
+    ss << "=" << (char)ePiecePromoted;
+  }
+
+  return ss.str();
+}
+
+string ChessMove::SAN(ChessMove &move)
+{
+  return "notsupported";
+}
+
+int ChessMove::parseCAN(const string &strCAN, ChessMove &move)
+{
+  boost::cmatch what;
+
+  // pawn promotion
+  if( boost::regex_match(strCAN.c_str(), what, reCANPromotion1) ||
+      boost::regex_match(strCAN.c_str(), what, reCANPromotion2) )
+  {
+    move.m_ePiecePromoted = (ChessPiece)what[3].str()[0];
+  }
+
+  // basic coordinate move
+  else if( !boost::regex_match(strCAN.c_str(), what, reCAN) )
+  {
+    return -CE_ECODE_CHESS_PARSE;
+  }
+
+  _position(what[1].str(), move.m_posSrc);
+  _position(what[2].str(), move.m_posDst);
+
+  return CE_OK;
+}
+
+int ChessMove::parseSAN(const string &strSAN, ChessMove &move)
+{
+  boost::cmatch what;
+
+  // king side castle
+  if( boost::regex_match(strSAN.c_str(), what, reCastleKingSide) )
+  {
+    move.m_ePieceMoved = King;
+    move.m_eCastling   = KingSide;
+  }
+
+  // queen side castle
+  else if( boost::regex_match(strSAN.c_str(), what, reCastleQueenSide) )
+  {
+    move.m_ePieceMoved = King;
+    move.m_eCastling   = QueenSide;
+  }
+
+  // en passant
+  else if( boost::regex_match(strSAN.c_str(), what, reEnPassant) )
+  {
+    move. m_ePieceMoved = Pawn;
+    _disambiguate(what[1].str(), move.m_posSrc);
+    _position(what[2].str(),     move.m_posDst);
+  }
+
+  // pawn promotion
+  else if( boost::regex_match(strSAN.c_str(), what, rePawnPromotion1) ||
+           boost::regex_match(strSAN.c_str(), what, rePawnPromotion2) )
+  {
+    move.m_ePieceMoved = Pawn;
+    _disambiguate(what[1].str(), move.m_posSrc);
+    _position(what[2].str(), move.m_posDst);
+    move.m_ePiecePromoted = (ChessPiece)what[3].str()[0];
+  }
+
+  // pawn move
+  else if( boost::regex_match(strSAN.c_str(), what, rePawnMove) )
+  {
+    move.m_ePieceMoved    = Pawn;
+    _disambiguate(what[1].str(), move.m_posSrc);
+    _position(what[2].str(), move.m_posDst);
+  }
+
+  // major piece move
+  else if( boost::regex_match(strSAN.c_str(), what, reMajorMove) )
+  {
+    move.m_ePieceMoved = (ChessPiece)what[1].str()[0];
+    _disambiguate(what[2].str(), move.m_posSrc);
+    _position(what[3].str(), move.m_posDst);
+  }
+
+  else
+  {
+    return -CE_ECODE_CHESS_PARSE;
+  }
+
+  // capture
+  if( boost::regex_match(strSAN.c_str(), what, reModCapture) )
+  {
+    move.m_ePieceCaptured = move.m_bIsEnPassant? Pawn: UndefPiece;
+  }
+
+  // check or checkmate
+  if( boost::regex_match(strSAN.c_str(), what, reModCheck) )
+  {
+    if( what[1].str() == "+" )
+    {
+      move.m_eCheck = ModCheck;
+    }
+    else if( what[1].str() == "++" )
+    {
+      move.m_eCheck = ModDoubleCheck;
+    }
+    else if( what[1].str() == "#" )
+    {
+      move.m_eCheck = ModCheckmate;
+    }
+  }
+
+  return CE_OK;
 }
 
 
@@ -400,49 +505,50 @@ void ChessMove::getCastlingRookMove(const ChessColor    ePlayer,
 // Friends
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-ostream &chess_engine::operator<<(ostream &os, const ChessMove &move)
+/*!
+ * \brief The ChessMove output stream operator.
+ */
+std::ostream &chess_engine::operator<<(std::ostream &os,
+                                       const chess_engine::ChessMove &move)
 {
-  os << move.m_nMoveNum << ":";
-  os << " " << nameOfColor(move.m_ePlayer);
-  os << " " << move.m_posSrc.m_file << move.m_posSrc.m_rank
-            << move.m_posDst.m_file << move.m_posDst.m_rank;
-  os << " " << move.m_strSAN;
-  os << " " << nameOfPiece(move.m_ePieceMoved);
-
-  if( move.m_ePiecedCaptured != NoPiece )
-  {
-    os << " captured(" << nameOfPiece(move.m_ePiecedCaptured) << ")";
-  }
-
-  if( move.m_bIsEnPassant )
-  {
-    os << " en_passant";
-  }
-
-  if( move.m_eCastling != NoCastle )
-  {
-    os << " castle(" << nameOfCastling(move.m_eCastling) << ")";
-  }
-
-  if( move.m_ePiecePromoted != NoPiece )
-  {
-    os << " promotion(" << nameOfPiece(move.m_ePiecePromoted) << ")";
-  }
-
-  if( move.m_eCheck != NoCheck )
-  {
-    os << " " << nameOfCheckMod(move.m_eCheck);
-  }
-
-  if( move.m_eWinner != NoColor )
-  {
-    os << " winner(" << nameOfColor(move.m_eWinner) << ")";
-  }
-
-  if( move.m_eResult != NoResult )
-  {
-    os << " " << nameOfResult(move.m_eResult);
-  }
+  os
+    << "{" << std::endl
+      << "  move       = " << move.m_nMoveNum << std::endl
+      << "  player     = "
+        << nameOfColor(move.m_ePlayer)
+        << "(" << (char)move.m_ePlayer << ")"
+        << std::endl
+      << "  SAN        = " << move.m_strSAN << std::endl
+      << "  piece      = "
+        << nameOfPiece(move.m_ePieceMoved)
+        << "(" << (char)move.m_ePieceMoved << ")"
+        << std::endl
+      << "  srcdst     = " << move.m_posSrc << move.m_posDst << std::endl
+      << "  captured   = "
+        << nameOfPiece(move.m_ePieceCaptured)
+        << "(" << (char)move.m_ePieceCaptured << ")"
+        << std::endl
+      << "  promoted   = "
+        << nameOfPiece(move.m_ePiecePromoted)
+        << "(" << (char)move.m_ePiecePromoted << ")"
+        << std::endl
+      << "  en_passant = "
+        << nameOfBool(move.m_bIsEnPassant) << "(" << move.m_bIsEnPassant << ")"
+        << std::endl
+      << "  castling   = "
+        << nameOfCastling(move.m_eCastling)
+        << "(" << (char)move.m_eCastling << ")"
+        << std::endl
+      << "  check      = "
+        << nameOfCheckMod(move.m_eCheck)
+        << "(" << (char)move.m_eCheck << ")"
+        << std::endl
+      << "  result     = "
+        << nameOfResult(move.m_eResult)
+        << "(" << (char)move.m_eResult << ")"
+        << std::endl
+    << "}" << std::endl
+  ;
 
   return os;
 }

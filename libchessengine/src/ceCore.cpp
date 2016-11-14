@@ -59,11 +59,13 @@
 #include <string.h>
 
 #include <iostream>
-#include <stringstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
-#include "chess_engine/ceChess.h"
+#include <ros/console.h>
+
+#include "chess_engine/ceTypes.h"
 #include "chess_engine/ceUtils.h"
 
 using namespace std;
@@ -84,10 +86,10 @@ ChessPos::ChessPos(const ChessPos &src)
   m_rank = src.m_rank;
 }
 
-ChessPos::ChessPos(const ChessFile &file, const ChessRank &rank)
+ChessPos::ChessPos(const int &file, const int &rank)
 {
-  m_file = file;
-  m_rank = rank;
+  m_file = (ChessFile)file;
+  m_rank = (ChessRank)rank;
 }
 
 void ChessPos::clear()
@@ -96,7 +98,7 @@ void ChessPos::clear()
   m_rank = NoRank;
 }
 
-ChessPos::isOnChessBoard()
+bool ChessPos::isOnChessBoard() const
 {
   int col = m_file - (int)ChessFileA;
   int row = NumOfRanks - (m_rank - (int)ChessRank1) - 1;
@@ -124,7 +126,7 @@ ChessFqPiece::ChessFqPiece()
   clear();
 }
 
-~ChessFqPiece::ChessFqPiece()
+ChessFqPiece::~ChessFqPiece()
 {
 }
 
@@ -148,9 +150,9 @@ void ChessFqPiece::set(const ChessColor  ePieceColor,
                        const ChessPiece  ePieceType, 
                        const std::string &strPieceId)
 {
-  m_fqPiece.m_ePieceColor = ePieceColor;
-  m_fqPiece.m_ePieceType  = ePieceType;
-  m_fqPiece.m_strPiecedId = strPieceId;
+  m_ePieceColor = ePieceColor;
+  m_ePieceType  = ePieceType;
+  m_strPieceId  = strPieceId;
 }
 
 void ChessFqPiece::clear()
@@ -165,18 +167,18 @@ void ChessFqPiece::clear()
 // Static Member Functions
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-string ChessGame::makePieceId(int file, int rank,
-                            ChessColor eColor,
-                            ChessPiece ePiece)
+string ChessFqPiece::makePieceId(int file, int rank,
+                                 ChessColor eColor,
+                                 ChessPiece ePiece)
 {
   ChessPos pos(file, rank);
 
   return makePieceId(pos, eColor, ePiece);
 }
 
-string ChessGame::makePieceId(const ChessPos &pos,
-                            ChessColor     eColor,
-                            ChessPiece     ePiece)
+string ChessFqPiece::makePieceId(const ChessPos &pos,
+                                 ChessColor     eColor,
+                                 ChessPiece     ePiece)
 {
   stringstream ss;
   string  strId;
@@ -190,10 +192,10 @@ string ChessGame::makePieceId(const ChessPos &pos,
   return ss.str();
 }
 
-string ChessGame::makePieceId(const ChessPos &pos,
-                            ChessColor     eColor,
-                            ChessPiece     ePiece,
-                            int            nInstance)
+string ChessFqPiece::makePieceId(const ChessPos &pos,
+                                 ChessColor     eColor,
+                                 ChessPiece     ePiece,
+                                 int            nInstance)
 {
   stringstream ss;
   string  strId;
@@ -205,6 +207,7 @@ string ChessGame::makePieceId(const ChessPos &pos,
   return ss.str();
 }
 
+
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 // ChessFqPiece Friends
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -213,9 +216,11 @@ std::ostream &operator<<(std::ostream &os, const ChessFqPiece &fqPiece)
 {
   std::string space(" ");
 
-  os  << nameOfColor(m_ePieceColor) << space
-      << nameOfPiece(m_ePieceType) << space
-      << "\"" << m_strPieceId << "\"";
+  os  << "{ "
+      << nameOfColor(fqPiece.m_ePieceColor) << space
+      << nameOfPiece(fqPiece.m_ePieceType) << space
+      << "\"" << fqPiece.m_strPieceId << "\""
+      << " }";
 
   return os;
 }

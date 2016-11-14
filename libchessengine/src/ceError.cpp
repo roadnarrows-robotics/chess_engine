@@ -63,7 +63,7 @@
 
 #include "boost/assign.hpp"
 
-#include "chess_engine/ceChess.h"
+#include "chess_engine/ceTypes.h"
 #include "chess_engine/ceError.h"
 
 using namespace std;
@@ -82,11 +82,12 @@ namespace chess_engine
     (CE_ECODE_CHESS_NO_GAME,      "No active chess game")
     (CE_ECODE_CHESS_MOVE,         "Invalid chess move")
     (CE_ECODE_CHESS_OUT_OF_TURN,  "Chess move out-of-turn")
-    (CE_ECODE_CHESS_RSP,          "Unexpected backend chess engine response")
+    (CE_ECODE_CHESS_RSP,          "Algebraic Notation parse failed")
+    (CE_ECODE_CHESS_PARSE,        "Unexpected backend chess engine response")
     (CE_ECODE_CHESS_SYNC,         "Chess game state out-of-sync")
     (CE_ECODE_CHESS_FATAL,       "Chess game in unrecoverable error condition");
 
-  string strerror(int ecode)
+  string strecode(int ecode)
   {
     map<int, string>::iterator pos;
 

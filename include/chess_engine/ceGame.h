@@ -106,15 +106,16 @@ namespace chess_engine
      *
      * White moves first.
      *
-     * \param strWhite    White player's nom de guerre.
-     * \param strBlack    Black player's nom de guerre.
+     * \param strWhite    White player's optional nom de guerre.
+     * \param strBlack    Black player's optional nom de guerre.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int startNewGame(const std::string &strWhite, const std::string &strBlack);
+    int startNewGame(const std::string &strWhite = "",
+                     const std::string &strBlack = "");
     
     /*!
-     * \brief Eng current game.
+     * \brief End current game.
      *
      * \param eReason   Reason game ended.
      * \param eWinner   Declared winner, if any.
@@ -136,7 +137,34 @@ namespace chess_engine
     int qualifyMove(ChessMove &move);
 
     /*!
-     * \brief Execute player's move.
+     * \brief Qualify the chess move source and destination positions.
+     *
+     * \param [in,out] move   Chess move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int qualifyMovePositions(ChessMove &move);
+
+    /*!
+     * \brief Qualify the moved chess piece.
+     *
+     * \param [in,out] move   Chess move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int qualifyMovePiece(ChessMove &move);
+
+    /*!
+     * \brief Qualify any capture.
+     *
+     * \param [in,out] move   Chess move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int qualifyMoveCapture(ChessMove &move);
+
+    /*!
+     * \brief Execute move.
      *
      * \param [in] move   Chess move.
      *
@@ -154,7 +182,7 @@ namespace chess_engine
      *
      * \return Returns true or false.
      */
-    bool isPlaying()
+    bool isPlaying() const
     {
       return m_bIsPlaying;
     }
@@ -164,7 +192,7 @@ namespace chess_engine
      *
      * \return Returns White, Black, or NoColor.
      */
-    ChessColor getWinner()
+    ChessColor getWinner() const
     {
       return m_eWinner;
     }
@@ -174,7 +202,7 @@ namespace chess_engine
      *
      * \return Returns reason code.
      */
-    ChessResult getEndOfGameReason()
+    ChessResult getEndOfGameReason() const
     {
       return m_eEoGReason;
     }
@@ -184,14 +212,14 @@ namespace chess_engine
      *
      * \return Number of moves.
      */
-    int getNumOfMoves();
+    int getNumOfMoves() const;
 
     /*!
      * \brief Get the number of plies (half-moves) played.
      *
      * \return Number of plies.
      */
-    int getNumOfPlies();
+    int getNumOfPlies() const;
 
     /*!
      * \brief Get a reference to the board square.
@@ -221,7 +249,7 @@ namespace chess_engine
      *
      * \return Reference to board.
      */
-    const ChessBoard &getBoard()
+    ChessBoard &getBoard()
     {
       return m_board;
     }
@@ -249,13 +277,14 @@ namespace chess_engine
     }
 
     /*!
-     * \brief Set unicode GUI state.
+     * \brief Set unicode graphic state.
      *
      * \param on_off    State.
      */
     void setGuiState(bool on_off)
     {
-      m_bGui = on_off;
+      m_bGraphic = on_off;
+      m_board.setGraphicState(on_off);
     }
 
 
@@ -290,7 +319,7 @@ namespace chess_engine
     //
     // Other
     //
-    bool                    m_bGui;           ///< [not] a gui stream output
+    bool      m_bGraphic;             ///< [not] a graphic stream output
 
     /*!
      * \brief Record game history.
@@ -309,14 +338,25 @@ namespace chess_engine
      */
     void dropInBoneYard(const ChessColor ePlayer, const ChessPos &pos);
 
-
-    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    //
     // Friends
-    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
+    //
     friend std::ostream &operator<<(std::ostream &os, const ChessGame &game);
   };
 
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // Friends
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+  /*!
+   * \brief ChessGame output stream operator.
+   *
+   * \param os    Output stream.
+   * \param board Chess game.
+   *
+   * \return Output stream.
+   */
   extern std::ostream &operator<<(std::ostream &os, const ChessGame &game);
 
 } // chess_engine

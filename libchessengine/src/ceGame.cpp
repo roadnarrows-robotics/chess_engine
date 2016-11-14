@@ -59,7 +59,9 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <stringstream>
+#include <sstream>
+
+#include <ros/console.h>
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceMove.h"
@@ -82,7 +84,7 @@ ChessGame::ChessGame()
 
   m_eTurnToMove  = NoColor;
 
-  m_bGui = false;
+  m_bGraphic = false;
 }
 
 ChessGame::~ChessGame()
@@ -98,11 +100,10 @@ int ChessGame::startNewGame(const string &strWhite, const string &strBlack)
   m_eWinner     = NoColor;
 
   m_eTurnToMove           = White;
-  m_playerName[White]     = strWhite;
-  m_playerName[Black]     = strBlack;
+  m_playerName[White]     = strWhite.empty()? "Witbier": strWhite;
+  m_playerName[Black]     = strBlack.empty()? "Dunkel":  strBlack;
   m_numPromotions[White]  = 0;
   m_numPromotions[Black]  = 0;
-
 }
 
 int ChessGame::endCurrentGame(ChessResult eReason, ChessColor eWinner)
@@ -114,37 +115,37 @@ int ChessGame::endCurrentGame(ChessResult eReason, ChessColor eWinner)
 
 int ChessGame::qualifyMove(ChessMove &move)
 {
-  ChessPiece  ePieceSrc;
+  int   rc;
 
   //
   // ChessGame state sanity checks.
   //
   if( !m_bIsPlaying )
   {
-    move.m_result = NoGame;
+    move.m_eResult = NoGame;
     return -CE_ECODE_CHESS_SYNC;
   }
 
   //
   // Cursory check of move's current result
   //
-  switch( move.m_result )
+  switch( move.m_eResult )
   {
     case BadMove:
       return -CE_ECODE_CHESS_MOVE;
     case OutOfTurn:
       return -CE_ECODE_CHESS_OUT_OF_TURN;
     case NoGame:
-      endCurrentGame(move.m_result);
+      endCurrentGame(move.m_eResult);
       return -CE_ECODE_CHESS_SYNC;
     case GameFatal:
-      endCurrentGame(move.m_result);
+      endCurrentGame(move.m_eResult);
       return -CE_ECODE_CHESS_FATAL;
     case Checkmate:
     case Draw:
     case Resign:
     case Disqualified:
-      endCurrentGame(move.m_result);
+      endCurrentGame(move.m_eResult);
       // there is still a move to process
       break;
     case Ok:
@@ -153,86 +154,232 @@ int ChessGame::qualifyMove(ChessMove &move)
       break;
   }
 
+  // Check an out-of-turn condition.
   if( move.m_ePlayer != m_eTurnToMove )
   {
-    LOGERROR();
-    return -CE_ECODE_CHESS_SYNC;
+    ROS_ERROR_STREAM("Player "
+        << nameOfColor(move.m_ePlayer)
+        << "out of turn.");
+    rc = -CE_ECODE_CHESS_SYNC;
   }
 
-  //
-  // Castling special move
-  //
-  if( move.m_eCastling != NoCastling )
+  // qualify source and destination of the move
+  else if( (rc = qualifyMovePositions(move)) != CE_OK )
+  {
+    ROS_DEBUG("%d = qualifyMovePositions() failed.", rc);
+  }
+
+  // verify piece moved
+  else if( (rc = qualifyMovePiece(move)) != CE_OK )
+  {
+    ROS_DEBUG("%d = qualifyMovePiece() failed.", rc);
+  }
+
+  // verify any capture
+  else if( (rc = qualifyMoveCapture(move)) != CE_OK )
+  {
+    ROS_DEBUG("%d = qualifyMoveCapture() failed.", rc);
+  }
+
+  // good
+  else
+  {
+    rc = CE_OK;
+  }
+
+  if( rc != CE_OK )
+  {
+    move.m_eResult = GameFatal;
+    endCurrentGame(move.m_eResult);
+  }
+
+  return rc;
+}
+
+int ChessGame::qualifyMovePositions(ChessMove &move)
+{
+  int   rc;
+
+  // fully qualify source position
+  if( move.m_eCastling == NoCastling )
+  {
+    m_board.setMoveSrcPos(move);
+  }
+
+  // fully qualify castling source and destination positions
+  else
   {
     ChessMove::getCastlingKingMove(move.m_ePlayer, move.m_eCastling,
                                    move.m_posSrc, move.m_posDst);
   }
 
   //
-  // Set source of all other moves. Destination must be fully specified.
+  // Verify move destination position.
   //
+  if( !ChessBoard::isOnChessBoard(move.m_posDst) )
+  {
+    ROS_ERROR_STREAM("Bad destination square "
+                    << move.m_posDst
+                    << ".");
+    rc = -CE_ECODE_CHESS_FATAL;
+  }
+  
+  //
+  // Verify move source position.
+  //
+  else if( !ChessBoard::isOnChessBoard(move.m_posSrc) )
+  {
+    ROS_ERROR_STREAM("Bad source square "
+                    << move.m_posSrc
+                    << ".");
+    rc = -CE_ECODE_CHESS_FATAL;
+  }
+
+  // good
   else
   {
-    m_board.setMoveSrcPos(move);
+    rc = CE_OK;
   }
 
-  //
-  // Source position is not fully specified or is not on the board.
-  //
-  if( !ChessBoard::isOnChessBoard(move.m_posSrc) )
-  {
-    printf("ROSLOG: Error: bad 'from' square = %c%c.\n",
-        move.m_posFrom.m_file, move.m_posFrom.m_rank);
-    endCurrentGame(GameFatal);
-    return -CE_ECODE_CHESS_FATAL;
-  }
-  
-  //
-  // Destination position is not fully specified or is not on the board.
-  //
-  else if( !ChessBoard::isOnChessBoard(move.m_posDst) )
-  {
-    printf("ROSLOG: Error: bad 'to' square = %c%c.\n",
-        move.m_posTo.m_file, move.m_posTo.m_rank);
-    endCurrentGame(GameFatal);
-    return -CE_ECODE_CHESS_FATAL;
-  }
-  
-  // chess piece at source position
+  return rc;
+}
+
+int ChessGame::qualifyMovePiece(ChessMove &move)
+{
+  ChessPiece  ePieceSrc;
+  int         rc;
+
+  // chess piece at source position determined by board state
   ePieceSrc = m_board.at(move.m_posSrc).getPieceType();
 
-  //
-  // Set moved piece, if unset
-  //
-  if( move.m_ePiecedMoved == NoPiece )
+  // set moved piece, if unset
+  if( move.m_ePieceMoved == NoPiece )
   {
-    move.m_ePiecedMoved = ePieceSrc;
+    move.m_ePieceMoved = ePieceSrc;
   }
 
   //
   // Cannot move a non-existent piece.
   //
-  if( move.m_ePiecedMoved == NoPiece )
+  if( move.m_ePieceMoved == NoPiece )
   {
-    printf("ROSLOG: Error: no piece found on 'from' square %c%c.\n",
-        move.m_posFrom.m_file, move.m_posFrom.m_rank);
-    endCurrentGame(GameFatal);
-    return -CE_ECODE_CHESS_SYNC;
+    ROS_ERROR_STREAM("No piece found on source square "
+                    << move.m_posSrc
+                    << ".");
+    rc = -CE_ECODE_CHESS_SYNC;
   }
 
   //
   // Disagreement about what piece to move - game probably out of sync.
   //
-  else if( move.m_ePiecedMoved = ePieceSrc )
+  else if( move.m_ePieceMoved != ePieceSrc )
   {
-    printf("ROSLOG: Error: piece %c != %c found on 'from' square %c%c.\n",
-        move.m_ePiecedMoved, sqSrc.getPieceType(),
-        move.m_posFrom.m_file, move.m_posFrom.m_rank);
-    endCurrentGame(GameFatal);
-    return -CE_ECODE_CHESS_SYNC;
+    ROS_ERROR_STREAM("Piece "
+                  << nameOfPiece(move.m_ePieceMoved)
+                  << " != "
+                  << nameOfPiece(ePieceSrc)
+                  << " found on source square "
+                  << move.m_posSrc
+                  << ".");
+    rc = -CE_ECODE_CHESS_SYNC;
   }
 
-  return CE_OK;
+  // good
+  else
+  {
+    rc = CE_OK;
+  }
+
+  return rc;
+}
+
+int ChessGame::qualifyMoveCapture(ChessMove &move)
+{
+  ChessPos    posCapture;
+  ChessPiece  ePieceCaptured;
+  int         rc;
+
+  //
+  // Not a capture move.
+  //
+  if( move.m_ePieceCaptured == NoPiece )
+  {
+    // but destination square is not empty
+    if( m_board.at(move.m_posDst).getPieceType() != NoPiece )
+    {
+      ROS_ERROR_STREAM(
+        "Not a capture move, but piece found on destination square "
+        << move.m_posDst << ".");
+      return -CE_ECODE_CHESS_SYNC;
+    }
+    else
+    {
+      return CE_OK;
+    }
+  }
+
+  // find captured piece position from en passant move
+  if( move.m_bIsEnPassant )
+  {
+    ChessMove::getEnPassantCapturedPawnPos(move.m_ePlayer,
+                                           move.m_posDst,
+                                           posCapture);
+  }
+  // all other captures are at the destination square
+  else
+  {
+    posCapture = move.m_posDst;
+  }
+
+  //
+  // Verify capture position.
+  //
+  if( !ChessBoard::isOnChessBoard(posCapture) )
+  {
+    ROS_ERROR_STREAM("Bad capture square " << posCapture << ".");
+    return -CE_ECODE_CHESS_FATAL;
+  }
+  
+  // captured chess piece as determined by board state
+  ePieceCaptured = m_board.at(posCapture).getPieceType();
+
+  // set captured piece, iff undefined
+  if( move.m_ePieceCaptured == UndefPiece )
+  {
+    move.m_ePieceCaptured = ePieceCaptured;
+  }
+
+  //
+  // Cannot capture a non-existent piece.
+  //
+  if( move.m_ePieceCaptured == NoPiece )
+  {
+    ROS_ERROR_STREAM("No piece found on capture square " << posCapture << ".");
+    rc = -CE_ECODE_CHESS_SYNC;
+  }
+
+  //
+  // Disagreement about what piece is captured - game probably out of sync.
+  //
+  else if( move.m_ePieceCaptured != ePieceCaptured )
+  {
+    ROS_ERROR_STREAM("Piece "
+                  << nameOfPiece(move.m_ePieceCaptured)
+                  << " != "
+                  << nameOfPiece(ePieceCaptured)
+                  << " found on capture square "
+                  << posCapture
+                  << ".");
+    rc = -CE_ECODE_CHESS_SYNC;
+  }
+
+  // good
+  else
+  {
+    rc = CE_OK;
+  }
+
+  return rc;
 }
 
 int ChessGame::execMove(ChessMove &move)
@@ -240,7 +387,7 @@ int ChessGame::execMove(ChessMove &move)
   //
   // En passant move.
   //
-  if( move.m_en_passant )
+  if( move.m_bIsEnPassant )
   {
     ChessPos  posCapture;
 
@@ -256,7 +403,7 @@ int ChessGame::execMove(ChessMove &move)
   //
   // Basic capture.
   //
-  else if( move.m_capture )
+  else if( move.m_ePieceCaptured != NoPiece )
   {
     // remove captured piece and drop it into the player's bone yard.
     dropInBoneYard(move.m_ePlayer, move.m_posDst);
@@ -289,16 +436,19 @@ int ChessGame::execMove(ChessMove &move)
   //
   if( move.m_ePiecePromoted != NoPiece )
   {
+    int         nNumPromotions;
     std::string strPieceId;
 
     // remove the pawn from the board and drop in the player's bone yard.
     dropInBoneYard(move.m_ePlayer, move.m_posDst);
 
+    nNumPromotions = m_numPromotions[move.m_ePlayer];
+
     // make the new promoted piece's unique id
-    str = ChessFqPiece::makePieceId(move.m_ePlayer,
-                                    move.m_ePiecePromoted,
-                                    move.m_posDst,
-                                    m_numPromotions[move.m_ePlayer]);
+    strPieceId = ChessFqPiece::makePieceId(move.m_posDst,
+                                           move.m_ePlayer,
+                                           move.m_ePiecePromoted,
+                                           nNumPromotions);
 
     // place promoted piece on the board
     m_board.setPiece(move.m_posDst, move.m_ePlayer, move.m_ePiecePromoted,
@@ -311,7 +461,8 @@ int ChessGame::execMove(ChessMove &move)
   // record move
   recordHistory(move);
 
-  // RDK alternate
+  // next turn to move
+  m_eTurnToMove = opponent(m_eTurnToMove);
 
   return CE_OK;
 }
@@ -324,36 +475,26 @@ void ChessGame::setupGame()
   m_board.setupBoard();
 }
 
-int ChessGame::getNumOfMoves()
+int ChessGame::getNumOfMoves() const
 {
   return ((int)m_history.size() + 1) / 2;
 }
 
-int ChessGame::getNumOfPlies()
+int ChessGame::getNumOfPlies() const
 {
   return (int)m_history.size();
 }
 
 ChessSquare &ChessGame::getBoardSquare(const int file, const int rank)
 {
-  ChessPos  pos(file, rank);
-
-  return getBoardSquare(pos);
+  return m_board.at(file, rank);
 }
 
 ChessSquare &ChessGame::getBoardSquare(const ChessPos &pos)
 {
-  if( ChessBoard::toRowCol(pos, row, col) == CE_OK )
-  {
-    return m_board[row][col];
-  }
-  else
-  {
-    return ChessNoSquare;
-  }
+  return m_board.at(pos);
 }
 
-}
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 //  Protected
@@ -369,10 +510,10 @@ void ChessGame::dropInBoneYard(const ChessColor ePlayer, const ChessPos &pos)
   switch( ePlayer )
   {
     case White:
-      m_boneyardWhite.push_back(m_board.at(pos).getFqPiece());
+      m_boneyardWhite.push_back(m_board.at(pos).getPiece());
       break;
     case Black:
-      m_boneyardBlack.push_back(m_board.at(pos).getFqPiece());
+      m_boneyardBlack.push_back(m_board.at(pos).getPiece());
       break;
     default:
       break;
@@ -388,132 +529,10 @@ void ChessGame::dropInBoneYard(const ChessColor ePlayer, const ChessPos &pos)
 
 ostream &chess_engine::operator<<(ostream &os, const ChessGame &game)
 {
-  int         file, rank;       // chess board file,rank
-  int         row, col;         // board matrix row,column
-  ChessPiece  piece;            // chess piece
-  string      strPiece;         // piece one-character name
-  ChessColor  colorPiece;       // color of piece (white or black)
-  ChessColor  colorSquare;      // color of square (white or black)
-  streamsize  w = os.width();   // save default width
-  string      strWW;            // white piece on white square
-  string      strBW;            // black piece on white square
-  string      strWB;            // white piece on black square
-  string      strBB;            // black piece on black square
-  string      strReset;         // reset colors
-
-  if( game.m_bGui )
-  {
-    // RDK: fix color.h
-    strWW = ANSI_COLOR_PRE "0;30;47m";
-    strBW = ANSI_COLOR_PRE "0;30;47m";
-    strWB = ANSI_COLOR_PRE "0;30;46m";
-    strBB = ANSI_COLOR_PRE "0;30;46m";
-
-    strReset = ANSI_COLOR_RESET;
-  }
-
-  for(rank = ChessRank8; rank >= ChessRank1; --rank)
-  {
-    if( !game.m_bGui )
-    {
-      os.width(NumOfFiles * 4 + 1);
-      os.fill('.');
-      os << '.';
-      os.width(w);
-      os << endl;
-    }
-
-    for(file = ChessFileA; file <= ChessFileH; ++file)
-    {
-      row = game.toRow(rank);
-      col = game.toCol(file);
-
-      colorSquare = game.getSquareColor(file, rank);
-      piece       = game.m_board[row][col].m_piece;
-      colorPiece  = game.m_board[row][col].m_color;
-
-      if( game.m_bGui )
-      {
-        if( piece == NoPiece )
-        {
-          //strPiece = "\U00002588";
-          strPiece = " ";
-          colorPiece  = colorSquare;
-        }
-        else
-        {
-          strPiece = figurineOfPiece(colorPiece, piece);
-        }
-      }
-      else
-      {
-        if( piece == NoPiece )
-        {
-          strPiece    = " ";
-          colorPiece  = colorSquare;
-        }
-        else if( colorPiece == White )
-        {
-          strPiece = (char)piece;
-        }
-        else
-        {
-          strPiece = (char)tolower(piece);
-        }
-      }
-
-      if( game.m_bGui )
-      {
-        if( colorSquare == White )
-        {
-          if( colorPiece == White )
-          {
-            os << strWW;
-          }
-          else
-          {
-            os << strBW;
-          }
-        }
-        else
-        {
-          if( colorPiece == White )
-          {
-            os << strWB;
-          }
-          else
-          {
-            os << strBB;
-          }
-        }
-
-        os << strPiece << " ";
-        os << strReset;
-      }
-      else
-      {
-        os << "|";
-        os << " " << strPiece << " ";
-      }
-    }
-
-    if( !game.m_bGui )
-    {
-      os << "|";
-    }
-
-    os << endl;
-  }
-
-  if( !game.m_bGui )
-  {
-    os.width(NumOfFiles * 4 + 1);
-    os.fill('-');
-    os << '-' << endl;
-    os.width(w);
-  }
-
-  os << endl;
+  os << "White: " << game.m_playerName.find(White)->second << endl;
+  os << "Black: " << game.m_playerName.find(Black)->second << endl;
+  os << game.getNumOfMoves() << ".  " << nameOfColor(game.m_eTurnToMove);
+  os << game.m_board;
 
   return os;
 }

@@ -60,7 +60,7 @@
 #include <string>
 #include <vector>
 
-#include "chess_engine/ceChess.h"
+#include "chess_engine/ceTypes.h"
 
 /*!
  * \brief Package top-level namespace.
@@ -85,15 +85,23 @@ namespace chess_engine
     /*!
      * \brief Initialization constructor.
      *
+     * \param [in] pos      Square position on board.
+     * \param [in] fqPiece  Fully-qualified piece.
+     */
+    ChessSquare(const ChessPos &pos, const ChessFqPiece &fqPiece);
+
+    /*!
+     * \brief Initialization constructor.
+     *
      * \param [in] pos          Square position on board.
      * \param [in] ePieceColor  Piece color [NoColor, White, Black].
      * \param [in] ePieceType   Piece type [NoPiece, King, Queen, ..., Pawn].
      * \param [in] strPieceId   Fixed unique piece id.
      */
-    void ChessSquare(const ChessPos    &pos,
-                     const ChessColor  ePieceColor,
-                     const ChessPiece  ePieceType,
-                     const std::string &strPieceId);
+    ChessSquare(const ChessPos    &pos,
+                const ChessColor  ePieceColor,
+                const ChessPiece  ePieceType,
+                const std::string &strPieceId);
 
     /*!
      * \brief Destructor.
@@ -121,14 +129,21 @@ namespace chess_engine
      *
      * \return Square's position.
      */
-    ChessPos getPos();
+    ChessPos getPos() const;
 
     /*!
      * \brief Get this chess square's color.
      *
      * \return Square color [NoColor, White, Black]
      */
-    ChessColor getColor();
+    ChessColor getColor() const;
+
+    /*!
+     * \brief Set the chess piece on the chess square.
+     *
+     * \param [in] fqPiece  Fully qualified piece.
+     */
+    void setPiece(const ChessFqPiece &fqPiece);
 
     /*!
      * \brief Set the chess piece on the chess square.
@@ -142,6 +157,13 @@ namespace chess_engine
                   const std::string &strPieceId);
 
     /*!
+     * \brief Get the chess piece on the chess square.
+     *
+     * \return Reference to fully-qualified piece.
+     */
+    ChessFqPiece &getPiece();
+
+    /*!
      * \brief Get chess piece info, if any, on the chess square.
      *
      * \param [out] ePieceColor Piece color [NoColor, White, Black].
@@ -150,7 +172,28 @@ namespace chess_engine
      */
     void getPiece(ChessColor  &ePieceColor,
                   ChessPiece  &ePieceType,
-                  std::string &strPieceId);
+                  std::string &strPieceId) const;
+
+    /*!
+     * \brief Get this chess square's chess piece color.
+     *
+     * \return Piece color [NoColor, White, Black].
+     */
+    ChessColor getPieceColor() const;
+
+    /*!
+     * \brief Get this chess square's chess piece type.
+     *
+     * \return Piece type [NoPiece, King, Queen, ..., Pawn].
+     */
+    ChessPiece getPieceType() const;
+
+    /*!
+     * \brief Get this chess square's chess piece unique string id.
+     *
+     * \return Fixed unique piece id.
+     */
+    std::string getPieceId() const;
 
     /*!
      * \brief Copy this square's piece to destination square.
@@ -178,35 +221,14 @@ namespace chess_engine
      *
      * \return Returns true or false.
      */
-    bool isEmpty();
+    bool isEmpty() const;
 
     /*!
      * \brief Test if square is not associated with a board position.
      *
      * \return Returns true or false.
      */
-    bool isOnChessBoard();
-
-    /*!
-     * \brief Get this chess square's chess piece color.
-     *
-     * \return Piece color [NoColor, White, Black].
-     */
-    ChessColor getPieceColor();
-
-    /*!
-     * \brief Get this chess square's chess piece type.
-     *
-     * \return Piece type [NoPiece, King, Queen, ..., Pawn].
-     */
-    ChessPiece getPieceType();
-
-    /*!
-     * \brief Get this chess square's chess piece unique string id.
-     *
-     * \return Fixed unique piece id.
-     */
-    std::string getPieceId();
+    bool isOnChessBoard() const;
 
 
     //. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

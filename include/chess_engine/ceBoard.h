@@ -60,7 +60,7 @@
 #include <string>
 #include <vector>
 
-#include "chess_engine/ceChess.h"
+#include "chess_engine/ceTypes.h"
 #include "chess_engine/ceSquare.h"
 #include "chess_engine/ceMove.h"
 
@@ -137,7 +137,7 @@ namespace chess_engine
     void removePiece(const ChessPos &pos);
 
     /*!
-     * \brief Get a reference to the board square.
+     * \brief Get a reference to the (const) board square.
      *
      * \param file  Chess board file.
      * \param rank  Chess board rank.
@@ -146,10 +146,12 @@ namespace chess_engine
      * If out-of-range, returns "no square" square
      * (see ChessSquare::isOnChessBoard).
      */
+    const ChessSquare &at(const int file, const int rank) const;
+
     ChessSquare &at(const int file, const int rank);
 
     /*!
-     * \brief Get a reference to the board square.
+     * \brief Get a reference to the (const) board square.
      *
      * \param pos   Chess board position.
      *
@@ -157,16 +159,18 @@ namespace chess_engine
      * If out-of-range, returns "no square" square
      * (see ChessSquare::isOnChessBoard()).
      */
+    const ChessSquare &at(const ChessPos &pos) const;
+
     ChessSquare &at(const ChessPos &pos);
 
     /*!
-     * \brief Set unicode GUI state.
+     * \brief Set unicode figurine gaphic state.
      *
      * \param on_off    State.
      */
-    void setGuiState(bool on_off)
+    void setGraphicState(bool on_off)
     {
-      m_bGui = on_off;
+      m_bGraphic = on_off;
     }
 
     /*!
@@ -176,7 +180,7 @@ namespace chess_engine
      *
      * \return Returns true of source position determined, false otherwise.
      */
-    bool setMoveSrcPos(ChessMove &move)
+    bool setMoveSrcPos(ChessMove &move);
     
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -260,7 +264,7 @@ namespace chess_engine
      *
      * \returns Returns the shifted file. If off the board, then returns NoFile.
      */
-    static ChessFile shiftFile(int file, int offset)
+    static ChessFile shiftFile(int file, int offset);
     
     /*!
      * \brief Shift rank by the given offset.
@@ -270,7 +274,7 @@ namespace chess_engine
      *
      * \returns Returns the shifted rank. If off the board, then returns NoRank.
      */
-    static ChessRank shiftRank(int rank, int offset)
+    static ChessRank shiftRank(int rank, int offset);
 
     /*!
      * \brief Test if position lies on a standard chess board.
@@ -454,7 +458,7 @@ namespace chess_engine
 
   protected:
     ChessSquare m_board[NumOfRanks][NumOfFiles];  ///< board matrix
-    bool        m_bGui;                           ///< [not] a gui stream output
+    bool        m_bGraphic;                       ///< [not] a figurine output
 
     /*!
      * \brief One-time board initialization.
@@ -468,14 +472,48 @@ namespace chess_engine
      */
     void setupBoard(ChessColor eColor);
   
-    void recordHistory(ChessMove &move);
-
-    void dropInBoneYard();
-
-    friend std::ostream &operator<<(std::ostream &os, const ChessBoard &game);
+    // Friends
+    friend std::ostream &operator<<(std::ostream &os, const ChessBoard &board);
+    friend std::ostream &ographic(std::ostream &os, const ChessBoard &board);
+    friend std::ostream &oascii(std::ostream &os, const ChessBoard &board);
   };
 
-  extern std::ostream &operator<<(std::ostream &os, const ChessBoard &game);
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // Friends
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+  /*!
+   * \brief ChessBoard output stream operator.
+   *
+   * An ascii or unicode board is generated as determined by the graphic state.
+   *
+   * \param os    Output stream.
+   * \param board Chess board.
+   *
+   * \return Output stream.
+   */
+  extern std::ostream &operator<<(std::ostream &os, const ChessBoard &board);
+
+  /*!
+   * \brief Generate ChessBoard graphic output stream.
+   *
+   * \param os    Output stream.
+   * \param board Chess board.
+   *
+   * \return Output stream.
+   */
+  extern std::ostream &ographic(std::ostream &os, const ChessBoard &board);
+
+  /*!
+   * \brief Generate ChessBoard non-graphic ascii output stream.
+   *
+   * \param os    Output stream.
+   * \param board Chess board.
+   *
+   * \return Output stream.
+   */
+  extern std::ostream &oascii(std::ostream &os, const ChessBoard &board);
 
 } // chess_engine
 

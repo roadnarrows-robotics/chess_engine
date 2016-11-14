@@ -58,7 +58,10 @@
 
 #include <string>
 
-#include "chess_engine/ceChess.h"
+#include <ros/console.h>
+
+#include "chess_engine/ceTypes.h"
+
 
 namespace chess_engine
 {
@@ -145,7 +148,7 @@ namespace chess_engine
    *
    * \return String.
    */
-  std::string nameOfBool(bool v)
+  inline std::string nameOfBool(bool v)
   {
     return v? "true": "false";
   }

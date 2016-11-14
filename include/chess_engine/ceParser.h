@@ -58,7 +58,7 @@
 
 #include  <string>
 
-#include  "chess_engine/ceChess.h"
+#include  "chess_engine/ceTypes.h"
 #include  "chess_engine/ceMove.h"
 
 namespace chess_engine
@@ -94,9 +94,9 @@ namespace chess_engine
      * \param [in] strAN    Input AN string.
      * \param [out] move    Chess move.
      *
-     * \return Returns true on success, false otherwise.
+     * \return Returns CE_OK on success, negative error code on failure.
      */
-    bool parse(const std::string &strAN, ChessMove &move);
+    int parse(const std::string &strAN, ChessMove &move);
 
     /*!
      * \brief Get parse error string.
@@ -162,6 +162,25 @@ namespace chess_engine
      * \return Returns true on success, false otherwise.
      */
     bool postprocPromotion();
+
+    /*!
+     * \brief Convert parsed an_move structure to move object.
+     *
+     * Note that SAN parsing gives more information than CAN.
+     *
+     * Move Fields:
+     * - piece moved
+     * - source position
+     * - destination position
+     * - captured piece
+     * - promoted piece
+     * - en passant
+     * - castling side
+     * - check modifier
+     *
+     * \param [out] move    Chess move object.
+     */
+    void toChessMove(ChessMove &move);
 
     /*!
      * \brief Clear parse errors.

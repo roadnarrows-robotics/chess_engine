@@ -6,11 +6,11 @@
 //
 // Library:   libchessengine
 //
-// File:      ceChess.h
+// File:      ceTypes.h
 //
 /*! \file
  *
- * \brief Top-level declarations for the game of chess.
+ * \brief Chess engine basic core types.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
@@ -53,8 +53,8 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _CE_CHESS_H
-#define _CE_CHESS_H
+#ifndef _CE_TYPES_H
+#define _CE_TYPES_H
 
 #include <iostream>
 #include <vector>
@@ -62,7 +62,8 @@
 namespace chess_engine
 {
 
-  const char ChessValNone = '0';    ///< common 'no value' value
+  const char ChessValNone  = '0';   ///< common 'no value' value
+  const char ChessValUndef = '?';   ///< common undefined/unknown value
 
   /*!
    * \brief Chess board file (column).
@@ -127,7 +128,7 @@ namespace chess_engine
      * \param file    Chess file ['a' - 'h']
      * \param rank    Chess rank ['1' - '8']
      */
-    ChessPos(const ChessFile &file, const ChessRank &rank);
+    ChessPos(const int &file, const int &rank);
 
     /*!
      * \brief Assignment operator.
@@ -148,7 +149,7 @@ namespace chess_engine
      *
      * \return Returns true or false.
      */
-    isOnChessBoard();
+    bool isOnChessBoard() const;
 
     // Friends
     friend std::ostream &operator<<(std::ostream &os, const ChessPos &pos);
@@ -174,13 +175,14 @@ namespace chess_engine
    */
   enum ChessPiece
   {
-    NoPiece = ChessValNone, ///< no piece
-    King    = 'K',          ///< king
-    Queen   = 'Q',          ///< queen
-    Rook    = 'R',          ///< rook or castle
-    Bishop  = 'B',          ///< bishop
-    Knight  = 'N',          ///< knight
-    Pawn    = 'P'           ///< pawn
+    NoPiece     = ChessValNone, ///< no piece
+    King        = 'K',          ///< king
+    Queen       = 'Q',          ///< queen
+    Rook        = 'R',          ///< rook or castle
+    Bishop      = 'B',          ///< bishop
+    Knight      = 'N',          ///< knight
+    Pawn        = 'P',          ///< pawn
+    UndefPiece  = ChessValUndef ///< undefined/unknown piece
   };
 
   /*!
@@ -218,7 +220,7 @@ namespace chess_engine
      *
      * \return *this
      */
-    ChessFqPiece operator=(const ChessPos &FqPiece);
+    ChessFqPiece operator=(const ChessFqPiece &FqPiece);
 
     /*!
      * \brief Set data.
@@ -311,7 +313,7 @@ namespace chess_engine
 
     // Friends
     friend std::ostream &operator<<(std::ostream &os,
-                                    const ChessFqPeece &fqPiece);
+                                    const ChessFqPiece &fqPiece);
   };
 
   /*!
@@ -324,10 +326,13 @@ namespace chess_engine
     QueenSide   = 'Q'           ///< queen side castling
   };
 
+  /*! list of castling options available */
+  typedef std::vector<ChessCastling> list_of_castling;
+
   /*!
    * \brief Chess move modifier.
    */
-  enum ChessModifier
+  enum ChessCheckMod
   {
     NoCheckMod      = ChessValNone, ///< no check modifier
     ModCheck        = '+',          ///< check
@@ -362,7 +367,32 @@ namespace chess_engine
     SAN       = 2       ///< standard algebra notation
   };
 
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // Friends
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+  /*!
+   * \brief ChessPos output stream operator.
+   *
+   * \param os      Output stream.
+   * \param fqPiece Chess position.
+   *
+   * \return Output stream.
+   */
+  extern std::ostream &operator<<(std::ostream &os, const ChessPos &pos);
+
+  /*!
+   * \brief ChessFqPiece output stream operator.
+   *
+   * \param os      Output stream.
+   * \param fqPiece Fully qualified chess piece.
+   *
+   * \return Output stream.
+   */
+  extern std::ostream &operator<<(std::ostream       &os,
+                                  const ChessFqPiece &fqPiece);
+
 } // namespace chess_engine
 
-
-#endif // _CE_CHESS_H
+#endif // _CE_TYPES_H

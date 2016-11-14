@@ -48,7 +48,7 @@ add_service_files(
     GetBoardState.srv
     GetEnginesMove.srv
     GetPlayHistory.srv
-    MakeAMoveSAN.srv
+    MakeAMoveAN.srv
     MakeAMove.srv
     MoveCompleted.srv
     Resign.srv

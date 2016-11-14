@@ -60,26 +60,42 @@
 #include <vector>
 #include <map>
 
-#include "chess_engine/ceChess.h"
+#include <ros/console.h>
+
+#include "chess_engine/ceTypes.h"
+#include "chess_engine/ceError.h"
+#include "chess_engine/ceUtils.h"
 #include "chess_engine/ceMove.h"
-#include "chess_engine/ceGame.h"
+#include "chess_engine/ceBoard.h"
 
 using namespace std;
 using namespace chess_engine;
 
+/*!
+ * \brief ANSI colors.
+ */
+#define ANSI_COLOR_PRE        "\033["     ///< control sequence introducer
+#define ANSI_COLOR_RESET      "\033[0m"   ///< reset to terminal defaults
+#define ANSI_COLOR_BLACK_CYAN "0;30;46m"  ///< black on cyan
+#define ANSI_COLOR_BLACK_GRAY "0;30;47m"  ///< black on gray
 
-static ChessNoSquare = ChessSquare();   ///< "no square" square
+static const string ColorWhiteSq(ANSI_COLOR_PRE ANSI_COLOR_BLACK_GRAY);
+static const string ColorBlackSq(ANSI_COLOR_PRE ANSI_COLOR_BLACK_CYAN);
+
+static const string    strReset = ANSI_COLOR_RESET;
+
+static ChessSquare ChessNoSquare;   ///< "no square" square
 
 
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Chess game class.
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// -----------------------------------------------------------------------------
+// Class ChessBoard
+// -----------------------------------------------------------------------------
 
-ChessGame::ChessBoard()
+ChessBoard::ChessBoard()
 {
   initBoard();
 
-  m_bGui = false;
+  m_bGraphic = false;
 }
 
 void ChessBoard::clearBoard()
@@ -119,13 +135,25 @@ void ChessBoard::removePiece(const ChessPos &pos)
   at(pos).removePiece();
 }
 
+const ChessSquare &ChessBoard::at(const int file, const int rank) const
+{
+  return at(ChessPos(file, rank));
+}
+
 ChessSquare &ChessBoard::at(const int file, const int rank)
 {
-  return getBoardSquare(ChessPos(file, rank));
+  return at(ChessPos(file, rank));
+}
+
+const ChessSquare &ChessBoard::at(const ChessPos &pos) const
+{
+  return at(pos);
 }
 
 ChessSquare &ChessBoard::at(const ChessPos &pos)
 {
+  int   row, col;
+
   if( toRowCol(pos, row, col) == CE_OK )
   {
     return m_board[row][col];
@@ -199,7 +227,7 @@ int ChessBoard::toRowCol(const ChessPos &pos, int &row, int &col)
 
 ChessFile ChessBoard::toFile(int col)
 {
-  if( (cow >= 0) && (cow < NumOfFiles) )
+  if( (col >= 0) && (col < NumOfFiles) )
   {
     return (ChessFile)((int)ChessFileA + col);
   }
@@ -236,7 +264,7 @@ ChessFile ChessBoard::shiftFile(int file, int offset)
   return toFile(toCol(file) + offset);
 }
 
-ChessFile ChessBoard::shiftRank(int file, int offset)
+ChessRank ChessBoard::shiftRank(int rank, int offset)
 {
   return toRank(toRow(rank) + offset);
 }
@@ -245,7 +273,7 @@ bool ChessBoard::isOnChessBoard(const ChessPos &pos)
 {
   int   row, col;
 
-  return toRowCol(pos, row, col) == CE_OK? true: fale;
+  return toRowCol(pos, row, col) == CE_OK? true: false;
 }
 
 bool ChessBoard::isOnChessBoard(const ChessFile file, const ChessRank rank)
@@ -298,7 +326,7 @@ void ChessBoard::findKingMoves(const ChessPos &pos, list_of_pos &positions)
   {
     p.m_file = shiftFile(pos.m_file, fileOffset[i]);
     p.m_rank = shiftRank(pos.m_rank, rankOffset[i]);
-    if( p.isOnBoard() )
+    if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
@@ -313,8 +341,8 @@ void ChessBoard::findQueenMoves(const ChessPos &pos, list_of_pos &positions)
 
 void ChessBoard::findBishopMoves(const ChessPos &pos, list_of_pos &positions)
 {
-  ChessPiece  p;
-  int         row, col;
+  ChessPos  p;
+  int       row, col;
 
   // upper right ray
   for(col = toCol(pos.m_file)+1; col < NumOfFiles; ++col)
@@ -374,7 +402,7 @@ void ChessBoard::findKnightMoves(const ChessPos &pos, list_of_pos &positions)
   {
     p.m_file = shiftFile(pos.m_file, fileOffset[i]);
     p.m_rank = shiftRank(pos.m_rank, rankOffset[i]);
-    if( p.isOnBoard() )
+    if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
@@ -383,8 +411,8 @@ void ChessBoard::findKnightMoves(const ChessPos &pos, list_of_pos &positions)
 
 void ChessBoard::findRookMoves(const ChessPos &pos, list_of_pos &positions)
 {
-  ChessPiece  p;
-  int         row, col;
+  ChessPos  p;
+  int       row, col;
 
   // up ray
   col       = toCol(pos.m_file);
@@ -427,7 +455,7 @@ void ChessBoard::findPawnSrcMoves(const ChessColor eColor,
                                   const ChessPos   &pos,
                                   list_of_pos      &positions)
 {
-  ChessPos  p
+  ChessPos  p;
   size_t    n = 3;
   int       fileOffset[n] = {-1, 0, 1};
   int       rankOffset = eColor == White? -1: 1;
@@ -438,7 +466,7 @@ void ChessBoard::findPawnSrcMoves(const ChessColor eColor,
   for(i = 0; i < n; ++i)
   {
     p.m_file = shiftFile(pos.m_file, fileOffset[i]);
-    if( p.isOnBoard() )
+    if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
@@ -448,7 +476,7 @@ void ChessBoard::findPawnSrcMoves(const ChessColor eColor,
   {
     p.m_file = pos.m_file;
     p.m_rank = shiftRank(pos.m_rank, -2);
-    if( p.isOnBoard() )
+    if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
@@ -457,7 +485,7 @@ void ChessBoard::findPawnSrcMoves(const ChessColor eColor,
   {
     p.m_file = pos.m_file;
     p.m_rank = shiftRank(pos.m_rank, 2);
-    if( p.isOnBoard() )
+    if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
@@ -468,7 +496,7 @@ void ChessBoard::findPawnDstMoves(const ChessColor eColor,
                                   const ChessPos   &pos,
                                   list_of_pos      &positions)
 {
-  ChessPos  p
+  ChessPos  p;
   size_t    n = 3;
   int       fileOffset[n] = {-1, 0, 1};
   int       rankOffset = eColor == White? 1: -1;
@@ -479,7 +507,7 @@ void ChessBoard::findPawnDstMoves(const ChessColor eColor,
   for(i = 0; i < n; ++i)
   {
     p.m_file = shiftFile(pos.m_file, fileOffset[i]);
-    if( p.isOnBoard() )
+    if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
@@ -489,7 +517,7 @@ void ChessBoard::findPawnDstMoves(const ChessColor eColor,
   {
     p.m_file = pos.m_file;
     p.m_rank = shiftRank(pos.m_rank, 2);
-    if( p.isOnBoard() )
+    if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
@@ -498,7 +526,7 @@ void ChessBoard::findPawnDstMoves(const ChessColor eColor,
   {
     p.m_file = pos.m_file;
     p.m_rank = shiftRank(pos.m_rank, -2);
-    if( p.isOnBoard() )
+    if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
@@ -598,7 +626,7 @@ void ChessBoard::setupBoard(ChessColor eColor)
     col   = toCol(file);
     strId = ChessFqPiece::makePieceId(file, rank, eColor, ePiece);
 
-    m_board[row][col].set(eColor, ePiece, strId);
+    m_board[row][col].setPiece(eColor, ePiece, strId);
   }
 }
 
@@ -607,132 +635,132 @@ void ChessBoard::setupBoard(ChessColor eColor)
 //  Friends
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-ostream &chess_engine::operator<<(ostream &os, const ChessGame &game)
+ostream &chess_engine::operator<<(ostream &os, const ChessBoard &board)
 {
-  int         file, rank;       // chess board file,rank
-  int         row, col;         // board matrix row,column
-  ChessPiece  piece;            // chess piece
-  string      strPiece;         // piece one-character name
-  ChessColor  colorPiece;       // color of piece (white or black)
-  ChessColor  colorSquare;      // color of square (white or black)
-  streamsize  w = os.width();   // save default width
-  string      strWW;            // white piece on white square
-  string      strBW;            // black piece on white square
-  string      strWB;            // white piece on black square
-  string      strBB;            // black piece on black square
-  string      strReset;         // reset colors
-
-  if( game.m_bGui )
+  if( board.m_bGraphic )
   {
-    // RDK: fix color.h
-    strWW = ANSI_COLOR_PRE "0;30;47m";
-    strBW = ANSI_COLOR_PRE "0;30;47m";
-    strWB = ANSI_COLOR_PRE "0;30;46m";
-    strBB = ANSI_COLOR_PRE "0;30;46m";
-
-    strReset = ANSI_COLOR_RESET;
+    return ographic(os, board);
   }
-
-  for(rank = ChessRank8; rank >= ChessRank1; --rank)
+  else
   {
-    if( !game.m_bGui )
+    return oascii(os, board);
+  }
+}
+
+ostream &chess_engine::ographic(ostream &os, const ChessBoard &board)
+{
+  int         row, col;     // board matrix row,column
+  ChessFile   file;;        // chess board file
+  ChessRank   rank;;        // chess board rank
+  ChessColor  eSquareColor; // color of square (white or black)
+  ChessPiece  ePieceType;   // type of piece
+  ChessColor  ePieceColor;  // color of piece (white or black)
+  string      strFigurine;  // piece figurine unicode character
+
+  for(row = 0; row < NumOfRanks; ++row)
+  {
+    rank = board.toRank(row);
+
+    os << (char)rank << ' ';
+
+    for(col = 0; col < NumOfFiles; ++col)
     {
-      os.width(NumOfFiles * 4 + 1);
-      os.fill('.');
-      os << '.';
-      os.width(w);
-      os << endl;
-    }
+      file = board.toFile(col);
 
-    for(file = ChessFileA; file <= ChessFileH; ++file)
-    {
-      row = game.toRow(rank);
-      col = game.toCol(file);
+      const ChessSquare &sq = board.at(file, rank);
 
-      colorSquare = game.getSquareColor(file, rank);
-      piece       = game.m_board[row][col].m_piece;
-      colorPiece  = game.m_board[row][col].m_color;
+      eSquareColor  = sq.getColor();
+      ePieceType    = sq.getPieceType();
+      ePieceColor   = sq.getPieceColor();
+      strFigurine   = figurineOfPiece(ePieceColor, ePieceType);
 
-      if( game.m_bGui )
+      if( eSquareColor == White )
       {
-        if( piece == NoPiece )
-        {
-          //strPiece = "\U00002588";
-          strPiece = " ";
-          colorPiece  = colorSquare;
-        }
-        else
-        {
-          strPiece = figurineOfPiece(colorPiece, piece);
-        }
+        os << ColorWhiteSq;
       }
       else
       {
-        if( piece == NoPiece )
-        {
-          strPiece    = " ";
-          colorPiece  = colorSquare;
-        }
-        else if( colorPiece == White )
-        {
-          strPiece = (char)piece;
-        }
-        else
-        {
-          strPiece = (char)tolower(piece);
-        }
+        os << ColorBlackSq;
       }
 
-      if( game.m_bGui )
-      {
-        if( colorSquare == White )
-        {
-          if( colorPiece == White )
-          {
-            os << strWW;
-          }
-          else
-          {
-            os << strBW;
-          }
-        }
-        else
-        {
-          if( colorPiece == White )
-          {
-            os << strWB;
-          }
-          else
-          {
-            os << strBB;
-          }
-        }
-
-        os << strPiece << " ";
-        os << strReset;
-      }
-      else
-      {
-        os << "|";
-        os << " " << strPiece << " ";
-      }
-    }
-
-    if( !game.m_bGui )
-    {
-      os << "|";
+      os << strFigurine << " ";
+      os << strReset;
     }
 
     os << endl;
   }
 
-  if( !game.m_bGui )
+  os << "  ";
+
+  for(col = 0; col < NumOfFiles; ++col)
   {
-    os.width(NumOfFiles * 4 + 1);
-    os.fill('-');
-    os << '-' << endl;
-    os.width(w);
+    file = board.toFile(col);
+    os << (char)file << ' ';
   }
+
+  os << endl;
+
+  return os;
+}
+
+ostream &chess_engine::oascii(ostream &os, const ChessBoard &board)
+{
+  int         row, col;       // board matrix row,column
+  ChessFile   file;;        // chess board file
+  ChessRank   rank;;        // chess board rank
+  ChessColor  eSquareColor;   // color of square (white or black)
+  ChessPiece  ePieceType;     // type of piece
+  ChessColor  ePieceColor;    // color of piece (white or black)
+  string      strPiece;       // piece one-character name
+  streamsize  w = os.width(); // save default width
+
+  for(row = 0; row < NumOfRanks; ++row)
+  {
+    rank = board.toRank(row);
+
+    // row border
+    os.width(NumOfFiles * 4 + 1);
+    os.fill('.');
+    os << '.';
+    os.width(w);
+    os << endl;
+
+    for(col = 0; col < NumOfFiles; ++col)
+    {
+      file = board.toFile(col);
+
+      const ChessSquare &sq = board.at(file, rank);
+
+      eSquareColor  = sq.getColor();
+      ePieceType    = sq.getPieceType();
+      ePieceColor   = sq.getPieceColor();
+
+      if( ePieceType == NoPiece )
+      {
+        strPiece    = " ";
+        ePieceColor = eSquareColor;
+      }
+      else if( ePieceColor == White )
+      {
+        strPiece = (char)ePieceType;
+      }
+      else
+      {
+        strPiece = (char)tolower(ePieceType);
+      }
+
+      os << "|";
+      os << " " << strPiece << " ";
+    }
+
+    os << "|";
+    os << endl;
+  }
+
+  os.width(NumOfFiles * 4 + 1);
+  os.fill('-');
+  os << '-' << endl;
+  os.width(w);
 
   os << endl;
 

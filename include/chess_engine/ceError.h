@@ -56,7 +56,7 @@
 #ifndef _CE_ERROR_H
 #define _CE_ERROR_H
 
-#include "chess_engine/ceChess.h"
+#include "chess_engine/ceTypes.h"
 
 namespace chess_engine
 {
@@ -82,11 +82,19 @@ namespace chess_engine
   static const int CE_ECODE_CHESS_MOVE        =  7; ///< invalid chess move
   static const int CE_ECODE_CHESS_OUT_OF_TURN =  8; ///< out-of-turn chess move
   static const int CE_ECODE_CHESS_RSP         =  9; ///< unexpected response
-  static const int CE_ECODE_CHESS_SYNC        = 10; ///< game out-of-sync
-  static const int CE_ECODE_CHESS_FATAL       = 11; ///< game in fatal condition
+  static const int CE_ECODE_CHESS_PARSE       = 10; ///< parse error
+  static const int CE_ECODE_CHESS_SYNC        = 11; ///< game out-of-sync
+  static const int CE_ECODE_CHESS_FATAL       = 12; ///< game in fatal condition
   /* \} */
 
-  extern std::string strerror(int ecode);
+  /*!
+   * \brief Get error string associated with chess error code.
+   *
+   * \param ecode Error code.
+   *
+   * \return String.
+   */
+  extern std::string strecode(int ecode);
 
 } // namespace chess_engine
 

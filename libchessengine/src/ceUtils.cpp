@@ -63,7 +63,7 @@
 
 #include "boost/assign.hpp"
 
-#include "chess_engine/ceChess.h"
+#include "chess_engine/ceTypes.h"
 #include "chess_engine/ceUtils.h"
 
 using namespace std;
@@ -81,35 +81,38 @@ namespace chess_engine
   
   /*! name of chess pieces */
   static const map<int, string> NamePieces = map_list_of
-    (NoPiece, "nopiece")
-    (King,    "King")
-    (Queen,   "Queen")
-    (Rook,    "Rook")
-    (Bishop,  "Bishop")
-    (Knight,  "Knight")
-    (Pawn,    "Pawn")
+    (NoPiece,     "nopiece")
+    (King,        "King")
+    (Queen,       "Queen")
+    (Rook,        "Rook")
+    (Bishop,      "Bishop")
+    (Knight,      "Knight")
+    (Pawn,        "Pawn")
+    (UndefPiece,  "undefined")
   ;
   
   /*! unicode of white chess figurines */
   static const map<int, string> FigurineWhitePieces = map_list_of
-    (NoPiece,   " ")
-    (King,    "\U00002654")
-    (Queen,   "\U00002655")
-    (Rook,    "\U00002656")
-    (Bishop,  "\U00002657")
-    (Knight,  "\U00002658")
-    (Pawn,    "\U00002659")
+    (NoPiece,     " ")
+    (King,        "\U00002654")
+    (Queen,       "\U00002655")
+    (Rook,        "\U00002656")
+    (Bishop,      "\U00002657")
+    (Knight,      "\U00002658")
+    (Pawn,        "\U00002659")
+    (UndefPiece,  "\U0000003F")
   ;
   
   /*! unicode of black chess figurines */
   static const map<int, string> FigurineBlackPieces = map_list_of
-    (NoPiece,   " ")
-    (King,    "\U0000265A")
-    (Queen,   "\U0000265B")
-    (Rook,    "\U0000265C")
-    (Bishop,  "\U0000265D")
-    (Knight,  "\U0000265E")
-    (Pawn,    "\U0000265F")
+    (NoPiece,     " ")
+    (King,        "\U0000265A")
+    (Queen,       "\U0000265B")
+    (Rook,        "\U0000265C")
+    (Bishop,      "\U0000265D")
+    (Knight,      "\U0000265E")
+    (Pawn,        "\U0000265F")
+    (UndefPiece,  "\U0000003F")
   ;
   
   /*! name of chess castle moves */
@@ -134,7 +137,7 @@ namespace chess_engine
   ;
   
   /*! name of chess check modifiers */
-  static const std::map<int, std::string> NameCheckModName = map_list_of
+  static const std::map<int, std::string> NameCheckMod = map_list_of
     (NoCheckMod,      "nocheck")
     (ModCheck,        "check")
     (ModDoubleCheck,  "doublecheck")
@@ -167,7 +170,7 @@ namespace chess_engine
   
   const string figurineOfPiece(ChessColor color, ChessPiece piece)
   {
-    static const strUnknown = "\U00002047"; // "??"
+    static const string strUnknown = "\U00002047"; // "??"
 
     name_iter iter;
 
@@ -212,35 +215,6 @@ namespace chess_engine
     name_iter iter = NameAlgebra.find(algebra);
 
     return iter != NameAlgebra.end()? iter->second: NameAlgebra.at(UnknownAN);
-  }
-
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  // ChessPos Structure
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  ChessPos::ChessPos()
-  {
-    m_file = NoFile;
-    m_rank = NoRank;
-  }
-
-  ChessPos::ChessPos(const ChessPos &src)
-  {
-    m_file = src.m_file;
-    m_rank = src.m_rank;
-  }
-
-  void ChessPos::clear()
-  {
-    m_file = NoFile;
-    m_rank = NoRank;
-  }
-
-  ChessPos::isOnBoard()
-  {
-    int col = m_file - (int)ChessFileA;
-    int row = NumOfRanks - (m_rank - (int)ChessRank1) - 1;
-
-    return (col >= 0) && (col < NumOfFiles) && (row >= 0) && (col < NumOfRanks);
   }
 
 } // namespace chess_engine
