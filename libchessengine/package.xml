@@ -2,12 +2,11 @@
 <package>
   <name>libchessengine</name>
   <version>1.1.0</version>
-  <description>Provides chess engine server ROS node.</description>
+  <description>Provides chess engine core library.</description>
 
   <maintainer email="robin.knight@roadnarrows.com">Robin Knight</maintainer>
-  <license>BSD</license>
+  <license>MIT</license>
 
-  <url type="website">http://roadnarrows.com/Hekateros</url>
   <url type="website">http://github.com/roadnarrows-robotics/chess_engine</url>
 
   <author email="robin.knight@roadnarrows.com">Robin Knight</author>

@@ -7,4 +7,4 @@ uint8 DoubleCheck =  50  # '2'
 uint8 CheckMate   =  35  # '#'
 
 # the arguments
-uint8 check_mod   # check modifier
+uint8 mod       # check modifier

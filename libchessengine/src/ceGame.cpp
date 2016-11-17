@@ -79,10 +79,14 @@ using namespace chess_engine;
 ChessGame::ChessGame()
 {
   m_bIsPlaying  = false;
-  m_eEoGReason  = NoResult;
+  m_eEoGReason  = NoGame;
   m_eWinner     = NoColor;
 
-  m_eTurnToMove  = NoColor;
+  m_eTurnToMove           = NoColor;
+  m_playerName[White]     = "noplayer";
+  m_playerName[Black]     = "noplayer";
+  m_numPromotions[White]  = 0;
+  m_numPromotions[Black]  = 0;
 
   m_bGraphic = false;
 }
@@ -96,7 +100,7 @@ int ChessGame::startNewGame(const string &strWhite, const string &strBlack)
   setupGame();
 
   m_bIsPlaying  = true;
-  m_eEoGReason  = NoResult;
+  m_eEoGReason  = Ok;
   m_eWinner     = NoColor;
 
   m_eTurnToMove           = White;
@@ -442,6 +446,9 @@ int ChessGame::execMove(ChessMove &move)
     // remove the pawn from the board and drop in the player's bone yard.
     dropInBoneYard(move.m_ePlayer, move.m_posDst);
 
+    // incremented players number of promotions
+    m_numPromotions[move.m_ePlayer] = m_numPromotions[move.m_ePlayer] + 1;
+
     nNumPromotions = m_numPromotions[move.m_ePlayer];
 
     // make the new promoted piece's unique id
@@ -453,9 +460,6 @@ int ChessGame::execMove(ChessMove &move)
     // place promoted piece on the board
     m_board.setPiece(move.m_posDst, move.m_ePlayer, move.m_ePiecePromoted,
                       strPieceId);
-
-    // incremented players number of promotions
-    m_numPromotions[move.m_ePlayer] = m_numPromotions[move.m_ePlayer] + 1;
   }
 
   // record move
@@ -473,6 +477,13 @@ void ChessGame::setupGame()
   m_boneyardWhite.clear();
   m_boneyardBlack.clear();
   m_board.setupBoard();
+}
+
+void ChessGame::getPlayerNames(std::string &strWhite,
+                               std::string &strBlack) const
+{
+  strWhite = m_playerName.find(White)->second;
+  strBlack = m_playerName.find(Black)->second;
 }
 
 int ChessGame::getNumOfMoves() const
@@ -493,6 +504,20 @@ ChessSquare &ChessGame::getBoardSquare(const int file, const int rank)
 ChessSquare &ChessGame::getBoardSquare(const ChessPos &pos)
 {
   return m_board.at(pos);
+}
+
+const ChessMove &ChessGame::getHistoryAt(int nPlyNum)
+{
+  static const ChessMove  NoMove;
+
+  if( nPlyNum < m_history.size() )
+  {
+    return m_history[nPlyNum];
+  }
+  else
+  {
+    return NoMove;
+  }
 }
 
 

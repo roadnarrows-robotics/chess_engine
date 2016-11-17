@@ -72,9 +72,9 @@ using namespace std;
 using namespace chess_engine;
 
 
-// ---------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Private Interface 
-// ---------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 // Algebraic Notation Regular Expressions
@@ -105,7 +105,7 @@ static const string exprCastlingQueenSide("0-0-0|O-O-O");
 static const string exprModCapture("x|:");
 static const string exprModEnPassant("e.p");
 static const string exprModPromotion("[=/]");
-static const string exprModCheck("+|++|#");
+static const string exprModCheck("\\+|\\+\\+|#");
 
 static const string grpDisambig(G(exprFile + "?" + exprRank + "?"));
 static const string grpPos(G(exprFile+exprRank));
@@ -254,7 +254,7 @@ void ChessMove::copy(const ChessMove &src)
 
 void ChessMove::clear()
 {
-  m_nMoveNum       = 0;
+  m_nMoveNum        = 0;
   m_ePlayer         = NoColor;
   m_strSAN.clear();
   m_ePieceMoved     = NoPiece;

@@ -14,16 +14,6 @@ find_package(catkin
 
 find_package(Boost REQUIRED COMPONENTS system)
 
-# RDK, DHP TODO Create rnrpkgConfig.cmake
-# find_package(rnr
-#   REQUIRED COMPONENTS hekateros Dynamixel botsense netmsgs rnr_appkit rnr
-# )
-find_library(
-  rnr_LIBRARIES
-  NAMES rnr
-  PATHS /prj/lib /prj/lib/rnr /usr/local/lib /usr/local/lib/rnr
-)
-
 #catkin_python_setup()
 
 catkin_package(
@@ -50,11 +40,6 @@ add_library(chessengine
   src/ceSquare.cpp
   src/ceUtils.cpp
 )
-
-#target_link_libraries(
-#  ${rnr_LIBRARIES}
-#  ${catkin_LIBRARIES}
-#)
 
 install(TARGETS chessengine
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

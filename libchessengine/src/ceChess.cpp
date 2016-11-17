@@ -88,7 +88,7 @@ Chess::~Chess()
 {
 }
 
-int Chess::init()
+int Chess::initialize()
 {
   return m_engine.openConnection();
 }
@@ -210,7 +210,7 @@ int Chess::makeAMove(const ChessColor ePlayer,
   return rc;
 }
 
-int Chess::getEnginesMove(ChessMove &move)
+int Chess::computeEnginesMove(ChessMove &move)
 {
   static  string strFunc("Chess::getEnginesMove");
 
@@ -225,8 +225,8 @@ int Chess::getEnginesMove(ChessMove &move)
   // Move number. Get this value before making a move.
   nMoveNum = m_engine.getNumberOfMovesMade() + 1;
 
-  // Get engine's move.
-  rc = m_engine.getEnginesMove(eMoveColor, strSAN);
+  // Compute engine's move.
+  rc = m_engine.computeEnginesMove(eMoveColor, strSAN);
 
   // Fill in critical move fields.
   move.m_nMoveNum = nMoveNum;

@@ -75,13 +75,12 @@
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceGame.h"
 
-#include "chess_engine_gnu.h"
 #include "chess_server.h"
-#include "chess_as_auto_play.h"
-#include "chess_as_get_engines_move.h"
+//#include "chess_as_auto_play.h"
+//#include "chess_as_get_engines_move.h"
 
 using namespace std;
-using namespace chess_engine;
+using namespace chess_server;
 
 
 //------------------------------------------------------------------------------
@@ -97,7 +96,7 @@ using namespace chess_engine;
 
 const char *NodeName = "chess_server";  ///< this ROS node's registered name
 
-
+#if 0 // move to chess_cli
 static bool makeSAN(const string &strSAN, Move &move)
 {
   if( strSAN.size() < 4 )
@@ -382,14 +381,22 @@ static void cli_test(int argc, char *argv[])
   }
 }
 
+#endif // move to chess_cli
 
 //------------------------------------------------------------------------------
 // Public Interface
 //------------------------------------------------------------------------------
 
+/*!
+ * \breif Chess server main.
+ *
+ * \param argc  Command-line argument count.
+ * \param argv  Command-line arguments.
+ *
+ * \return Exits with 0 on success, \>0 on failure.
+ */
 int main(int argc, char *argv[])
 {
-  uint32_t    seqnum;
   int         rc;
 
   ros::init(argc, argv, NodeName);
@@ -398,45 +405,51 @@ int main(int argc, char *argv[])
 
   if( !ros::master::check() )
   {
-    cli_test(argc, argv);
-    return APP_EC_OK;
+    return APP_EC_EXEC;
   }
 
   ROS_INFO("%s: Node started.",  ros::this_node::getName().c_str());
 
-  ChessServer chess(nh);
+  ChessServer chessServer(nh);
 
-  if( (rc = chess.connect()) != CE_OK )
+  if( (rc = chessServer.initializeChess()) != chess_engine::CE_OK )
   {
-    ROS_ERROR_STREAM(chess.getEngine().getChessApp() << ": "
-        << chess_engine::strerror(rc) << "(" << rc << ")");
+    ROS_ERROR_STREAM("Failed to initialize chess server: "
+        << chess_engine::strecode(rc) << "(" << rc << ")");
     return APP_EC_INIT;
   }
 
-  chess.advertiseServices();
+  // advertise services
+  chessServer.advertiseServices();
 
   ROS_INFO("%s: Services registered.", ros::this_node::getName().c_str());
 
-  chess.advertisePublishers();
+  // advertise publishers
+  chessServer.advertisePublishers();
 
   ROS_INFO("%s: Publishers registered.", ros::this_node::getName().c_str());
 
-  ASAutoPlay       asAutoPlay("auto_play_action", chess);
-  ASGetEnginesMove asGetEnginesMove("get_engines_move_action", chess);
+  // action servers
+#if 0 // RDK
+  ASAutoPlay       asAutoPlay("auto_play_action", chessServer);
+  ASGetEnginesMove asGetEnginesMove("get_engines_move_action", chessServer);
+#endif // RDK
 
   ROS_INFO("%s: Action servers registered and started.",
       ros::this_node::getName().c_str());
 
-  seqnum = 0;
-
-  ros::Rate loop_rate(2);
+  // hertz
+  ros::Rate loop_rate(10);
 
   while( ros::ok() )
   {
+    // make any callbacks on pending ROS services
     ros::spinOnce(); 
 
-    seqnum = chess.publish(seqnum);
+    // publish any new data on advertised topics
+    chessServer.publish();
 
+    // sleep to keep loop hertz rate
     loop_rate.sleep();
   }
 

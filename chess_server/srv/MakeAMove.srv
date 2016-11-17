@@ -18,6 +18,6 @@
 ChessColor  player          # requesting player: white or black
 ChessPos    src             # {file}{rank}
 ChessPos    dst             # {file}{rank}
-ChessPiece  piece_promoted  # pawn promoted to this piece. NoPiece if none.
+ChessPiece  promoted        # pawn promoted to this piece. NoPiece if none.
 ---
 ChessMove   move            # engine's fully qualified move

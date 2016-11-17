@@ -146,6 +146,16 @@ namespace chess_engine
     virtual int setGameDifficulty(float fDifficulty);
 
     /*!
+     * \brief Get game difficulty level.
+     *
+     * \return Difficulty level [1.0, 10.0] with 1 being the easiest.
+     */
+    virtual int getGameDifficulty() const
+    {
+      return m_fDifficulty;
+    }
+
+    /*!
      * \brief Start a new game.
      *
      * \return Returns CE_OK on success, negative error code on failure.
@@ -176,14 +186,15 @@ namespace chess_engine
                                 std::string      &strAN) = 0;
 
     /*!
-     * \brief Get backend chess engine's move.
+     * \brief Compute backend chess engine's move.
      *
      * \param [out] eMoveColor  Color of move.
      * \param [out] strAN       Move in Algebraic Notation.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    virtual int getEnginesMove(ChessColor &eMoveColor, std::string &strAN) = 0;
+    virtual int computeEnginesMove(ChessColor  &eMoveColor,
+                                   std::string &strAN) = 0;
 
     /*!
      * \brief Resign from the game.
@@ -373,14 +384,14 @@ namespace chess_engine
     virtual int makePlayersMove(const ChessColor ePlayer, std::string &strAN);
 
     /*!
-     * \brief Get backend chess engine's move.
+     * \brief Compute backend chess engine's move.
      *
      * \param [out] eMoveColor  Color of move.
      * \param [out] strAN       Move in Standard Algebraic Notation.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    virtual int getEnginesMove(ChessColor &eMoveColor, std::string &strAN);
+    virtual int computeEnginesMove(ChessColor &eMoveColor, std::string &strAN);
 
     /*!
      * \brief Get available castling move options.

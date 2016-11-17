@@ -72,13 +72,13 @@
 
 #include "chess_server/StartNewGame.h"
 #include "chess_server/MakeAMove.h"
-#include "chess_server/MakeAMoveSAN.h"
-#include "chess_server/GetEnginesMove.h"
+#include "chess_server/MakeAMoveAN.h"
+#include "chess_server/ComputeEnginesMove.h"
 #include "chess_server/Resign.h"
 #include "chess_server/AutoPlay.h"
 #include "chess_server/SetDifficulty.h"
 #include "chess_server/GetPlayHistory.h"
-#include "chess_server/GetBoardState.h"
+#include "chess_server/GetGameState.h"
 
 #include "chess_server/GetEnginesMoveAction.h"
 
@@ -86,11 +86,10 @@
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceGame.h"
 
-#include "chess_engine_gnu.h"
 
 #define INC_ACTION_THREAD   ///< include an action thread with this class
 
-namespace chess_engine
+namespace chess_server
 {
   /*!
    * \brief The class embodiment of the chess_server ROS node.
@@ -114,44 +113,62 @@ namespace chess_engine
     /*! map type of ROS publishers */
     typedef std::map<std::string, ros::Publisher> MapPublishers;
 
+#ifdef INC_ACTION_THREAD
     typedef actionlib::SimpleActionServer<chess_server::GetEnginesMoveAction>
-      GetEnginesMoveAS;
+                    GetEnginesMoveAS;
+#endif // INC_ACTION_THREAD
 
+    /*!
+     * \brief Default constructor.
+     *
+     * \brief nh    ROS node handle.
+     */
     ChessServer(ros::NodeHandle &nh);
 
+    /*!
+     * \brief Destructor.
+     */
     virtual ~ChessServer();
 
-    virtual int connect(const std::string &strChessApp="gnuchess")
-    {
-      return m_engine.openConnection(strChessApp);
-    }
+    /*!
+     * \brief Initialize the game of chess.
+     *
+     * A connection to the backend chess engine is established.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    virtual int initializeChess();
 
-    virtual int disconnect()
-    {
-      return m_engine.closeConnection();
-    }
-
+    /*!
+     * \brief Advertise chess server ROS services.
+     */
     virtual void advertiseServices();
 
+    /*!
+     * \breif Advertise chess server ROS published topics.
+     *
+     * \param nQueueDepth   Maximum queue depth.
+     */
     virtual void advertisePublishers(int nQueueDepth=10);
 
+    /*!
+     * \breif Subscribe to ROS published topics.
+     */
     virtual void subscribeToTopics();
 
-    virtual uint32_t publish(uint32_t seqnum);
+    /*!
+     * \brief Publish topics.
+     */
+    virtual void publish();
 
+    /*!
+     * \brief Get ROS node handle.
+     *
+     * \brief Handle.
+     */
     ros::NodeHandle &getNodeHandle()
     {
       return m_nh;
-    }
-
-    ChessEngineGnu &getEngine()
-    {
-      return m_engine;
-    }
-
-    Game &getGame()
-    {
-      return m_game;
     }
 
 #ifdef INC_ACTION_THREAD
@@ -175,29 +192,23 @@ namespace chess_engine
      int execAction( boost::function<void()> execAction);
 #endif // INC_ACTION_THREAD
 
-    //
-    // Support
-    //
-    void toMsgMove(const Move &move, chess_server::ChessMove &msgMove);
-
   protected:
     ros::NodeHandle  &m_nh;         ///< the node handler bound to this instance
 
     // chess
-    ChessEngineGnu    m_engine;     ///< chess backend engine
-    Game              m_game;       ///< chess game state
+    chess_engine::Chess m_chess;    ///< the game of chess
 
     // ROS services, publishers, subscriptions, and local state
-    MapServices       m_services;     ///< chess_server services
-    MapPublishers     m_publishers;   ///< chess_server publishers
-    bool              m_bPubNewGame;  ///< do [not] publish new game
-    int               m_nPubLastPly;  ///< last published ply (1/2 move)
-    bool              m_bPubEndGame;  ///< do [not] publish end of game
+    MapServices   m_services;       ///< chess_server services
+    MapPublishers m_publishers;     ///< chess_server publishers
+    bool          m_bPubNewGame;    ///< do [not] publish new game
+    int           m_nPubLastPly;    ///< last published ply (1/2 move)
+    bool          m_bPubEndOfGame;  ///< do [not] publish end of game
 
     // Messages for published data.
-    chess_server::ChessNewGameStatus  m_msgNewGameStatus;
-    chess_server::ChessMoveStamped    m_msgMoveStamped;
-    chess_server::ChessEndGameStatus  m_msgEndOfGameStatus;
+    ChessNewGameStatus  m_msgNewGameStatus;
+    ChessMoveStamped    m_msgMoveStamped;
+    ChessEndGameStatus  m_msgEndOfGameStatus;
     
     // action thread control
 #ifdef INC_ACTION_THREAD
@@ -211,35 +222,117 @@ namespace chess_engine
     //
     // Service callbacks
     //
-    bool startNewGame(chess_server::StartNewGame::Request  &req,
-                      chess_server::StartNewGame::Response &rsp);
 
-    bool makeAMoveSAN(chess_server::MakeAMoveSAN::Request  &req,
-                      chess_server::MakeAMoveSAN::Response &rsp);
+    /*!
+     * \brief Start a new chess game service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool startNewGame(StartNewGame::Request  &req,
+                      StartNewGame::Response &rsp);
 
-    bool makeAMove(chess_server::MakeAMove::Request  &req,
-                   chess_server::MakeAMove::Response &rsp);
+    /*!
+     * \brief Make a chess move service.
+     *
+     * Move is in Algebraic Notation.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool makeAMoveAN(MakeAMoveAN::Request  &req,
+                     MakeAMoveAN::Response &rsp);
 
-    bool getEnginesMove(chess_server::GetEnginesMove::Request  &req,
-                        chess_server::GetEnginesMove::Response &rsp);
+    /*!
+     * \brief Make a chess move service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool makeAMove(MakeAMove::Request  &req,
+                   MakeAMove::Response &rsp);
 
-    bool resign(chess_server::Resign::Request  &req,
-                chess_server::Resign::Response &rsp);
+    /*!
+     * \brief Compute chess engine's move service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool computeEnginesMove(ComputeEnginesMove::Request  &req,
+                            ComputeEnginesMove::Response &rsp);
 
-    bool autoplay(chess_server::AutoPlay::Request  &req,
-                  chess_server::AutoPlay::Response &rsp);
+    /*!
+     * \brief Resign from game service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool resign(Resign::Request  &req,
+                Resign::Response &rsp);
 
-    bool setDifficulty(chess_server::SetDifficulty::Request  &req,
-                       chess_server::SetDifficulty::Response &rsp);
+    /*!
+     * \brief Auto-play service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool autoplay(AutoPlay::Request  &req,
+                  AutoPlay::Response &rsp);
 
-    bool getPlayHistory(chess_server::GetPlayHistory::Request  &req,
-                        chess_server::GetPlayHistory::Response &rsp);
+    /*!
+     * \brief Set engine's difficulty level service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool setDifficulty(SetDifficulty::Request  &req,
+                       SetDifficulty::Response &rsp);
 
-    bool getBoardState(chess_server::GetBoardState::Request  &req,
-                       chess_server::GetBoardState::Response &rsp);
+    /*!
+     * \brief Get play history service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool getPlayHistory(GetPlayHistory::Request  &req,
+                        GetPlayHistory::Response &rsp);
 
+    /*!
+     * \brief Get game state service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool getGameState(GetGameState::Request  &req,
+                      GetGameState::Response &rsp);
+
+    /*!
+     * \brief Stamp message header.
+     *
+     * \param [out] header    Message header.
+     * \param nSeqNum         Message header sequence number.
+     * \param strFrameId      Message header frame id.
+     */
     void stampHeader(std_msgs::Header  &header,
-                     u32_t              nSeqNum = 0,
+                     uint32_t          nSeqNum = 0,
                      const std::string &strFrameId= "0");
 
     //
@@ -299,7 +392,7 @@ namespace chess_engine
 #endif // INC_ACTION_THREAD
   };
 
-} // namespace chess_engine
+} // namespace chess_server
 
 
 #endif // _CHESS_SERVER_H

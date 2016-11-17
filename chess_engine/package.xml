@@ -1,23 +1,24 @@
 <?xml version="1.0"?>
 <package>
   <name>chess_engine</name>
-  <version>0.0.2</version>
+  <version>1.1.0</version>
 
   <description>
-    RoadNarrows Robotics ROS Chess Engine metapackage - provides chess engine
-    for robots to play chess.
+    RoadNarrows Robotics ROS Chess Engine metapackage - provides a ROSified
+    chess engine for robots to play chess.
   </description>
 
-  <author email="robin.knight@roadnarrows.com">robin knight</author>
-  <maintainer email="robin.knight@roadnarrows.com">daniel packard</maintainer>
+  <maintainer email="robin.knight@roadnarrows.com">Robin Knight</maintainer>
+  <author email="robin.knight@roadnarrows.com">Robin Knight</author>
   <license>MIT</license>
 
   <url type="website">http://roadnarrows.com</url>
+  <url type="website">http://github.com/roadnarrows-robotics/chess_engine</url>
 
   <buildtool_depend>catkin</buildtool_depend>
 
   <run_depend>chess_server</run_depend>
-  <!-- <run_depend>hekateros_launch</run_depend> -->
+  <!-- <run_depend>chess_launch</run_depend> -->
 
   <export>
     <metapackage/>

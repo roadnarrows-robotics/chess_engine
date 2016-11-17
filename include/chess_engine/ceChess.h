@@ -57,9 +57,10 @@
 #define _CE_CHESS_H
 
 #include "chess_engine/ceTypes.h"
-#include "chess_engine/ceGame.h"
 #include "chess_engine/ceParser.h"
 #include "chess_engine/ceMove.h"
+#include "chess_engine/ceEngine.h"
+#include "chess_engine/ceGame.h"
 
 namespace chess_engine
 {
@@ -87,7 +88,7 @@ namespace chess_engine
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int init();
+    int initialize();
 
     /*!
      * \brief Start a new game.
@@ -157,7 +158,7 @@ namespace chess_engine
                   ChessMove         &move);
 
     /*!
-     * \brief Get backend chess engine move.
+     * \brief Compute backend chess engine move.
      *
      * If successful, applied to the game state.
      *
@@ -165,7 +166,7 @@ namespace chess_engine
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int getEnginesMove(ChessMove &move);
+    int computeEnginesMove(ChessMove &move);
 
     /*!
      * \brief Set game difficulty level.
@@ -179,6 +180,79 @@ namespace chess_engine
     {
       m_engine.setGameDifficulty(fDifficulty);
     }
+
+    /*!
+     * \brief Get game difficulty level.
+     *
+     * \return Difficulty level [1.0, 10.0] with 1 being the easiest.
+     */
+    virtual int getGameDifficulty() const
+    {
+      return m_engine.getGameDifficulty();
+    }
+
+    /*!
+     * \brief Test if a game is currently being played.
+     *
+     * \return Returns true or false.
+     */
+    bool isPlayingAGame() const
+    {
+      return m_engine.isPlayingAGame() && m_game.isPlayingAGame();
+    }
+
+    /*!
+     * \brief Get whose turn is it to move.
+     *
+     * \return Player's color
+     */
+    virtual ChessColor whoseTurn() const
+    {
+      return m_engine.whoseTurn();
+    }
+
+    /*!
+     * \brief Get current or most recent players' names.
+     *
+     * \param [out] strWhite  White player's name.
+     * \param [out] strBlack  Black player's name.
+     */
+    virtual void getPlayerNames(std::string &strWhite,
+                                std::string &strBlack) const
+    {
+      m_game.getPlayerNames(strWhite, strBlack);
+    }
+
+    /*!
+     * \brief Get the game's winner, if any.
+     *
+     * \return Returns White, Black, or NoColor.
+     */
+    ChessColor getWinner() const
+    {
+      return m_game.getWinner();
+    }
+
+    /*!
+     * Get the current play state code.
+     *
+     * \return Returns reason code.
+     */
+    ChessResult getPlayState() const
+    {
+      return m_game.getPlayState();
+    }
+
+    /*!
+     * \brief Get the game history.
+     *
+     * \return Reference to history.
+     */
+    const ChessGame::ChessHistory &getGameHistory()
+    {
+      return m_game.getGameHistory();
+    }
+
 
     /*!
      * \brief Get backend chess engine.

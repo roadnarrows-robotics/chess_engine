@@ -1,8 +1,7 @@
 ### Retrieve chess_server game play history. 
 #
-# The game history is stored in vectors of Algebraic Notation strings.
 #
 
 ---
-string[]  whiteAN     # white moves in Algebraic Notation
-string[]  blackAN     # black moves in Algebraic Notation
+ChessColor[]  player  # player [White, Black]
+string[]      SAN     # move in Standard Algebraic Notation

@@ -14,23 +14,13 @@ find_package(catkin
 
 find_package(Boost REQUIRED COMPONENTS system)
 
-# RDK, DHP TODO Create rnrpkgConfig.cmake
-# find_package(rnr
-#   REQUIRED COMPONENTS hekateros Dynamixel botsense netmsgs rnr_appkit rnr
-# )
-
-find_library(
-  rnr_LIBRARIES
-  NAMES rnr
-  PATHS /prj/lib /prj/lib/rnr /usr/local/lib /usr/local/lib/rnr
-)
-
 #catkin_python_setup()
 
 add_message_files(
   DIRECTORY msg
   FILES 
     ChessCastling.msg
+    ChessCheckMod.msg
     ChessColor.msg
     ChessEndGameStatus.msg
     ChessMove.msg
@@ -45,8 +35,8 @@ add_service_files(
   DIRECTORY srv
   FILES
     AutoPlay.srv
-    GetBoardState.srv
-    GetEnginesMove.srv
+    ComputeEnginesMove.srv
+    GetGameState.srv
     GetPlayHistory.srv
     MakeAMoveAN.srv
     MakeAMove.srv
@@ -78,23 +68,21 @@ catkin_package(
 include_directories(
   include 
   ../include
-  /prj/include 
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
 )
 
 add_executable(chess_server
-  src/chess_as_auto_play.cpp
-  src/chess_as_get_engines_move.cpp
+  #src/chess_as_auto_play.cpp
+  #src/chess_as_get_engines_move.cpp
   src/chess_server_main.cpp
-  src/chess_engine_gnu.cpp
+  #src/chess_engine_gnu.cpp
   src/chess_server.cpp
 )
 
 target_link_libraries(
   chess_server 
   chessengine
-  ${rnr_LIBRARIES}
   ${catkin_LIBRARIES}
 )
 

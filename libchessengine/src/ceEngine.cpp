@@ -364,7 +364,7 @@ int ChessEngine::startNewGame()
     m_bIsPlaying  = true;
     m_eColorTurn  = White;
     m_nNumMoves   = 0;
-    m_eEoGReason  = NoResult;
+    m_eEoGReason  = Ok;
     m_eWinner     = NoColor;
 
     return CE_OK;
@@ -673,7 +673,7 @@ int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
   return CE_OK;
 }
 
-int ChessEngineGnu::getEnginesMove(ChessColor &eMoveColor, string &strSAN)
+int ChessEngineGnu::computeEnginesMove(ChessColor &eMoveColor, string &strSAN)
 {
   int     nNextMoveNum;
   int     rc;

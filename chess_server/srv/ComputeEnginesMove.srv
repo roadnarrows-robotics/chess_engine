@@ -1,0 +1,11 @@
+### Compute the backend chess engine's move.
+#
+# After computing the chess engine's move, the engine will automatically advance
+# to the next player (color).
+#
+# Note that the response time is dependent of the difficulty level of the game
+# and can be very long if the search depth is deep. 
+#
+
+---
+ChessMove move        # engine's fully qualified move

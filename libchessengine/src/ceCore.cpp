@@ -63,6 +63,8 @@
 #include <string>
 #include <vector>
 
+#include <boost/algorithm/string.hpp>    
+
 #include <ros/console.h>
 
 #include "chess_engine/ceTypes.h"
@@ -92,6 +94,14 @@ ChessPos::ChessPos(const int &file, const int &rank)
   m_rank = (ChessRank)rank;
 }
 
+ChessPos ChessPos::operator=(const ChessPos &rhs)
+{
+  m_file = rhs.m_file;
+  m_rank = rhs.m_rank;
+
+  return *this;
+}
+
 void ChessPos::clear()
 {
   m_file = NoFile;
@@ -110,7 +120,7 @@ bool ChessPos::isOnChessBoard() const
 // ChessPos Friends
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-std::ostream &operator<<(std::ostream &os, const ChessPos &pos)
+std::ostream &chess_engine::operator<<(std::ostream &os, const ChessPos &pos)
 {
   os << (char)pos.m_file << (char)pos.m_rank;
 
@@ -180,16 +190,18 @@ string ChessFqPiece::makePieceId(const ChessPos &pos,
                                  ChessColor     eColor,
                                  ChessPiece     ePiece)
 {
-  stringstream ss;
-  string  strId;
-  string  strMod;
-  string  strSep("-");
+  stringstream  ss;
+  string        strSep("-");
 
   ss  << nameOfColor(eColor) << strSep
       << pos << strSep
       << nameOfPiece(ePiece);
 
-  return ss.str();
+  string strId(ss.str());
+
+  boost::algorithm::to_lower(strId);
+
+  return strId;
 }
 
 string ChessFqPiece::makePieceId(const ChessPos &pos,
@@ -197,10 +209,8 @@ string ChessFqPiece::makePieceId(const ChessPos &pos,
                                  ChessPiece     ePiece,
                                  int            nInstance)
 {
-  stringstream ss;
-  string  strId;
-  string  strMod;
-  string  strSep("-");
+  stringstream  ss;
+  string        strSep("-");
 
   ss  << makePieceId(pos, eColor, ePiece) << strSep << nInstance;
 
@@ -212,7 +222,8 @@ string ChessFqPiece::makePieceId(const ChessPos &pos,
 // ChessFqPiece Friends
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
  
-std::ostream &operator<<(std::ostream &os, const ChessFqPiece &fqPiece)
+std::ostream &chess_engine::operator<<(std::ostream       &os,
+                                       const ChessFqPiece &fqPiece)
 {
   std::string space(" ");
 

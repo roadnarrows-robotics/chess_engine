@@ -182,10 +182,18 @@ namespace chess_engine
      *
      * \return Returns true or false.
      */
-    bool isPlaying() const
+    bool isPlayingAGame() const
     {
       return m_bIsPlaying;
     }
+
+    /*!
+     * \brief Get current or most recent players' names.
+     *
+     * \param [out] strWhite  White player's name.
+     * \param [out] strBlack  Black player's name.
+     */
+    void getPlayerNames(std::string &strWhite, std::string &strBlack) const;
 
     /*!
      * \brief Get the game's winner, if any.
@@ -198,11 +206,11 @@ namespace chess_engine
     }
 
     /*!
-     * Get the reason for the gaming ending.
+     * Get the current play state code.
      *
      * \return Returns reason code.
      */
-    ChessResult getEndOfGameReason() const
+    ChessResult getPlayState() const
     {
       return m_eEoGReason;
     }
@@ -275,6 +283,15 @@ namespace chess_engine
     {
       return m_history;
     }
+
+    /*!
+     * \brief Get game history at the give ply.
+     *
+     * \param nPlyNum   Ply number (1/2 moves)
+     *
+     * \return Reference to history move.
+     */
+    const ChessMove &getHistoryAt(int nPlyNum);
 
     /*!
      * \brief Set unicode graphic state.
