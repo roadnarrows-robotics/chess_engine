@@ -79,7 +79,7 @@ using namespace chess_engine;
 ChessGame::ChessGame()
 {
   m_bIsPlaying  = false;
-  m_eEoGReason  = NoGame;
+  m_ePlayState  = NoGame;
   m_eWinner     = NoColor;
 
   m_eTurnToMove           = NoColor;
@@ -100,7 +100,7 @@ int ChessGame::startNewGame(const string &strWhite, const string &strBlack)
   setupGame();
 
   m_bIsPlaying  = true;
-  m_eEoGReason  = Ok;
+  m_ePlayState  = InPlay;
   m_eWinner     = NoColor;
 
   m_eTurnToMove           = White;
@@ -113,7 +113,7 @@ int ChessGame::startNewGame(const string &strWhite, const string &strBlack)
 int ChessGame::endCurrentGame(ChessResult eReason, ChessColor eWinner)
 {
   m_bIsPlaying  = false;
-  m_eEoGReason  = eReason;
+  m_ePlayState  = eReason;
   m_eWinner     = eWinner;
 }
 
@@ -136,7 +136,7 @@ int ChessGame::qualifyMove(ChessMove &move)
   switch( move.m_eResult )
   {
     case BadMove:
-      return -CE_ECODE_CHESS_MOVE;
+      return -CE_ECODE_CHESS_BAD_MOVE;
     case OutOfTurn:
       return -CE_ECODE_CHESS_OUT_OF_TURN;
     case NoGame:

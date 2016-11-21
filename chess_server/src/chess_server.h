@@ -66,26 +66,34 @@
 #include "ros/ros.h"
 #include "actionlib/server/simple_action_server.h"
 
+// published messages
 #include "chess_server/ChessNewGameStatus.h"
 #include "chess_server/ChessMoveStamped.h"
 #include "chess_server/ChessEndGameStatus.h"
 
+// services
 #include "chess_server/StartNewGame.h"
 #include "chess_server/MakeAMove.h"
 #include "chess_server/MakeAMoveAN.h"
 #include "chess_server/ComputeEnginesMove.h"
+#include "chess_server/MoveCompleted.h"
 #include "chess_server/Resign.h"
 #include "chess_server/AutoPlay.h"
 #include "chess_server/SetDifficulty.h"
-#include "chess_server/GetPlayHistory.h"
 #include "chess_server/GetGameState.h"
+#include "chess_server/GetBoardState.h"
+#include "chess_server/GetPlayHistory.h"
 
+// actions
 #include "chess_server/GetEnginesMoveAction.h"
+#include "chess_server/AutoPlayAction.h"
 
+// chess engine library
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceGame.h"
 
+#include "chess_as_auto_play.h"
 
 #define INC_ACTION_THREAD   ///< include an action thread with this class
 
@@ -97,6 +105,42 @@ namespace chess_server
   class ChessServer
   {
   public:
+
+    /*!
+     * \brief Structure to organize published state variables.
+     */
+    struct PubVars
+    {
+      bool                m_bPubNewGame;        ///< do [not] publish new game
+      int                 m_nPubLastPly;        ///< last published ply
+      bool                m_bPubEndOfGame;      ///< do [not] publish end game
+      ChessNewGameStatus  m_msgNewGameStatus;   ///< new game status message
+      ChessMoveStamped    m_msgMoveStamped;     ///< stamped move message
+      ChessEndGameStatus  m_msgEndOfGameStatus; ///< end of game status message
+    };
+
+    /*!
+     * \brief Structure to service sequencing state variables.
+     */
+    struct SvcSeqVars
+    {
+      bool                      m_bBusy;             ///< move [not] busy
+      chess_engine::ChessColor  m_ePlayerMakingMove; ///< player making the move
+      int                       m_nPlyNum;           ///< ply number of the move
+    };
+
+    /*!
+     * \brief Structure to organize autoplay state variables.
+     */
+    struct AutoPlayVars
+    {
+      bool            m_bRun;         ///< do [not] run
+      int             m_nNumMoves;    ///< run for max moves, 0 is end of game
+      int             m_nLastMoveNum; ///< last autoplay move number
+      double          m_fDelay;       ///< delay between moves, 0.0 is no delay
+      ros::WallTimer  m_timer;        ///< autoplay timer
+    };
+
     /*!
      * \brief Asynchronous task state.
      */
@@ -107,10 +151,10 @@ namespace chess_server
       ActionStateWorking  = 2     ///< action(s) running
     };
 
-    /*! map type of ROS services */
+    /*! map ROS services type */
     typedef std::map<std::string, ros::ServiceServer> MapServices;
 
-    /*! map type of ROS publishers */
+    /*! map of ROS publishers type */
     typedef std::map<std::string, ros::Publisher> MapPublishers;
 
 #ifdef INC_ACTION_THREAD
@@ -141,20 +185,33 @@ namespace chess_server
 
     /*!
      * \brief Advertise chess server ROS services.
+     *
+     * \return Number of services advertised.
      */
-    virtual void advertiseServices();
+    virtual int advertiseServices();
 
     /*!
      * \breif Advertise chess server ROS published topics.
      *
      * \param nQueueDepth   Maximum queue depth.
+     *
+     * \return Number of published topics advertiszed.
      */
-    virtual void advertisePublishers(int nQueueDepth=10);
+    virtual int advertisePublishers(int nQueueDepth=10);
 
     /*!
      * \breif Subscribe to ROS published topics.
+     *
+     * \return Number of topics subscribed.
      */
-    virtual void subscribeToTopics();
+    virtual int subscribeToTopics();
+
+    /*!
+     * \brief Start action servers.
+     *
+     * \return Number of action servers started.
+     */
+    virtual int startActionServers();
 
     /*!
      * \brief Publish topics.
@@ -201,15 +258,13 @@ namespace chess_server
     // ROS services, publishers, subscriptions, and local state
     MapServices   m_services;       ///< chess_server services
     MapPublishers m_publishers;     ///< chess_server publishers
-    bool          m_bPubNewGame;    ///< do [not] publish new game
-    int           m_nPubLastPly;    ///< last published ply (1/2 move)
-    bool          m_bPubEndOfGame;  ///< do [not] publish end of game
 
-    // Messages for published data.
-    ChessNewGameStatus  m_msgNewGameStatus;
-    ChessMoveStamped    m_msgMoveStamped;
-    ChessEndGameStatus  m_msgEndOfGameStatus;
-    
+    ASAutoPlay    m_asAutoPlay;
+
+    PubVars       m_pub;            ///< publish state 
+    SvcSeqVars    m_svcseq;         ///< service sequencing
+    AutoPlayVars  m_autoplay;       ///< autoplay state
+
     // action thread control
 #ifdef INC_ACTION_THREAD
     ActionState             m_eActionState; ///< action task state
@@ -219,9 +274,9 @@ namespace chess_server
     pthread_t               m_threadAction; ///< action pthread identifier 
 #endif // INC_ACTION_THREAD
 
-    //
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     // Service callbacks
-    //
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     /*!
      * \brief Start a new chess game service.
@@ -270,6 +325,17 @@ namespace chess_server
                             ComputeEnginesMove::Response &rsp);
 
     /*!
+     * \brief Mark client's move as completed service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool markMoveCompleted(MoveCompleted::Request  &req,
+                           MoveCompleted::Response &rsp);
+
+    /*!
      * \brief Resign from game service.
      *
      * \param req Reqquest message.
@@ -303,17 +369,6 @@ namespace chess_server
                        SetDifficulty::Response &rsp);
 
     /*!
-     * \brief Get play history service.
-     *
-     * \param req Reqquest message.
-     * \param rsp Response message.
-     *
-     * \return Returns true (success) or false (failure).
-     */
-    bool getPlayHistory(GetPlayHistory::Request  &req,
-                        GetPlayHistory::Response &rsp);
-
-    /*!
      * \brief Get game state service.
      *
      * \param req Reqquest message.
@@ -325,6 +380,40 @@ namespace chess_server
                       GetGameState::Response &rsp);
 
     /*!
+     * \brief Get board state service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool getBoardState(GetBoardState::Request  &req,
+                       GetBoardState::Response &rsp);
+
+    /*!
+     * \brief Get play history service.
+     *
+     * \param req Reqquest message.
+     * \param rsp Response message.
+     *
+     * \return Returns true (success) or false (failure).
+     */
+    bool getPlayHistory(GetPlayHistory::Request  &req,
+                        GetPlayHistory::Response &rsp);
+
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Publisher State
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    /*!
+     * \brief Initialize publish state variables.
+     *
+     * \param bNewGame  Is [not] start of a new game.
+     */
+    void initPubVars(const bool bNewGame = false);
+    
+    /*!
      * \brief Stamp message header.
      *
      * \param [out] header    Message header.
@@ -335,9 +424,79 @@ namespace chess_server
                      uint32_t          nSeqNum = 0,
                      const std::string &strFrameId= "0");
 
-    //
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Service Sequencing State
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    /*!
+     * \brief Initialize service sequencing state variables.
+     */
+    void initSvcSeq();
+
+    /*!
+     * \brief Begin move service sequence.
+     *
+     * \param ePlayer Player make the move.
+     */
+    void beginMoveSvcSeq(const chess_engine::ChessColor ePlayer);
+
+    /*!
+     * \brief End move service sequence.
+     */
+    void endMoveSvcSeq();
+
+    /*!
+     * \brief Test if move sequence is busy.
+     *
+     * \return Return true or false.
+     */
+    bool isMoveSvcBusy()
+    {
+      return m_svcseq.m_bBusy;
+    }
+
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Autoplay
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    /*!
+     * \brief Initialize autoplay state variables.
+     */
+    void initAutoPlay();
+
+    /*!
+     * \brief Begin autoplay move sequence.
+     *
+     * \param nNumMoves Max number of auto-moves to make (0 == end of game).
+     * \param fDelay    Delay in seconds between move plies (0.0 = no delay).
+     */
+    void beginAutoPlay(int nNumMoves, double fDelay);
+
+    /*!
+     * \brief End autoplay.
+     *
+     * \param strReason   Reasone why autoplay terminated (for logging).
+     */
+    void endAutoPlay(const std::string &strReason);
+
+    /*!
+     * \brief Execute autoplay move.
+     */
+    void execAutoPlay();
+
+    /*!
+     * \brief Autoplay timer callback
+     *
+     * \param event Timer event.
+     */
+    void cbAutoPlay(const ros::WallTimerEvent& event);
+
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     // Action (and service) thread
-    //
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 #ifdef INC_ACTION_THREAD
     int createActionThread();
 

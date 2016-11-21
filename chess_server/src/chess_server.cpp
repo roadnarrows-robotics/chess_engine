@@ -58,8 +58,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sstream>
 #include <string>
 #include <map>
+
+#include <boost/bind.hpp>
 
 #include "ros/ros.h"
 
@@ -73,13 +76,15 @@
 #include "chess_server/MakeAMove.h"
 #include "chess_server/MakeAMoveAN.h"
 #include "chess_server/ComputeEnginesMove.h"
+#include "chess_server/MoveCompleted.h"
 #include "chess_server/Resign.h"
 #include "chess_server/AutoPlay.h"
 #include "chess_server/SetDifficulty.h"
-#include "chess_server/GetPlayHistory.h"
 #include "chess_server/GetGameState.h"
+#include "chess_server/GetBoardState.h"
+#include "chess_server/GetPlayHistory.h"
 
-// chess library
+// chess engine library
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceRosMsgs.h"
@@ -98,11 +103,13 @@ static const string SvcNameStartNewGame("start_new_game");
 static const string SvcNameMakeAMove("make_a_move");
 static const string SvcNameMakeAMoveAN("make_a_move_an");
 static const string SvcNameComputeEnginesMove("compute_engines_move");
+static const string SvcNameMarkMoveCompleted("mark_move_completed");
 static const string SvcNameResign("resign");
 static const string SvcNameAutoPlay("autoplay");
 static const string SvcNameSetDifficulty("set_difficulty");
-static const string SvcNameGetPlayHistory("get_play_history");
 static const string SvcNameGetGameState("get_game_state");
+static const string SvcNameGetBoardState("get_board_state");
+static const string SvcNameGetPlayHistory("get_play_history");
 
 /*!
  * \brief Advertised published topic names.
@@ -110,6 +117,12 @@ static const string SvcNameGetGameState("get_game_state");
 static const string PubNameNewGameStatus("new_game_status");
 static const string PubNameMoveStatus("move_status");
 static const string PubNameEndOfGameStatus("end_of_game_status");
+
+/*!
+ * \brief Registered action server names.
+ */
+static const string AsNameAutoPlay("auto_play_action");
+static const string AsNameComputeEnginesMove("compute_engines_move_action");
 
 /*!
  * \brief Helpful typedefs
@@ -126,16 +139,25 @@ typedef chess_engine::ChessMove               chess_move;
 typedef chess_engine::ChessGame::ChessHistory chess_history;
 typedef chess_history::const_iterator         chess_history_iterator;
 
+/*
+ * \brief Helpful values.
+ */
+static const int CS_OK = chess_engine::CE_OK; ///< a okay
+
 
 //------------------------------------------------------------------------------
 // ChessServer Class
 //------------------------------------------------------------------------------
 
-ChessServer::ChessServer(ros::NodeHandle &nh) : m_nh(nh)
+ChessServer::ChessServer(ros::NodeHandle &nh) :
+  m_nh(nh),
+  m_asAutoPlay(AsNameAutoPlay, *this)
 {
-  m_bPubNewGame   = false;
-  m_nPubLastPly   = 0;
-  m_bPubEndOfGame = false;
+  initPubVars();
+
+  initSvcSeq();
+
+  initAutoPlay();
 
 #ifdef INC_ACTION_THREAD
   createActionThread();
@@ -159,52 +181,77 @@ int ChessServer::initializeChess()
 // Services
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-void ChessServer::advertiseServices()
+int ChessServer::advertiseServices()
 {
+  int   cnt = 0;
+
   m_services[SvcNameStartNewGame] =
             m_nh.advertiseService(SvcNameStartNewGame,
                                   &ChessServer::startNewGame,
                                   &(*this));
+  ++cnt;
 
   m_services[SvcNameMakeAMove] =
             m_nh.advertiseService(SvcNameMakeAMove,
                                   &ChessServer::makeAMove,
                                   &(*this));
+  ++cnt;
 
   m_services[SvcNameMakeAMoveAN] =
             m_nh.advertiseService(SvcNameMakeAMoveAN,
                                   &ChessServer::makeAMoveAN,
                                   &(*this));
+  ++cnt;
 
   m_services[SvcNameComputeEnginesMove] =
             m_nh.advertiseService(SvcNameComputeEnginesMove,
                                   &ChessServer::computeEnginesMove,
                                   &(*this));
+  ++cnt;
+
+  m_services[SvcNameMarkMoveCompleted] =
+            m_nh.advertiseService(SvcNameMarkMoveCompleted,
+                                  &ChessServer::markMoveCompleted,
+                                  &(*this));
+  ++cnt;
 
   m_services[SvcNameResign] =
             m_nh.advertiseService(SvcNameResign,
                                   &ChessServer::resign,
                                   &(*this));
+  ++cnt;
 
   m_services[SvcNameAutoPlay] =
             m_nh.advertiseService(SvcNameAutoPlay,
                                   &ChessServer::autoplay,
                                   &(*this));
+  ++cnt;
 
   m_services[SvcNameSetDifficulty] =
             m_nh.advertiseService(SvcNameSetDifficulty,
                                   &ChessServer::setDifficulty,
                                   &(*this));
-
-  m_services[SvcNameGetPlayHistory] =
-            m_nh.advertiseService(SvcNameGetPlayHistory,
-                                  &ChessServer::getPlayHistory,
-                                  &(*this));
+  ++cnt;
 
   m_services[SvcNameGetGameState] =
             m_nh.advertiseService(SvcNameGetGameState,
                                   &ChessServer::getGameState,
                                   &(*this));
+  ++cnt;
+
+  m_services[SvcNameGetBoardState] =
+            m_nh.advertiseService(SvcNameGetBoardState,
+                                  &ChessServer::getBoardState,
+                                  &(*this));
+  ++cnt;
+
+  m_services[SvcNameGetPlayHistory] =
+            m_nh.advertiseService(SvcNameGetPlayHistory,
+                                  &ChessServer::getPlayHistory,
+                                  &(*this));
+  ++cnt;
+
+  return cnt;
 }
 
 bool ChessServer::startNewGame(StartNewGame::Request  &req,
@@ -216,13 +263,15 @@ bool ChessServer::startNewGame(StartNewGame::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameStartNewGame);
 
+  endAutoPlay("new game started");
+
   rc = m_chess.startNewGame(req.white_name, req.black_name);
 
-  if( rc == chess_engine::CE_OK )
+  if( rc == CS_OK )
   {
-    m_bPubNewGame   = true;
-    m_nPubLastPly   = 0;
-    m_bPubEndOfGame = false;
+    initPubVars(true);
+
+    initSvcSeq();
 
     m_chess.getPlayerNames(strWhite, strBlack);
 
@@ -251,20 +300,39 @@ bool ChessServer::makeAMoveAN(MakeAMoveAN::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameMakeAMoveAN);
 
+  endAutoPlay("chess move requested");
+
   ePlayer = chess_engine::tr(req.player);
 
-  rc = m_chess.makeAMove(ePlayer, req.AN, move);
+  // test if busy with previous move
+  if( isMoveSvcBusy() )
+  {
+    move.m_ePlayer = ePlayer;
+    move.m_eResult = chess_engine::Busy;
 
-  if( rc == chess_engine::CE_OK )
+    rc = -chess_engine::CE_ECODE_BUSY;
+  }
+
+  // make the logical move
+  else
+  {
+    rc = m_chess.makeAMove(ePlayer, req.AN, move);
+  }
+
+  if( rc == CS_OK )
   {
     ROS_INFO_STREAM(SvcNameMakeAMoveAN << ": "
         << move.m_nMoveNum << ". "
         << nameOfColor(move.m_ePlayer) << " "
         << move.m_strSAN << ".");
 
+    beginMoveSvcSeq(ePlayer);
+
     if( !m_chess.isPlayingAGame() )
     {
-      m_bPubEndOfGame = true;
+      m_pub.m_bPubEndOfGame = true;
+
+      endMoveSvcSeq();
     }
   }
   else
@@ -292,6 +360,8 @@ bool ChessServer::makeAMove(MakeAMove::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameMakeAMove);
 
+  endAutoPlay("chess move requested");
+
   ePlayer = chess_engine::tr(req.player);
 
   chess_engine::copyMsgToPos(req.src, posSrc);
@@ -299,18 +369,38 @@ bool ChessServer::makeAMove(MakeAMove::Request  &req,
 
   ePiecePromoted = chess_engine::tr(req.promoted);
 
-  rc = m_chess.makeAMove(ePlayer, posSrc, posDst, ePiecePromoted, move);
+  // test if busy with previous move
+  if( isMoveSvcBusy() )
+  {
+    move.m_ePlayer        = ePlayer;
+    move.m_posSrc         = posSrc;
+    move.m_posDst         = posDst;
+    move.m_ePiecePromoted = ePiecePromoted;
+    move.m_eResult        = chess_engine::Busy;
 
-  if( rc == chess_engine::CE_OK )
+    rc = -chess_engine::CE_ECODE_BUSY;
+  }
+
+  // make the logical move
+  else
+  {
+    rc = m_chess.makeAMove(ePlayer, posSrc, posDst, ePiecePromoted, move);
+  }
+
+  if( rc == CS_OK )
   {
     ROS_INFO_STREAM(SvcNameMakeAMove << ": "
         << move.m_nMoveNum << ". "
         << nameOfColor(move.m_ePlayer) << " "
         << move.m_strSAN << ".");
 
+    beginMoveSvcSeq(ePlayer);
+
     if( !m_chess.isPlayingAGame() )
     {
-      m_bPubEndOfGame = true;
+      m_pub.m_bPubEndOfGame = true;
+
+      endMoveSvcSeq();
     }
   }
   else
@@ -329,23 +419,45 @@ bool ChessServer::makeAMove(MakeAMove::Request  &req,
 bool ChessServer::computeEnginesMove(ComputeEnginesMove::Request  &req,
                                      ComputeEnginesMove::Response &rsp)
 {
-  chess_move  move;
-  int         rc;
+  chess_player  ePlayer;
+  chess_move    move;
+  int           rc;
 
   ROS_DEBUG_STREAM(SvcNameComputeEnginesMove);
 
-  rc = m_chess.computeEnginesMove(move);
+  endAutoPlay("compute engine's move requested");
 
-  if( rc == chess_engine::CE_OK )
+  ePlayer = m_chess.whoseTurn();
+
+  // test if busy with previous move
+  if( isMoveSvcBusy() )
+  {
+    move.m_ePlayer = ePlayer;
+    move.m_eResult = chess_engine::Busy;
+
+    rc = -chess_engine::CE_ECODE_BUSY;
+  }
+
+  // compute the logical next move
+  else
+  {
+    rc = m_chess.computeEnginesMove(move);
+  }
+
+  if( rc == CS_OK )
   {
     ROS_INFO_STREAM(SvcNameComputeEnginesMove << ": "
         << move.m_nMoveNum << ". "
         << nameOfColor(move.m_ePlayer) << " "
         << move.m_strSAN << ".");
 
+    beginMoveSvcSeq(ePlayer);
+
     if( !m_chess.isPlayingAGame() )
     {
-      m_bPubEndOfGame = true;
+      m_pub.m_bPubEndOfGame = true;
+
+      endMoveSvcSeq();
     }
   }
   else
@@ -359,6 +471,40 @@ bool ChessServer::computeEnginesMove(ComputeEnginesMove::Request  &req,
   return true;  // has valid response regardless of success or failure
 }
 
+bool ChessServer::markMoveCompleted(MoveCompleted::Request  &req,
+                                    MoveCompleted::Response &rsp)
+{
+  chess_player  ePlayer;
+  int           rc;
+
+  ROS_DEBUG_STREAM(SvcNameMarkMoveCompleted);
+
+  ePlayer = chess_engine::tr(req.player);
+
+  if( m_svcseq.m_ePlayerMakingMove == ePlayer )
+  {
+    endMoveSvcSeq();
+
+    ROS_INFO_STREAM(SvcNameMarkMoveCompleted << ": "
+        << chess_engine::nameOfColor(ePlayer) << " "
+        << "completed move.");
+
+    rc = CS_OK;
+  }
+  else
+  {
+    rc = -chess_engine::CE_ECODE_CHESS_OUT_OF_TURN;
+
+    ROS_ERROR_STREAM(SvcNameMarkMoveCompleted << ": "
+        << chess_engine::nameOfColor(ePlayer) << ": "
+        << chess_engine::strecode(rc) << "(" << rc << ")");
+  }
+
+  rsp.rc = rc;
+
+  return true;
+}
+
 bool ChessServer::resign(Resign::Request  &req,
                          Resign::Response &rsp)
 {
@@ -367,13 +513,17 @@ bool ChessServer::resign(Resign::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameResign);
 
+  endAutoPlay("player resigned");
+
   ePlayer = chess_engine::tr(req.player);
 
   rc = m_chess.resign(ePlayer);
 
-  if( rc == chess_engine::CE_OK )
+  if( rc == CS_OK )
   {
-    m_bPubEndOfGame = true;
+    m_pub.m_bPubEndOfGame = true;
+
+    endMoveSvcSeq();
 
     ROS_INFO_STREAM(SvcNameResign << ": " << nameOfColor(ePlayer) << ".");
   }
@@ -392,9 +542,50 @@ bool ChessServer::resign(Resign::Request  &req,
 bool ChessServer::autoplay(AutoPlay::Request  &req,
                            AutoPlay::Response &rsp)
 {
+  int   rc = CS_OK;
+
   ROS_DEBUG_STREAM(SvcNameAutoPlay);
 
-  return false;
+  // test if busy with previous move
+  if( isMoveSvcBusy() )
+  {
+    rc = -chess_engine::CE_ECODE_BUSY;
+  }
+
+  // no game
+  else if( !m_chess.isPlayingAGame() )
+  {
+    rc = -chess_engine::CE_ECODE_CHESS_NO_GAME;
+  }
+
+  if( rc == CS_OK )
+  {
+    if( req.run )
+    {
+      ROS_INFO_STREAM(SvcNameAutoPlay << ": "
+        << "run = " << chess_engine::nameOfBool(req.run) << ", "
+        << "num_moves = " << req.num_moves << ", "
+        << "delay = " << req.delay << ".");
+
+      beginAutoPlay((int)req.num_moves, (double)req.delay);
+    }
+    else
+    {
+      ROS_INFO_STREAM(SvcNameAutoPlay << ": "
+        << "run = " << chess_engine::nameOfBool(req.run) << ".");
+
+      endAutoPlay("autoplay stopped");
+    }
+  }
+  else
+  {
+    ROS_ERROR_STREAM(SvcNameAutoPlay << ": "
+        << chess_engine::strecode(rc) << "(" << rc << ")");
+  }
+
+  rsp.rc = rc;
+
+  return true;
 }
 
 bool ChessServer::setDifficulty(SetDifficulty::Request  &req,
@@ -409,7 +600,7 @@ bool ChessServer::setDifficulty(SetDifficulty::Request  &req,
 
   rc = m_chess.setGameDifficulty(fDifficulty);
 
-  if( rc == chess_engine::CE_OK )
+  if( rc == CS_OK )
   {
     ROS_INFO_STREAM(SvcNameSetDifficulty << ": "
         << "diffuculty = " << fDifficulty);
@@ -424,6 +615,54 @@ bool ChessServer::setDifficulty(SetDifficulty::Request  &req,
   rsp.rc = rc;
 
   return true;  // has valid response regardless of success or failure
+}
+
+bool ChessServer::getGameState(GetGameState::Request  &req,
+                               GetGameState::Response &rsp)
+{
+  ROS_DEBUG_STREAM(SvcNameGetGameState);
+
+  m_chess.getPlayerNames(rsp.white_name, rsp.black_name);
+
+  rsp.num_moves   = m_chess.getNumOfMoves();
+  rsp.game_winner = chess_engine::msg( m_chess.getWinner() ); 
+  rsp.play_state  = chess_engine::msg( m_chess.getPlayState() );
+
+  ROS_INFO_STREAM(SvcNameGetGameState << ": retrieved game state.");
+
+  return true;
+}
+
+bool ChessServer::getBoardState(GetBoardState::Request  &req,
+                                GetBoardState::Response &rsp)
+{
+  chess_board &board  = m_chess.getBoard();
+  chess_file  file_a  = chess_engine::ChessFileA;
+  chess_file  no_file = chess_engine::NoFile;
+  chess_rank  rank_1  = chess_engine::ChessRank1;
+  chess_rank  no_rank = chess_engine::NoRank;
+
+  chess_file  file;
+  chess_rank  rank;
+
+  ROS_DEBUG_STREAM(SvcNameGetBoardState);
+
+  for(rank = rank_1; rank != no_rank; rank = chess_board::nextRank(rank))
+  {
+    for(file = file_a; file != no_file; file = chess_board::nextFile(file))
+    {
+      chess_square &sq = board.at(file, rank);
+
+      rsp.squares.push_back( chess_engine::msg(sq.getPos()) );
+      rsp.colors.push_back( chess_engine::msg(sq.getPieceColor()) );
+      rsp.pieces.push_back( chess_engine::msg(sq.getPieceType()) );
+      rsp.ids.push_back( sq.getPieceId() );
+    }
+  }
+
+  ROS_INFO_STREAM(SvcNameGetBoardState << ": retrieved board state.");
+
+  return true;
 }
 
 bool ChessServer::getPlayHistory(GetPlayHistory::Request  &req,
@@ -442,45 +681,8 @@ bool ChessServer::getPlayHistory(GetPlayHistory::Request  &req,
     rsp.SAN.push_back(move.m_strSAN);
   }
 
-  ROS_INFO_STREAM(SvcNameGetPlayHistory << ": "
+  ROS_INFO_STREAM(SvcNameGetPlayHistory << ": retrieved play history, "
         << "history_size = " << history.size() << ".");
-
-  return true;
-}
-
-bool ChessServer::getGameState(GetGameState::Request  &req,
-                               GetGameState::Response &rsp)
-{
-  chess_board &board  = m_chess.getBoard();
-  chess_file  file_a  = chess_engine::ChessFileA;
-  chess_file  no_file = chess_engine::NoFile;
-  chess_rank  rank_1  = chess_engine::ChessRank1;
-  chess_rank  no_rank = chess_engine::NoRank;
-
-  chess_file  file;
-  chess_rank  rank;
-
-  ROS_DEBUG_STREAM(SvcNameGetGameState);
-
-  m_chess.getPlayerNames(rsp.white_name, rsp.black_name);
-
-  for(rank = rank_1; rank != no_rank; rank = chess_board::nextRank(rank))
-  {
-    for(file = file_a; file != no_file; file = chess_board::nextFile(file))
-    {
-      chess_square &sq = board.at(file, rank);
-
-      rsp.squares.push_back( chess_engine::msg(sq.getPos()) );
-      rsp.colors.push_back( chess_engine::msg(sq.getPieceColor()) );
-      rsp.pieces.push_back( chess_engine::msg(sq.getPieceType()) );
-      rsp.ids.push_back( sq.getPieceId() );
-    }
-  }
-
-  rsp.game_winner = chess_engine::msg( m_chess.getWinner() ); 
-  rsp.play_state  = chess_engine::msg( m_chess.getPlayState() );
-
-  ROS_INFO_STREAM(SvcNameGetGameState << ": retrieved game state.");
 
   return true;
 }
@@ -490,26 +692,43 @@ bool ChessServer::getGameState(GetGameState::Request  &req,
 // Topic Publishers
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-void ChessServer::advertisePublishers(int nQueueDepth)
+int ChessServer::advertisePublishers(int nQueueDepth)
 {
+  int   cnt = 0;
+
   m_publishers[PubNameNewGameStatus] =
       m_nh.advertise<ChessNewGameStatus>( PubNameNewGameStatus, nQueueDepth);
+  ++cnt;
 
   m_publishers[PubNameMoveStatus] =
       m_nh.advertise<ChessMoveStamped>(PubNameMoveStatus, nQueueDepth);
+  ++cnt;
 
   m_publishers[PubNameEndOfGameStatus] =
       m_nh.advertise<ChessEndGameStatus>(PubNameEndOfGameStatus, nQueueDepth);
+  ++cnt;
+
+  return cnt;
+}
+
+void ChessServer::initPubVars(const bool bNewGame)
+{
+  m_pub.m_bPubNewGame   = bNewGame;
+  m_pub.m_nPubLastPly   = 0;
+  m_pub.m_bPubEndOfGame = false;
 }
 
 void ChessServer::publish()
 {
-  int nNumOfPlies = m_chess.getGame().getNumOfPlies();
+  int nNumOfPlies;
 
-  // new game
-  if( m_bPubNewGame )
+  // number of plies to publish except any busy move
+  nNumOfPlies = isMoveSvcBusy()? m_svcseq.m_nPlyNum - 1: m_svcseq.m_nPlyNum;
+
+  // publish new game status
+  if( m_pub.m_bPubNewGame )
   {
-    ChessNewGameStatus &msg = m_msgNewGameStatus;
+    ChessNewGameStatus &msg = m_pub.m_msgNewGameStatus;
 
     stampHeader(msg.header, msg.header.seq+1, PubNameNewGameStatus);
     
@@ -517,29 +736,29 @@ void ChessServer::publish()
 
     m_publishers[PubNameNewGameStatus].publish(msg);
 
-    m_bPubNewGame = false;
+    m_pub.m_bPubNewGame = false;
   }
 
-  // new move(s)
-  while( m_nPubLastPly < nNumOfPlies )
+  // publish all new fully completed move(s)
+  while( m_pub.m_nPubLastPly < nNumOfPlies )
   {
-    ChessMoveStamped &msg = m_msgMoveStamped;
+    ChessMoveStamped &msg = m_pub.m_msgMoveStamped;
 
     stampHeader(msg.header, msg.header.seq+1, PubNameMoveStatus);
 
-    const chess_move &move = m_chess.getGame().getHistoryAt(m_nPubLastPly);
+    const chess_move &move=m_chess.getGame().getHistoryAt(m_pub.m_nPubLastPly);
 
     chess_engine::copyMoveToMsg(move, msg.move);
 
     m_publishers[PubNameMoveStatus].publish(msg);
 
-    ++m_nPubLastPly;
+    ++m_pub.m_nPubLastPly;
   }
   
-  // end of game
-  if( m_bPubEndOfGame )
+  // publish end of game status
+  if( m_pub.m_bPubEndOfGame )
   {
-    ChessEndGameStatus &msg = m_msgEndOfGameStatus;
+    ChessEndGameStatus &msg = m_pub.m_msgEndOfGameStatus;
 
     stampHeader(msg.header, msg.header.seq+1, PubNameEndOfGameStatus);
 
@@ -548,7 +767,7 @@ void ChessServer::publish()
 
     m_publishers[PubNameEndOfGameStatus].publish(msg);
 
-    m_bPubEndOfGame = false;
+    m_pub.m_bPubEndOfGame = false;
   }
 }
 
@@ -557,8 +776,149 @@ void ChessServer::publish()
 // Subscribed Topics
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-void ChessServer::subscribeToTopics()
+int ChessServer::subscribeToTopics()
 {
+  return 0;
+}
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Action Servers
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+int ChessServer::startActionServers()
+{
+  int   cnt = 0;
+
+  m_asAutoPlay.start();
+
+  ++cnt;
+#if 0 // RDK
+  ASGetEnginesMove m_asGetEnginesMove("get_engines_move_action", chessServer);
+#endif // RDK
+
+  return cnt;
+}
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Service Sequence State
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+void ChessServer::initSvcSeq()
+{
+  m_svcseq.m_bBusy              = false;
+  m_svcseq.m_ePlayerMakingMove  = chess_engine::NoColor;
+  m_svcseq.m_nPlyNum            = 0;
+}
+
+void ChessServer::beginMoveSvcSeq(chess_player ePlayer)
+{
+  m_svcseq.m_bBusy              = true;
+  m_svcseq.m_ePlayerMakingMove  = ePlayer;
+  m_svcseq.m_nPlyNum            = m_chess.getNumOfPlies();
+}
+
+void ChessServer::endMoveSvcSeq()
+{
+  m_svcseq.m_bBusy = false;
+}
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Autoplay
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+void ChessServer::initAutoPlay()
+{
+  m_autoplay.m_bRun         = false;
+  m_autoplay.m_nNumMoves    = 0;
+  m_autoplay.m_nLastMoveNum = 0;
+  m_autoplay.m_fDelay       = 0.0;
+}
+
+void ChessServer::beginAutoPlay(int nNumMoves, double fDelay)
+{
+  m_autoplay.m_timer.stop();
+
+  m_autoplay.m_bRun         = true;
+  m_autoplay.m_nNumMoves    = nNumMoves;
+  m_autoplay.m_nLastMoveNum = m_chess.getNumOfMoves() + nNumMoves;
+  m_autoplay.m_fDelay       = fDelay;
+
+  ROS_INFO_STREAM("Autoplay started.");
+
+  execAutoPlay();
+}
+
+void ChessServer::endAutoPlay(const string &strReason)
+{
+  if( m_autoplay.m_bRun )
+  {
+    m_autoplay.m_bRun = false;
+
+    m_autoplay.m_timer.stop();
+
+    ROS_INFO_STREAM("Autoplay stopped: " << strReason << ".");
+  }
+}
+
+void ChessServer::execAutoPlay()
+{
+  static double tMin = 0.01;
+
+  double      tStart, tMove, tDelta, tDelay;
+  chess_move  move;
+  int         rc;
+
+  if( m_autoplay.m_bRun )
+  {
+    tStart = ros::WallTime::now().toSec();
+
+    rc = m_chess.computeEnginesMove(move);
+
+    tMove = ros::WallTime::now().toSec();
+
+    if( m_chess.isPlayingAGame() )
+    {
+      tDelta = tMove - tStart;
+      tDelay = m_autoplay.m_fDelay - tDelta;
+
+      if( tDelay < tMin )
+      {
+        tDelay = tMin;
+      }
+
+      if( (m_autoplay.m_nNumMoves == 0) ||
+          (m_autoplay.m_nLastMoveNum < m_chess.getNumOfMoves()) )
+      {
+
+        m_autoplay.m_timer = m_nh.createWallTimer(
+                    ros::WallDuration(tDelay),
+                    boost::bind(&ChessServer::cbAutoPlay, this, _1),
+                    true);
+      }
+      else
+      {
+        stringstream ss;
+        ss << m_autoplay.m_nNumMoves << " moves autoplayed";
+        endAutoPlay(ss.str());
+      }
+    }
+
+    else
+    {
+      endAutoPlay("game ended");
+    }
+  }
+}
+
+void ChessServer::cbAutoPlay(const ros::WallTimerEvent& event)
+{
+  if( m_autoplay.m_bRun )
+  {
+    execAutoPlay();
+  }
 }
 
 
@@ -581,7 +941,7 @@ int ChessServer::createActionThread()
   if( rc == 0 )
   {
     m_eActionState = ActionStateIdle;
-    rc = chess_engine::CE_OK;
+    rc = CS_OK;
   }
 
   else
@@ -623,7 +983,7 @@ int ChessServer::execAction(boost::function<void()> execAction)
     m_execAction = execAction;
     m_eActionState = ActionStateWorking;
     signalActionThread();
-    rc = chess_engine::CE_OK;
+    rc = CS_OK;
   }
   else
   {

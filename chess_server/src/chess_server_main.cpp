@@ -76,8 +76,6 @@
 #include "chess_engine/ceGame.h"
 
 #include "chess_server.h"
-//#include "chess_as_auto_play.h"
-//#include "chess_as_get_engines_move.h"
 
 using namespace std;
 using namespace chess_server;
@@ -397,7 +395,10 @@ static void cli_test(int argc, char *argv[])
  */
 int main(int argc, char *argv[])
 {
-  int         rc;
+  string    strNodeName;
+  double    fHz = 10.0;
+  int       n;
+  int       rc;
 
   ros::init(argc, argv, NodeName);
 
@@ -408,39 +409,51 @@ int main(int argc, char *argv[])
     return APP_EC_EXEC;
   }
 
-  ROS_INFO("%s: Node started.",  ros::this_node::getName().c_str());
+  // read back actual node name
+  strNodeName = ros::this_node::getName();
 
+  ROS_INFO("%s: Node started.",  strNodeName.c_str());
+
+  // the chess server work horse
   ChessServer chessServer(nh);
 
+  // initialize chess server and underlining class objects
   if( (rc = chessServer.initializeChess()) != chess_engine::CE_OK )
   {
-    ROS_ERROR_STREAM("Failed to initialize chess server: "
+    ROS_ERROR_STREAM(strNodeName << ": "
+        << "Failed to initialize chess server: "
         << chess_engine::strecode(rc) << "(" << rc << ")");
     return APP_EC_INIT;
   }
 
   // advertise services
-  chessServer.advertiseServices();
+  n = chessServer.advertiseServices();
 
-  ROS_INFO("%s: Services registered.", ros::this_node::getName().c_str());
+  ROS_INFO("%s: %d services advertised.", strNodeName.c_str(), n);
 
   // advertise publishers
-  chessServer.advertisePublishers();
+  n = chessServer.advertisePublishers();
 
-  ROS_INFO("%s: Publishers registered.", ros::this_node::getName().c_str());
+  ROS_INFO("%s: %d topic publishers advertised.", strNodeName.c_str(), n);
 
-  // action servers
-#if 0 // RDK
-  ASAutoPlay       asAutoPlay("auto_play_action", chessServer);
-  ASGetEnginesMove asGetEnginesMove("get_engines_move_action", chessServer);
-#endif // RDK
+  // subscribe to topics (none for now)
+  n = chessServer.subscribeToTopics();
 
-  ROS_INFO("%s: Action servers registered and started.",
-      ros::this_node::getName().c_str());
+  ROS_INFO("%s: %d topics subscribed.", strNodeName.c_str(), n);
 
-  // hertz
-  ros::Rate loop_rate(10);
+  // start action servers
+  n = chessServer.startActionServers();
 
+  ROS_INFO("%s: %d action servers started.", strNodeName.c_str(), n);
+
+  // set loop rate in hertz
+  ros::Rate loop_rate(fHz);
+
+  ROS_INFO("%s: Running at %.1lfHz.", strNodeName.c_str(), fHz);
+
+  //
+  // The loop.
+  //
   while( ros::ok() )
   {
     // make any callbacks on pending ROS services

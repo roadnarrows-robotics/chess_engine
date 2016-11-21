@@ -792,7 +792,7 @@ ChessResult ChessEngineGnu::rcToMoveResult(int rc)
   {
     case CE_OK:                       // good move
       return Ok;
-    case CE_ECODE_CHESS_MOVE:         // invalid move 
+    case CE_ECODE_CHESS_BAD_MOVE:     // invalid move 
     case CE_ECODE_CHESS_PARSE:
       return BadMove;
     case CE_ECODE_CHESS_OUT_OF_TURN:  // player out of turn
@@ -1140,7 +1140,7 @@ int ChessEngineGnu::cmdMove(const string &strAN)
   else if( match(m_strLastLine, reInvalidMove, matches) > 0 )
   {
     m_strLastLine.clear();
-    return -CE_ECODE_CHESS_MOVE;
+    return -CE_ECODE_CHESS_BAD_MOVE;
   }
   else
   {

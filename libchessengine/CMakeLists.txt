@@ -3,27 +3,19 @@ project(libchessengine)
 
 find_package(catkin 
   REQUIRED COMPONENTS 
-  actionlib
-  actionlib_msgs
-  std_msgs 
-  genmsg 
-  message_generation 
   roscpp 
-  rospy 
 )
 
 find_package(Boost REQUIRED COMPONENTS system)
 
-#catkin_python_setup()
-
 catkin_package(
-  CATKIN_DEPENDS actionlib_msgs
+  DEPENDS Boost
+  INCLUDE_DIRS ../include
+  LIBRARIES chessengine
 )
 
 include_directories(
-  include 
   ../include
-  /prj/include 
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
 )
@@ -46,8 +38,7 @@ install(TARGETS chessengine
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 )
 
+# not actually install to devel/include, but other packages can include
 install(DIRECTORY ../include/
   DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
-  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-  PATTERN ".svn" EXCLUDE
 )

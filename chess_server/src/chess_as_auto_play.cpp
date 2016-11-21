@@ -29,7 +29,8 @@
  * license or royalty fees, to use, copy, modify, and distribute this
  * software and its documentation for any purpose, provided that
  * (1) The above copyright notice and the following two paragraphs
- * appear in all copies of the source code and (2) redistributions
+ * appear in all copies of the source code and (2) redi  <url type="website">http://github.com/roadnarrows-robotics/chess_engine</url>
+stributions
  * including binaries reproduces these notices in the supporting
  * documentation.   Substantial modifications to this software may be
  * copyrighted by their authors and need not follow the licensing terms
@@ -65,35 +66,57 @@
 
 #include "chess_server/ChessMove.h"
 
+#include "chess_engine/ceTypes.h"
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceError.h"
 
 #include "chess_as_auto_play.h"
+#include "chess_server.h"
 
 using namespace std;
-using namespace chess_engine;
+using namespace chess_server;
 
+/*!
+ * \brief Helpful typedefs
+ */
+typedef chess_engine::ChessColor              chess_color;
+typedef chess_engine::ChessColor              chess_player;
+typedef chess_engine::ChessMove               chess_move;
 
-void ASAutoPlay::execute_cb(const chess_server::AutoPlayGoalConstPtr &goal)
+ASAutoPlay::ASAutoPlay(std::string name, ChessServer &chessServer) :
+      action_name_(name),
+      as_(nh_,
+          name,                     // action name
+          boost::bind(&ASAutoPlay::cbExecute, this, _1),
+                                    // execute callback
+          false),                   // don't auto-start
+      chess_server_(chessServer)
 {
-  uint_t    numMoves;
+  // register action preempt callback
+  as_.registerPreemptCallback( boost::bind(&ASAutoPlay::cbPreempt, this));
+}
+
+void ASAutoPlay::cbExecute(const chess_server::AutoPlayGoalConstPtr &goal)
+{
+  int    numMoves;
   double    hz;
-  uint_t    n;
-  Move      move;
+  int    n;
+  chess_move      move;
   bool      success;
   int       rc;
 
   ROS_INFO("%s: Execute.", action_name_.c_str());
 
-  numMoves  = (uint_t)goal->num_moves;
+  numMoves  = (int)goal->num_moves;
   hz        = (double)goal->hz;
   n         = 0;
   success   = true;
-  rc        = CE_OK;
+  rc        = chess_engine::CE_OK;
 
   ros::Rate r(hz);
 
-  while( chess_.getGame().isPlaying() && ((numMoves == 0) || (n < numMoves)) )
+  //while( chess_server_.getGame().isPlaying() && ((numMoves == 0) || (n < numMoves)) )
+  while( true )
   {
     //
     // Action was preempted.
@@ -108,18 +131,18 @@ void ASAutoPlay::execute_cb(const chess_server::AutoPlayGoalConstPtr &goal)
     }
 
     // engine make move and update game state
-    rc = chess_.getEngine().getEnginesMove(move, true);
-    rc = chess_.getGame().sync(move);
+    //rc = chess_server_.getEngine().getEnginesMove(move, true);
+    //rc = chess_server_.getGame().sync(move);
 
     ROS_DEBUG_STREAM(action_name_ << ": " << move << endl);
 
     //
     // Action resulted in an error.
     //
-    if( rc != CE_OK )
+    if( rc != chess_engine::CE_OK )
     {
       ROS_INFO("%s: Execution error: %s(%d)",
-        action_name_.c_str(), strerror(rc).c_str(), rc);
+        action_name_.c_str(), chess_engine::strecode(rc).c_str(), rc);
       result_.rc = rc;
       as_.setAborted(result_); // abort action on error
       success = false;
@@ -132,13 +155,13 @@ void ASAutoPlay::execute_cb(const chess_server::AutoPlayGoalConstPtr &goal)
     else
     {
       // convert move to result.
-      chess_.toMsgMove(move, feedback_.move);
+      //chess_server_.toMsgMove(move, feedback_.move);
 
       // publish feedback
       as_.publishFeedback(feedback_);
 
       // advance number of moves only after black's move
-      if( move.m_player == Black )
+      if( move.m_ePlayer == chess_engine::Black )
       {
         ++n;
       }
@@ -151,15 +174,15 @@ void ASAutoPlay::execute_cb(const chess_server::AutoPlayGoalConstPtr &goal)
   {
     // result_.sequence = feedback_.sequence;
     ROS_INFO("%s: Exectution succeeded", action_name_.c_str());
-    result_.rc = CE_OK;
+    result_.rc = chess_engine::CE_OK;
     as_.setSucceeded(result_); // set the action state to succeeded
   }
 }
 
-void ASAutoPlay::preempt_cb()
+void ASAutoPlay::cbPreempt()
 {
   ROS_INFO("%s: Preempt.", action_name_.c_str());
-  chess_.getEngine().abortRead();
+  //chess_server_.getEngine().abortRead();
   as_.setPreempted();
   //as_.acceptNewGoal();  // does return from execution autoset this state?
 }

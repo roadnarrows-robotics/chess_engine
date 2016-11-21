@@ -212,7 +212,7 @@ namespace chess_engine
      */
     ChessResult getPlayState() const
     {
-      return m_eEoGReason;
+      return m_ePlayState;
     }
 
     /*!
@@ -323,7 +323,7 @@ namespace chess_engine
     // Game state
     //
     bool          m_bIsPlaying;     ///< is [not] playing a game
-    ChessResult   m_eEoGReason;     ///< end of game reason, if any
+    ChessResult   m_ePlayState;     ///< current play state
     ChessColor    m_eWinner;        ///< end of game winner, if any
 
     //

@@ -36,6 +36,7 @@ add_service_files(
   FILES
     AutoPlay.srv
     ComputeEnginesMove.srv
+    GetBoardState.srv
     GetGameState.srv
     GetPlayHistory.srv
     MakeAMoveAN.srv
@@ -73,7 +74,7 @@ include_directories(
 )
 
 add_executable(chess_server
-  #src/chess_as_auto_play.cpp
+  src/chess_as_auto_play.cpp
   #src/chess_as_get_engines_move.cpp
   src/chess_server_main.cpp
   #src/chess_engine_gnu.cpp

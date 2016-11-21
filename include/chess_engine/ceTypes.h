@@ -247,19 +247,19 @@ namespace chess_engine
      *
      * The id may be used by external operations to follow, draw, render, etc.
      *
-     * Id format: color-origin-piece
+     * Id format: color-bord-piece
      *
      * \par Examples:
      * Identifier  | Description
      * ----------  | -----------
-     *  Black-c7-Pawn   | black pawn with origin at c7.
-     *  White-h2-Pawn   | white pawn with origin at h2.
-     *  White-a1-Rook   | white queen's rook
-     *  White-e1-King   | white king
-     *  Black-d8-Queen  | black queen
-     *  Black-c8-Bishop | black queens's bishop
+     *  black-c7-pawn   | black pawn born at c7
+     *  white-h2-pawn   | white pawn born at h2
+     *  white-a1-rook   | white queen's rook
+     *  white-e1-king   | white king
+     *  black-d8-queen  | black queen
+     *  black-c8-bishop | black queens's bishop
      *
-     * \param pos     Chess piece origin position.
+     * \param pos     Chess piece birth origin position.
      * \param eColor  Piece color.
      * \param ePiece  Piece type.
      *
@@ -291,15 +291,15 @@ namespace chess_engine
      * This version of unique id is needed for pawn promotions.
      * \ref See makePieceId
      *
-     * Id format: color-origin-piece-instance
+     * Id format: color-born-piece-instance
      *
      * \par Examples:
      * Identifier  | Description
      * ----------  | -----------
-     *  White-c8-Queen-1 | first promotion by white of a pawn to a queen.
-     *  White-h8-Queen-2 | second promotion by white of a pawn to a queen.
+     *  white-c8-queen-1 | first promotion by white of a pawn to a queen
+     *  white-h8-queen-2 | second promotion by white of a pawn to a queen
      *
-     * \param pos         Chess piece origin position.
+     * \param pos         Chess piece birth origin position.
      * \param eColor      Piece color.
      * \param ePiece      Piece type.
      * \param nInstance   Instance number.
@@ -349,6 +349,8 @@ namespace chess_engine
     Ok            = 'y',          ///< good move
     BadMove       = 'n',          ///< invalid move attempt
     OutOfTurn     = '?',          ///< out-of-turn move attempt
+    Busy          = 'b',          ///< busy making a move
+    InPlay        = '>',          ///< game currently in play
     Checkmate     = '#',          ///< checkmate
     Draw          = 'd',          ///< game is a draw
     Resign        = 'r',          ///< player or engine resigned

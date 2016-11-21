@@ -128,6 +128,8 @@ namespace chess_engine
     (Ok,            "ok")
     (BadMove,       "badmove")
     (OutOfTurn,     "outofturn")
+    (Busy,          "busy")
+    (InPlay,        "inplay")
     (Checkmate,     "checkmate")
     (Draw,          "draw")
     (Resign,        "resign")

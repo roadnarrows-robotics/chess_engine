@@ -69,15 +69,21 @@
 #include "chess_server/ChessMove.h"
 #include "chess_server/AutoPlayAction.h"
 
-#include "chess_server.h"
-
-namespace chess_engine
+namespace chess_server
 {
+  //
+  // Forward declarations.
+  //
+  class ChessServer;
+
   /*!
    * \brief Get chess engine's next move action server class.
    */
   class ASAutoPlay
   {
+    // de-uglify typedef
+    typedef actionlib::SimpleActionServer<AutoPlayAction> action_server;
+
   public:
     /*!
      * \brief Initialization constructor.
@@ -85,23 +91,7 @@ namespace chess_engine
      * \param name    Action server name.
      * \param chess   Node-specific class instance.
      */
-    ASAutoPlay(std::string name, ChessServer &chess) :
-      chess_(chess),
-      as_(chess.getNodeHandle(),    // node handle
-          name,                     // action name
-          boost::bind(&ASAutoPlay::execute_cb, this, _1),
-                                    // execute callback
-          false),                   // don't auto-start
-      action_name_(name)
-    {
-      // 
-      // Optionally register the goal and feeback callbacks
-      //
-      as_.registerPreemptCallback( boost::bind(&ASAutoPlay::preempt_cb, this));
-
-      // start the action server
-      start();
-    }
+    ASAutoPlay(std::string name, ChessServer &chessServer);
 
     /*!
      * \brief Destructor.
@@ -122,9 +112,9 @@ namespace chess_engine
      * \brief ROS callback to execute action.
      *
      * The callback is executed in a separate ROS-created thread so that it
-     * can block.Typically, the callback is invoked within a ROS spin.
+     * can block. Typically, the callback is invoked within a ROS spin.
      */
-    void execute_cb(const chess_server::AutoPlayGoalConstPtr &goal);
+    void cbExecute(const chess_server::AutoPlayGoalConstPtr &goal);
 
     /*!
      * \brief ROS callback to preempt action.
@@ -132,17 +122,19 @@ namespace chess_engine
      * This is only needed if actions are required outside of the blocking
      * execution callback thread.
      */
-    void preempt_cb();
+    void cbPreempt();
 
   protected:
-    std::string action_name_;                         ///< action name
-    actionlib::SimpleActionServer<chess_server::AutoPlayAction> as_;
-                                                      ///< action simple server
-    ChessServer &chess_;                              ///< chess server instance
-    chess_server::AutoPlayFeedback feedback_;         ///< progress feedback
-    chess_server::AutoPlayResult   result_;           ///< action results
+    ros::NodeHandle   nh_;            ///< keep first (ROS magic)
+
+    std::string       action_name_;   ///< action name
+    action_server     as_;            ///< action simple server
+    AutoPlayFeedback  feedback_;      ///< action progress feedback
+    AutoPlayResult    result_;        ///< action results
+
+    ChessServer       &chess_server_; ///< chess server reference
   };
 
-} // namespace chess_engine
+} // namespace chess_server
 
 #endif // _CHESS_AS_AUTO_PLAY_H

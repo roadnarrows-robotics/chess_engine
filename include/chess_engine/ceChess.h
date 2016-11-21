@@ -244,6 +244,26 @@ namespace chess_engine
     }
 
     /*!
+     * \brief Get the number of moves played.
+     *
+     * \return Number of moves.
+     */
+    int getNumOfMoves() const
+    {
+      return m_game.getNumOfMoves();
+    }
+
+    /*!
+     * \brief Get the number of plies (1/2 moves) played.
+     *
+     * \return Number of plies.
+     */
+    int getNumOfPlies() const
+    {
+      return m_game.getNumOfPlies();
+    }
+
+    /*!
      * \brief Get the game history.
      *
      * \return Reference to history.
