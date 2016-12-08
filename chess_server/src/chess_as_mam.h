@@ -6,16 +6,16 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_as_get_engines_move.h
+// File:      chess_as_mam.h
 //
 /*! \file
  *
- * \brief Get the chess engine's next move action server class interface.
+ * \brief Make a move action server class interface.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2014-2016  RoadNarrows
+ * (C) 2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -53,8 +53,8 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _CHESS_AS_GET_ENGINES_MOVE_H
-#define _CHESS_AS_GET_ENGINES_MOVE_H
+#ifndef _CHESS_AS_MAM_H
+#define _CHESS_AS_MAM_H
 
 #include <unistd.h>
 
@@ -67,49 +67,44 @@
 #include "actionlib/server/simple_action_server.h"
 
 #include "chess_server/ChessMove.h"
-#include "chess_server/GetEnginesMove.h"
-#include "chess_server/GetEnginesMoveAction.h"
+#include "chess_server/MakeAMoveANAction.h"
+//#include "chess_server/MakeAMoveAction.h" // future if needed
 
-#include "chess_server.h"
-
-namespace chess_engine
+namespace chess_server
 {
+  //
+  // Forward declarations.
+  //
+  class ChessServer;
+
   /*!
-   * \brief Get chess engine's next move action server class.
+   * \brief Make a chess move action server class.
    */
-  class ASGetEnginesMove
+  class ASMakeAMoveAN
   {
   public:
+    //
+    // Useful de-uglified types
+    //
+    typedef MakeAMoveANAction       mam_action;   ///< action
+    typedef actionlib::SimpleActionServer<mam_action> action_server;
+                                                  ///< action server
+    typedef MakeAMoveANGoalConstPtr mam_goal_ptr; ///< goal pointer
+    typedef MakeAMoveANFeedback     mam_feedback; ///< progress feedback
+    typedef MakeAMoveANResult       mam_result;   ///< action results
+
     /*!
      * \brief Initialization constructor.
      *
      * \param name    Action server name.
      * \param chess   Node-specific class instance.
      */
-    ASGetEnginesMove(std::string name,
-                     ChessServer &chess) :
-      chess_(chess),
-      as_(chess.getNodeHandle(),    // node handle
-          name,                     // action name
-          boost::bind(&ASGetEnginesMove::execute_cb, this, _1),
-                                    // execute callback
-          false),                   // don't auto-start
-      action_name_(name)
-    {
-      // 
-      // Optionally register the goal and feeback callbacks
-      //
-      as_.registerPreemptCallback(
-                            boost::bind(&ASGetEnginesMove::preempt_cb, this));
-
-      // start the action server
-      start();
-    }
+    ASMakeAMoveAN(std::string name, ChessServer &chessServer);
 
     /*!
      * \brief Destructor.
      */
-    virtual ~ASGetEnginesMove()
+    virtual ~ASMakeAMoveAN()
     {
     }
 
@@ -127,7 +122,7 @@ namespace chess_engine
      * The callback is executed in a separate ROS-created thread so that it
      * can block.Typically, the callback is invoked within a ROS spin.
      */
-    void execute_cb(const chess_server::GetEnginesMoveGoalConstPtr &goal);
+    void cbExecute(const mam_goal_ptr &goal);
 
     /*!
      * \brief ROS callback to preempt action.
@@ -135,17 +130,24 @@ namespace chess_engine
      * This is only needed if actions are required outside of the blocking
      * execution callback thread.
      */
-    void preempt_cb();
+    void cbPreempt();
 
   protected:
-    std::string action_name_;                         ///< action name
-    actionlib::SimpleActionServer<chess_server::GetEnginesMoveAction> as_;
-                                                      ///< action simple server
-    ChessServer &chess_;                              ///< chess server instance
-    chess_server::GetEnginesMoveFeedback feedback_;   ///< progress feedback
-    chess_server::GetEnginesMoveResult   result_;     ///< action results
+    ros::NodeHandle   nh_;        ///< keep first (ROS magic)
+
+    std::string   action_name_;   ///< action name
+    action_server as_;            ///< action server
+    mam_feedback  feedback_;      ///< progress feedback
+    mam_result    result_;        ///< action results
+
+    ChessServer   &chess_server_; ///< chess server reference
   };
 
-} // namespace chess_engine
+  //class ASMakeAMove
+  //{
+  // ..
+  //}
 
-#endif // _CHESS_AS_GET_ENGINES_MOVE_H
+} // namespace chess_server
+
+#endif // _CHESS_AS_MAM_H

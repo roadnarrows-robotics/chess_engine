@@ -6,7 +6,7 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_as_auto_play.cpp
+// File:      chess_as_autoplay.cpp
 //
 /*! \file
  *
@@ -65,117 +65,116 @@ stributions
 #include "actionlib/server/simple_action_server.h"
 
 #include "chess_server/ChessMove.h"
+#include "chess_server/AutoPlayAction.h"
 
 #include "chess_engine/ceTypes.h"
-#include "chess_engine/ceMove.h"
 #include "chess_engine/ceError.h"
 
-#include "chess_as_auto_play.h"
+#include "chess_as_autoplay.h"
 #include "chess_server.h"
 
 using namespace std;
 using namespace chess_server;
 
-/*!
- * \brief Helpful typedefs
- */
-typedef chess_engine::ChessColor              chess_color;
-typedef chess_engine::ChessColor              chess_player;
-typedef chess_engine::ChessMove               chess_move;
 
 ASAutoPlay::ASAutoPlay(std::string name, ChessServer &chessServer) :
-      action_name_(name),
-      as_(nh_,
-          name,                     // action name
-          boost::bind(&ASAutoPlay::cbExecute, this, _1),
-                                    // execute callback
-          false),                   // don't auto-start
-      chess_server_(chessServer)
+    action_name_(name),
+    as_(nh_,
+        name,                                           // action name
+        boost::bind(&ASAutoPlay::cbExecute, this, _1),  // execute callback
+        false),                                         // don't auto-start
+    chess_server_(chessServer)
 {
-  // register action preempt callback
-  as_.registerPreemptCallback( boost::bind(&ASAutoPlay::cbPreempt, this));
+  // register action preempt callback (not needed)
+  //as_.registerPreemptCallback( boost::bind(&ASAutoPlay::cbPreempt, this));
 }
 
 void ASAutoPlay::cbExecute(const chess_server::AutoPlayGoalConstPtr &goal)
 {
-  int    numMoves;
-  double    hz;
-  int    n;
-  chess_move      move;
-  bool      success;
-  int       rc;
+  int         nNumPlies;
+  double      fDelay;
+  double      hz;
+  int         nPlyNumBegin;
+  int         nPlyCnt;
+  int         n;
+  int         rc;
+  bool        bSuccess;
 
   ROS_INFO("%s: Execute.", action_name_.c_str());
 
-  numMoves  = (int)goal->num_moves;
-  hz        = (double)goal->hz;
-  n         = 0;
-  success   = true;
-  rc        = chess_engine::CE_OK;
+  nNumPlies = (int)goal->num_plies;
+  fDelay    = (double)goal->delay;
+  nNumPlies = (int)goal->num_plies;
+
+  hz = fDelay > 0.0? 2.0/fDelay: 50.0;  // twice the move frequency
+  if( hz > 50.0 )                       // but cap
+  {
+    hz = 50.0;
+  }
+
+  nPlyNumBegin  = chess_server_.getNumOfPliesPlayed();
+  nPlyCnt       = 0;
 
   ros::Rate r(hz);
 
-  //while( chess_server_.getGame().isPlaying() && ((numMoves == 0) || (n < numMoves)) )
-  while( true )
+  //
+  // Start autoply
+  //
+  rc = chess_server_.beginAutoPlay(nNumPlies, fDelay);
+
+  bSuccess = rc == chess_engine::CE_OK? true: false;
+
+  if( !bSuccess )
+  {
+    result_.rc = rc;
+    as_.setAborted(result_); // abort action on error
+
+    ROS_ERROR("%s: Begin autoplay failed: %s(%d).",
+        action_name_.c_str(), chess_engine::strecode(rc).c_str(), rc);
+  }
+
+  while( bSuccess && chess_server_.isInAutoPlay() )
   {
     //
     // Action was preempted.
     //
     if( as_.isPreemptRequested() || !ros::ok() )
     {
-      ROS_INFO("%s: Execution preempted", action_name_.c_str());
-      result_.rc = rc;
+      chess_server_.endAutoPlay("Action preempted");
+
+      result_.rc = -chess_engine::CE_ECODE_INTR;
       as_.setPreempted(result_); // set the action state to preempted
-      success = false;
+      bSuccess = false;
+
+      ROS_INFO("%s: Execution preempted.", action_name_.c_str());
       break;
     }
 
-    // engine make move and update game state
-    //rc = chess_server_.getEngine().getEnginesMove(move, true);
-    //rc = chess_server_.getGame().sync(move);
+    n = nPlyNumBegin - chess_server_.getNumOfPliesPlayed();
 
-    ROS_DEBUG_STREAM(action_name_ << ": " << move << endl);
-
-    //
-    // Action resulted in an error.
-    //
-    if( rc != chess_engine::CE_OK )
+    if( n > nPlyCnt )
     {
-      ROS_INFO("%s: Execution error: %s(%d)",
-        action_name_.c_str(), chess_engine::strecode(rc).c_str(), rc);
-      result_.rc = rc;
-      as_.setAborted(result_); // abort action on error
-      success = false;
-      break;
-    }
-
-    //
-    // Move succeeded.
-    //
-    else
-    {
-      // convert move to result.
-      //chess_server_.toMsgMove(move, feedback_.move);
-
-      // publish feedback
+      feedback_.ply_cnt = nPlyCnt;
       as_.publishFeedback(feedback_);
-
-      // advance number of moves only after black's move
-      if( move.m_ePlayer == chess_engine::Black )
-      {
-        ++n;
-      }
     }
 
     r.sleep();
   }
 
-  if( success )
+  if( bSuccess )
   {
-    // result_.sequence = feedback_.sequence;
-    ROS_INFO("%s: Exectution succeeded", action_name_.c_str());
-    result_.rc = chess_engine::CE_OK;
-    as_.setSucceeded(result_); // set the action state to succeeded
+    result_.rc = chess_server_.getAutoPlayReasonCode();
+
+    if( result_.rc == chess_engine::CE_OK )
+    {
+      as_.setSucceeded(result_); // set the action state to succeeded
+      ROS_INFO("%s: Execution succeeded", action_name_.c_str());
+    }
+    else
+    {
+      as_.setAborted(result_); // abort action on error
+      ROS_INFO("%s: Execution failed", action_name_.c_str());
+    }
   }
 }
 

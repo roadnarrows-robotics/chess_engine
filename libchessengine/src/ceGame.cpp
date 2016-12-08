@@ -486,14 +486,26 @@ void ChessGame::getPlayerNames(std::string &strWhite,
   strBlack = m_playerName.find(Black)->second;
 }
 
-int ChessGame::getNumOfMoves() const
-{
-  return ((int)m_history.size() + 1) / 2;
-}
-
-int ChessGame::getNumOfPlies() const
+int ChessGame::getNumOfPliesPlayed() const
 {
   return (int)m_history.size();
+}
+
+int ChessGame::getNumOfMovesPlayed() const
+{
+  return getNumOfPliesPlayed() / 2;
+}
+
+int ChessGame::getMoveNumInPlay() const
+{
+  if( isPlayingAGame() )
+  {
+    return getNumOfMovesPlayed() + 1;
+  }
+  else
+  {
+    return 0;
+  }
 }
 
 ChessSquare &ChessGame::getBoardSquare(const int file, const int rank)
@@ -556,7 +568,8 @@ ostream &chess_engine::operator<<(ostream &os, const ChessGame &game)
 {
   os << "White: " << game.m_playerName.find(White)->second << endl;
   os << "Black: " << game.m_playerName.find(Black)->second << endl;
-  os << game.getNumOfMoves() << ".  " << nameOfColor(game.m_eTurnToMove);
+  os << game.getNumOfMovesPlayed() << ".  " << nameOfColor(game.m_eTurnToMove);
+  os << endl;
   os << game.m_board;
 
   return os;

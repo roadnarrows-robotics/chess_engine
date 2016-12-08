@@ -331,7 +331,7 @@ ChessEngine::ChessEngine(string strEngineName) :
   m_bIsBusy     = false;
   m_fDifficulty = 1.0; 
   m_eColorTurn  = NoColor;
-  m_nNumMoves   = 0;
+  m_nMoveNum    = 0;
   m_eEoGReason  = NoGame;
   m_eWinner     = NoColor;
 }
@@ -363,7 +363,7 @@ int ChessEngine::startNewGame()
   {
     m_bIsPlaying  = true;
     m_eColorTurn  = White;
-    m_nNumMoves   = 0;
+    m_nMoveNum    = 0;
     m_eEoGReason  = Ok;
     m_eWinner     = NoColor;
 
@@ -391,19 +391,23 @@ int ChessEngine::resign(const ChessColor ePlayer)
   return endCurrentGame(Resign, opponent(ePlayer));
 }
 
-ChessColor ChessEngine::alternateTurns(const ChessColor ePlayerLast)
+ChessColor ChessEngine::alternateTurns(const ChessColor ePlayerThatMoved)
 {
   if( isPlayingAGame() )
   {
-    if( ePlayerLast == White )
+    if( ePlayerThatMoved == White )
     {
       m_eColorTurn = Black;
     }
-    else
+    else // Black
     {
       m_eColorTurn = White;
-      ++m_nNumMoves;
+      ++m_nMoveNum;
     }
+  }
+  else
+  {
+    m_eColorTurn = NoColor;
   }
 
   return m_eColorTurn;
@@ -619,7 +623,6 @@ int ChessEngineGnu::startNewGame()
 
 int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
 {
-  int     nNextMoveNum;
   int     rc;
 
   lock();
@@ -632,9 +635,6 @@ int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
   ENGINE_TRY(whoseTurn() == ePlayer, CE_ECODE_CHESS_OUT_OF_TURN,
                                               "Move out-of-turn.");
 
-  // next move number
-  nNextMoveNum = m_nNumMoves + 1;
-
   // clear old parsed variables
   clearParseVars();
 
@@ -644,23 +644,24 @@ int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
   ENGINE_TRY(rc == CE_OK, rc, "Player's move command failed.");
 
   // out-of-sync with chess engine
-  ENGINE_TRY(m_var.m_nMoveNum == nNextMoveNum, CE_ECODE_CHESS_FATAL,
-      "Response: Move %d != expected move %d.", m_var.m_nMoveNum, nNextMoveNum);
+  ENGINE_TRY(m_parsed.m_nMoveNum == m_nMoveNum, CE_ECODE_CHESS_FATAL,
+      "Response: Move %d != expected move %d.",
+      m_parsed.m_nMoveNum, m_nMoveNum);
 
   // the move in, out should match, but try to continue
-  if( m_var.m_strAN != strAN )
+  if( m_parsed.m_strAN != strAN )
   {
     ROS_WARN("Response to move: '%s' != '%s'.",
-        m_var.m_strAN.c_str(), strAN.c_str());
+        m_parsed.m_strAN.c_str(), strAN.c_str());
   }
 
   // get SAN
-  rc = cmdShowGame(nNextMoveNum, ePlayer);
+  rc = cmdShowGame(m_nMoveNum, ePlayer);
 
   ENGINE_TRY(rc == CE_OK, CE_ECODE_CHESS_FATAL, "Show game command failed.");
 
   // copy SAN
-  strAN = m_var.m_strSAN;
+  strAN = m_parsed.m_strSAN;
 
   // alternate turns
   alternateTurns(ePlayer);
@@ -675,7 +676,6 @@ int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
 
 int ChessEngineGnu::computeEnginesMove(ChessColor &eMoveColor, string &strSAN)
 {
-  int     nNextMoveNum;
   int     rc;
 
   lock();
@@ -689,13 +689,10 @@ int ChessEngineGnu::computeEnginesMove(ChessColor &eMoveColor, string &strSAN)
   // engine's color this round
   eMoveColor = whoseTurn();
 
-  // next move number
-  nNextMoveNum = m_nNumMoves + 1;
-
   // tell engine to generate next move, its automatic after a player's move
   if( m_bNeedPrompting )
   {
-    cmdGo( ((nNextMoveNum == 1) && (eMoveColor == White)) );
+    cmdGo( ((m_nMoveNum == 1) && (eMoveColor == White)) );
   }
 
   // clear old parsed variables
@@ -707,16 +704,17 @@ int ChessEngineGnu::computeEnginesMove(ChessColor &eMoveColor, string &strSAN)
   ENGINE_TRY(rc == CE_OK, rc, "Engine's move failed.");
 
   // out-of-sync with chess engine
-  ENGINE_TRY(m_var.m_nMoveNum == nNextMoveNum, CE_ECODE_CHESS_FATAL,
-      "Response: Move %d != expected move %d.", m_var.m_nMoveNum, nNextMoveNum);
+  ENGINE_TRY(m_parsed.m_nMoveNum == m_nMoveNum, CE_ECODE_CHESS_FATAL,
+      "Response: Move %d != expected move %d.",
+      m_parsed.m_nMoveNum, m_nMoveNum);
 
   // get SAN
-  rc = cmdShowGame(nNextMoveNum, eMoveColor);
+  rc = cmdShowGame(m_nMoveNum, eMoveColor);
 
   ENGINE_TRY(rc == CE_OK, CE_ECODE_CHESS_FATAL, "Show game command failed.");
 
   // copy SAN
-  strSAN = m_var.m_strSAN;
+  strSAN = m_parsed.m_strSAN;
 
   // alternate turns
   alternateTurns(eMoveColor);
@@ -781,33 +779,10 @@ int ChessEngineGnu::getCastlingOptions(list_of_castling &availWhite,
 // Extended Interface
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-ChessResult ChessEngineGnu::rcToMoveResult(int rc)
-{
-  if( rc < 0 )
-  {
-    rc = -rc;
-  }
-
-  switch( rc )
-  {
-    case CE_OK:                       // good move
-      return Ok;
-    case CE_ECODE_CHESS_BAD_MOVE:     // invalid move 
-    case CE_ECODE_CHESS_PARSE:
-      return BadMove;
-    case CE_ECODE_CHESS_OUT_OF_TURN:  // player out of turn
-      return OutOfTurn;
-    case CE_ECODE_CHESS_NO_GAME:      // no game in progress
-      return NoGame;
-    default:                          // fatal game errors
-      return GameFatal;
-  }
-}
-
 int ChessEngineGnu::getEnginesEoGDecl(ChessResult &eResult, ChessColor &eWinner)
 {
-  eResult = m_var.m_eEoGResult;
-  eWinner = m_var.m_eEoGWinner;
+  eResult = m_parsed.m_eEoGResult;
+  eWinner = m_parsed.m_eEoGWinner;
 
   return CE_OK;
 }
@@ -1133,8 +1108,8 @@ int ChessEngineGnu::cmdMove(const string &strAN)
 
   if( rspFirstLine(reNumMovePlayer, matches) == 2 )
   {
-    m_var.m_nMoveNum = atoi(matches[0].c_str());
-    m_var.m_strAN    = matches[1];
+    m_parsed.m_nMoveNum = atoi(matches[0].c_str());
+    m_parsed.m_strAN    = matches[1];
     return CE_OK;
   }
   else if( match(m_strLastLine, reInvalidMove, matches) > 0 )
@@ -1148,7 +1123,7 @@ int ChessEngineGnu::cmdMove(const string &strAN)
   }
 }
 
-int ChessEngineGnu::cmdShowGame(int nMove, ChessColor eColor)
+int ChessEngineGnu::cmdShowGame(int nMoveNum, ChessColor eColor)
 {
   static const char *cmd = "show game";
 
@@ -1166,7 +1141,7 @@ int ChessEngineGnu::cmdShowGame(int nMove, ChessColor eColor)
 
   // n. <white>
   // n. <white> <black>
-  for(n = 0; n < nMove; ++n)
+  for(n = 0; n < nMoveNum; ++n)
   {
     if( rspNextLine(reWhiteBlackMove2, matches, false) != 3 )
     {
@@ -1182,20 +1157,20 @@ int ChessEngineGnu::cmdShowGame(int nMove, ChessColor eColor)
 
   n = atoi(matches[0].c_str());
 
-  if( n != nMove )
+  if( n != nMoveNum )
   {
     ROS_ERROR("Response to 'show game': last move %d != expected move %d.",
-        n, m_nNumMoves);
+        n, nMoveNum);
     return -CE_ECODE_CHESS_RSP;
   }
 
   if( eColor == White )
   {
-    m_var.m_strSAN = matches[1];
+    m_parsed.m_strSAN = matches[1];
   }
   else if( matches.size() == 3 )
   {
-    m_var.m_strSAN = matches[2];
+    m_parsed.m_strSAN = matches[2];
   }
   else
   {
@@ -1250,8 +1225,8 @@ int ChessEngineGnu::rspEnginesMove(ChessColor colorMove)
   // n. ... AN
   if( rspFirstLine(reNumMoveEngine, matches, msec) == 2 )
   {
-    m_var.m_nMoveNum = atoi(matches[0].c_str());
-    m_var.m_strAN    = matches[1];
+    m_parsed.m_nMoveNum = atoi(matches[0].c_str());
+    m_parsed.m_strAN    = matches[1];
   }
   else
   {
@@ -1278,23 +1253,23 @@ int ChessEngineGnu::rspEnginesMove(ChessColor colorMove)
   }
   else if( rspNextLine(reResign, matches) == 1 )
   {
-    m_var.m_eEoGResult = Resign;
-    m_var.m_eEoGWinner = opponent(colorMove);;
+    m_parsed.m_eEoGResult = Resign;
+    m_parsed.m_eEoGWinner = opponent(colorMove);;
   }
   else if( rspNextLine(reDraw, matches) == 1 )
   {
-    m_var.m_eEoGResult = Draw;
-    m_var.m_eEoGWinner = NoColor;
+    m_parsed.m_eEoGResult = Draw;
+    m_parsed.m_eEoGWinner = NoColor;
   }
   else if( rspNextLine(reWhiteWins, matches) == 1 )
   {
-    m_var.m_eEoGResult = Checkmate;
-    m_var.m_eEoGWinner = White;
+    m_parsed.m_eEoGResult = Checkmate;
+    m_parsed.m_eEoGWinner = White;
   }
   else if( rspNextLine(reBlackWins, matches) == 1 )
   {
-    m_var.m_eEoGResult = Checkmate;
-    m_var.m_eEoGWinner = Black;
+    m_parsed.m_eEoGResult = Checkmate;
+    m_parsed.m_eEoGWinner = Black;
   }
 
   return CE_OK;
@@ -1386,11 +1361,11 @@ int ChessEngineGnu::match(const string   &str,
 
 void ChessEngineGnu::clearParseVars()
 {
-  m_var.m_nMoveNum = 0;
-  m_var.m_strAN.clear();
-  m_var.m_strSAN.clear();
-  m_var.m_eEoGResult = NoResult;
-  m_var.m_eEoGWinner = NoColor;
+  m_parsed.m_nMoveNum = 0;
+  m_parsed.m_strAN.clear();
+  m_parsed.m_strSAN.clear();
+  m_parsed.m_eEoGResult = NoResult;
+  m_parsed.m_eEoGWinner = NoColor;
 }
 
 void ChessEngineGnu::setupSignals()

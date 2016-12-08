@@ -153,6 +153,15 @@ namespace chess_engine
     return v? "true": "false";
   }
 
+  /*!
+   * \brief Convert function return code to move result enum.
+   *
+   * \param rc    Return code.
+   *
+   * \return Result enum.
+   */
+  ChessResult rcToMoveResult(int rc);
+
 } // namespace chess_engine
 
 

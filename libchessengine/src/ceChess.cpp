@@ -156,7 +156,7 @@ int Chess::makeAMove(const ChessColor ePlayer,
   move.clear();
 
   // Move number. Get this value before making a move.
-  nMoveNum = m_engine.getNumberOfMovesMade() + 1;
+  nMoveNum = m_engine.getMoveNumInPlay();
 
   // Make player's move. On success strSAN is updated.
   rc = m_engine.makePlayersMove(ePlayer, strSAN);
@@ -201,7 +201,7 @@ int Chess::makeAMove(const ChessColor ePlayer,
 
   if( rc != CE_OK )
   {
-    move.m_eResult = m_engine.rcToMoveResult(rc);
+    move.m_eResult = rcToMoveResult(rc);
   }
 
   // Finalize move/game result.
@@ -223,7 +223,7 @@ int Chess::computeEnginesMove(ChessMove &move)
   move.clear();
 
   // Move number. Get this value before making a move.
-  nMoveNum = m_engine.getNumberOfMovesMade() + 1;
+  nMoveNum = m_engine.getMoveNumInPlay();
 
   // Compute engine's move.
   rc = m_engine.computeEnginesMove(eMoveColor, strSAN);
@@ -266,7 +266,7 @@ int Chess::computeEnginesMove(ChessMove &move)
 
   if( rc != CE_OK )
   {
-    move.m_eResult = m_engine.rcToMoveResult(rc);
+    move.m_eResult = rcToMoveResult(rc);
   }
 
   // Finalize move/game result.

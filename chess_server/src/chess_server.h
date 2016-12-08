@@ -84,18 +84,13 @@
 #include "chess_server/GetBoardState.h"
 #include "chess_server/GetPlayHistory.h"
 
-// actions
-#include "chess_server/GetEnginesMoveAction.h"
-#include "chess_server/AutoPlayAction.h"
-
 // chess engine library
 #include "chess_engine/ceChess.h"
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceGame.h"
 
-#include "chess_as_auto_play.h"
-
-#define INC_ACTION_THREAD   ///< include an action thread with this class
+// chess server
+#include "chess_thread.h"
 
 namespace chess_server
 {
@@ -120,13 +115,31 @@ namespace chess_server
     };
 
     /*!
+     * \brief Chess move sequence state.
+     *
+     * \verbatim
+     * [idle] --> [start] --> [result] --> [marked] --+
+     *   ^                                            |
+     *   |                                            |
+     *   +--------------------------------------------+
+     * \endverbatim
+     */
+    enum MoveSeqState
+    {
+      MoveSeqStateIdle = 0, ///< no move in progress
+      MoveSeqStateStart,    ///< move started
+      MoveSeqStateResult,   ///< move result received
+      MoveSeqStateMarked    ///< client marked move sequence as completed
+    };
+
+    /*!
      * \brief Structure to service sequencing state variables.
      */
     struct SvcSeqVars
     {
-      bool                      m_bBusy;             ///< move [not] busy
-      chess_engine::ChessColor  m_ePlayerMakingMove; ///< player making the move
-      int                       m_nPlyNum;           ///< ply number of the move
+      MoveSeqState              m_eMoveSeqState;      ///< move sequence state
+      chess_engine::ChessColor  m_ePlayerMakingMove;  ///< player making move
+      int                       m_nPlyNum;            ///< ply number of move
     };
 
     /*!
@@ -135,32 +148,23 @@ namespace chess_server
     struct AutoPlayVars
     {
       bool            m_bRun;         ///< do [not] run
-      int             m_nNumMoves;    ///< run for max moves, 0 is end of game
-      int             m_nLastMoveNum; ///< last autoplay move number
-      double          m_fDelay;       ///< delay between moves, 0.0 is no delay
+      int             m_nNumPlies;    ///< run for max plies, 0 to end of game
+      int             m_nLastPlyNum;  ///< last autoplay ply number
+      double          m_fDelay;       ///< delay between plies, 0.0 is no delay
       ros::WallTimer  m_timer;        ///< autoplay timer
+      int             m_rcAutoPlay;   ///< autoplay return code
     };
 
-    /*!
-     * \brief Asynchronous task state.
-     */
-    enum ActionState
-    {
-      ActionStateExit     = 0,    ///< exit(ing)
-      ActionStateIdle     = 1,    ///< idle, no actions running
-      ActionStateWorking  = 2     ///< action(s) running
-    };
-
-    /*! map ROS services type */
+    /*! map of ROS services type */
     typedef std::map<std::string, ros::ServiceServer> MapServices;
 
     /*! map of ROS publishers type */
     typedef std::map<std::string, ros::Publisher> MapPublishers;
+   
 
-#ifdef INC_ACTION_THREAD
-    typedef actionlib::SimpleActionServer<chess_server::GetEnginesMoveAction>
-                    GetEnginesMoveAS;
-#endif // INC_ACTION_THREAD
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Constructors, destructor, initialization start-ups.
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     /*!
      * \brief Default constructor.
@@ -177,11 +181,12 @@ namespace chess_server
     /*!
      * \brief Initialize the game of chess.
      *
-     * A connection to the backend chess engine is established.
+     * A connection to the backend chess engine is established and a
+     * chess task thread is created, blocked on the idle state.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    virtual int initializeChess();
+    virtual int initialize();
 
     /*!
      * \brief Advertise chess server ROS services.
@@ -207,16 +212,160 @@ namespace chess_server
     virtual int subscribeToTopics();
 
     /*!
-     * \brief Start action servers.
-     *
-     * \return Number of action servers started.
-     */
-    virtual int startActionServers();
-
-    /*!
      * \brief Publish topics.
      */
     virtual void publish();
+
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Asynchronous Methods
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    /*!
+     * \brief Asynchronously make a chess move.
+     *
+     * \param ePlayer Player making the move.
+     * \param strAN   Move speicfied in Algebraic Notation.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int asyncMakeAMove(const chess_engine::ChessColor ePlayer,
+                       const std::string              &strAN);
+
+    /*!
+     * \brief Asynchronously compute engine's next move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int asyncComputeEnginesMove();
+
+    /*!
+     * \brief Get the last asynchronous move.
+     *
+     * \param [out] move  Fully qualified chess move.
+     *
+     * \return Returns last move results. CE_OK on success, negative error code
+     * on failure.
+     */
+    int asyncGetLastMove(chess_engine::ChessMove &move);
+
+    /*!
+     * \brief Schedule user-defined task to execute by the chess thread.
+     *
+     * This function does not block, but rather schedules the thread to execute
+     * the user-defined task.
+     *
+     * The provided function task() should not return until its tasks are
+     * completed.
+     *
+     * The function task() can be a class member fucntion. For example:
+     * \verbatim
+     *  rc = th.execAction(boost::bind(&MyClass::doit, this));
+     *
+     *  where:
+     *    th   is an instance of ChessThread class,
+     *    doit is a member function of MyClass,
+     *    this is an instance of class MyClass.   
+     * \endverbatim
+     *
+     * \param task  The user-defined function to execute.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int schedUserTask(boost::function<void()> task)
+    {
+      return m_threadTask.schedUserTask(task);
+    }
+
+    /*!
+     * \brief Begin autoplay move sequence.
+     *
+     * \param nNumMoves Max number of auto-moves to make (0 == end of game).
+     * \param fDelay    Delay in seconds between move plies (0.0 = no delay).
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int beginAutoPlay(int nNumPlies, double fDelay);
+
+    /*!
+     * \brief Test if autoplay is running.
+     *
+     * \return Returns true or false.
+     */
+    bool isInAutoPlay();
+
+    /*!
+     * \brief End autoplay.
+     *
+     * \param strReason   Reason why autoplay terminated (for logging).
+     * \param nReasonCode Termination reason code (\ref see ce_ecodes).
+     */
+    void endAutoPlay(const std::string &strReason  = "done",
+                     const int         nReasonCode = chess_engine::CE_OK);
+
+    /*!
+     * \brief Get autoplay termination reason code.
+     *
+     * \return Termination reason code (\ref see ce_ecodes).
+     */
+    int getAutoPlayReasonCode();
+
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Attribute Methods
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    /*!
+     * \brief Test if a game is currently being played.
+     *
+     * \return Returns true or false.
+     */
+    bool isPlayingAGame() const
+    {
+      return m_chess.isPlayingAGame();
+    }
+
+    /*!
+     * \brief Get whose turn is it to move.
+     *
+     * \return Player's color
+     */
+    virtual chess_engine::ChessColor whoseTurn() const
+    {
+      return m_chess.whoseTurn();
+    }
+
+    /*!
+     * \brief Test if a move is in progress.
+     *
+     * \return Returns true or false.
+     */
+    bool isMoveInProgress()
+    {
+      return isMoveSvcSeqBusy() || m_threadTask.isBusy();
+    }
+
+    /*!
+     * \brief Get the number of plies (half-moves) played.
+     *
+     * \return Number of plies.
+     */
+    int getNumOfPliesPlayed() const
+    {
+      return m_chess.getNumOfPliesPlayed();
+    }
+
+    /*!
+     * \brief Get the number of completed moves played.
+     *
+     * One completed move is White then Black, with White always starting.
+     *
+     * \return Number of moves.
+     */
+    int getNumOfMovesPlayed() const
+    {
+      return m_chess.getNumOfMovesPlayed();
+    }
 
     /*!
      * \brief Get ROS node handle.
@@ -228,27 +377,6 @@ namespace chess_server
       return m_nh;
     }
 
-#ifdef INC_ACTION_THREAD
-    /*!
-     * \brief Start execution a (component) an action server's action in the
-     * action thread.
-     *
-     * This function does not block.
-     *
-     * \param execAction  Function to execute. Should not return until its
-     *                    action is finished. The function can be a class
-     *                    member fucntion. For example:\n
-     *                    rc = x.execAction(boost::bind(&AS::thExec, this));\n
-     *                    where:\n
-     *                    x is an instance of this class and this is an instance
-     *                    of class AS.   
-     *
-     * \return
-     * Returns CE_OK of success, \<0 on failure.
-     */
-     int execAction( boost::function<void()> execAction);
-#endif // INC_ACTION_THREAD
-
   protected:
     ros::NodeHandle  &m_nh;         ///< the node handler bound to this instance
 
@@ -259,20 +387,13 @@ namespace chess_server
     MapServices   m_services;       ///< chess_server services
     MapPublishers m_publishers;     ///< chess_server publishers
 
-    ASAutoPlay    m_asAutoPlay;
-
     PubVars       m_pub;            ///< publish state 
     SvcSeqVars    m_svcseq;         ///< service sequencing
     AutoPlayVars  m_autoplay;       ///< autoplay state
 
-    // action thread control
-#ifdef INC_ACTION_THREAD
-    ActionState             m_eActionState; ///< action task state
-    boost::function<void()> m_execAction;   ///< function to execute
-    pthread_mutex_t         m_mutexAction;  ///< mutex
-    pthread_cond_t          m_condAction;   ///< condition
-    pthread_t               m_threadAction; ///< action pthread identifier 
-#endif // INC_ACTION_THREAD
+    // working threads
+    ChessThread   m_threadTask;     ///< chess asynchronous task thread 
+
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     // Service callbacks
@@ -426,60 +547,58 @@ namespace chess_server
 
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    // Service Sequencing State
+    // Service Sequencing States
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     /*!
-     * \brief Initialize service sequencing state variables.
+     * \brief Initialize all service sequencing state variables.
      */
     void initSvcSeq();
 
     /*!
      * \brief Begin move service sequence.
      *
-     * \param ePlayer Player make the move.
+     * A move service sequence is:
+     *  - MakeAMove(AN) or ComputeEnginesMove
+     *  - MoveCompleted 
+     *
+     * \param ePlayer Player making the move.
      */
     void beginMoveSvcSeq(const chess_engine::ChessColor ePlayer);
 
     /*!
-     * \brief End move service sequence.
+     * \brief Mark move service sequence state.
+     *
+     * \param eState  New move servce sequence state.
      */
-    void endMoveSvcSeq();
+    void markMoveSvcSeq(const MoveSeqState eState);
 
     /*!
-     * \brief Test if move sequence is busy.
+     * \brief End move service sequence.
      *
-     * \return Return true or false.
+     * \param bAbort  Do [not] force abort of current move sequence.
      */
-    bool isMoveSvcBusy()
+    void endMoveSvcSeq(bool bAbort = false);
+
+    /*!
+     * \brief Test if move sequence is in progress.
+     *
+     * \return Returns true or false.
+     */
+    bool isMoveSvcSeqBusy()
     {
-      return m_svcseq.m_bBusy;
+      return m_svcseq.m_eMoveSeqState != MoveSeqStateIdle;
     }
 
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    // Autoplay
+    // Autoplay Support
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     /*!
      * \brief Initialize autoplay state variables.
      */
     void initAutoPlay();
-
-    /*!
-     * \brief Begin autoplay move sequence.
-     *
-     * \param nNumMoves Max number of auto-moves to make (0 == end of game).
-     * \param fDelay    Delay in seconds between move plies (0.0 = no delay).
-     */
-    void beginAutoPlay(int nNumMoves, double fDelay);
-
-    /*!
-     * \brief End autoplay.
-     *
-     * \param strReason   Reasone why autoplay terminated (for logging).
-     */
-    void endAutoPlay(const std::string &strReason);
 
     /*!
      * \brief Execute autoplay move.
@@ -495,60 +614,38 @@ namespace chess_server
 
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    // Action (and service) thread
+    // Move Execution Methods
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-#ifdef INC_ACTION_THREAD
-    int createActionThread();
-
-    void destroyActionThread();
 
     /*!
-     * \brief Lock the action thread.
+     * \brief Execute a chess move.
      *
-     * The calling thread will block while waiting for the mutex to become 
-     * available. Once locked, the action thread will block.
+     * \param strEvent        The move event name or description (for logging).
+     * \param [in,out] move   On input, the move contains sufficient information
+     *                        to make a chess move. If synchronous, move is
+     *                        fully qualified.
+     * \param bSynchronous    The move is [not] synchronous.
      *
-     * The lock()/unlock() primitives provide a safe mechanism to modify state. 
-     *
-     * \par Context:
-     * Any.
+     * \return Returns CE_OK on success, negative error code on failure.
      */
-    void lock()
-    {
-      pthread_mutex_lock(&m_mutexAction);
-    }
+    int makeAMove(const std::string       &strEvent,
+                  chess_engine::ChessMove &move,
+                  bool                    bSynchronous = true);
 
     /*!
-     * \brief Unlock the action thread.
+     * \brief Compute engines move.
      *
-     * The action thread will be available to run.
+     * \param strEvent        The move event name or description (for logging).
+     * \param [in,out] move   On input, the move contains sufficient information
+     *                        to compute a chess move. If synchronous, move is
+     *                        fully qualified.
+     * \param bSynchronous    The move is [not] synchronous.
      *
-     * \par Context:
-     * Any.
+     * \return Returns CE_OK on success, negative error code on failure.
      */
-    void unlock()
-    {
-      pthread_mutex_unlock(&m_mutexAction);
-    }
-    
-    /*!
-     * \brief Signal action thread of change of state.
-     *
-     * \par Context:
-     * Calling thread or background thread.
-     */
-    void signalActionThread();
-
-    /*!
-     * \brief Wait indefinitely in idle state.
-     *
-     * \par Context:
-     * Calling thread or background thread.
-     */
-    void idleWait();
-    
-    static void *actionThread(void *pArg);
-#endif // INC_ACTION_THREAD
+    int computeEnginesMove(const std::string       &strEvent,
+                           chess_engine::ChessMove &move,
+                           bool                    bSynchronous = true);
   };
 
 } // namespace chess_server

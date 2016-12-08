@@ -1,0 +1,11 @@
+### Compute the backend chess engine's move action server.
+
+# Goal
+ChessColor  player # requesting player: white or black
+string      AN     # algebraic notation string
+---
+# Result
+ChessMove move    # engine's fully qualified move
+---
+# Feedback
+uint16  thinking  # engine progress "thinking" in ticks

@@ -64,6 +64,7 @@
 #include "boost/assign.hpp"
 
 #include "chess_engine/ceTypes.h"
+#include "chess_engine/ceError.h"
 #include "chess_engine/ceUtils.h"
 
 using namespace std;
@@ -217,6 +218,35 @@ namespace chess_engine
     name_iter iter = NameAlgebra.find(algebra);
 
     return iter != NameAlgebra.end()? iter->second: NameAlgebra.at(UnknownAN);
+  }
+
+  ChessResult rcToMoveResult(int rc)
+  {
+    if( rc < 0 )
+    {
+      rc = -rc;
+    }
+
+    switch( rc )
+    {
+      case CE_OK:                       // good move
+        return Ok;
+      case CE_ECODE_CHESS_BAD_MOVE:     // invalid move 
+      case CE_ECODE_CHESS_PARSE:
+        return BadMove;
+      case CE_ECODE_CHESS_OUT_OF_TURN:  // player out of turn
+        return OutOfTurn;
+      case CE_ECODE_BUSY:               // move already in progress
+        return Busy;
+      case CE_ECODE_CHESS_NO_GAME:      // no game in progress
+        return NoGame;
+      case CE_ECODE_NO_EXEC:
+      case CE_ECODE_TIMEDOUT:
+      case CE_ECODE_INTR:
+        return NoResult;
+      default:                          // fatal game errors
+        return GameFatal;
+    }
   }
 
 } // namespace chess_engine

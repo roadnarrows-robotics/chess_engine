@@ -52,7 +52,8 @@ add_action_files(
   DIRECTORY action 
   FILES 
     AutoPlay.action
-    GetEnginesMove.action
+    ComputeEnginesMove.action
+    MakeAMoveAN.action
 )
 
 ## Generate added messages/services/actions with any dependencies listed here
@@ -74,11 +75,13 @@ include_directories(
 )
 
 add_executable(chess_server
-  src/chess_as_auto_play.cpp
-  #src/chess_as_get_engines_move.cpp
-  src/chess_server_main.cpp
-  #src/chess_engine_gnu.cpp
+  src/chess_as_autoplay.cpp
+  src/chess_as_cem.cpp
+  src/chess_as_mam.cpp
+  src/chess_as.cpp
   src/chess_server.cpp
+  src/chess_thread.cpp
+  src/chess_server_main.cpp
 )
 
 target_link_libraries(

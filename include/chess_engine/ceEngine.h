@@ -230,13 +230,13 @@ namespace chess_engine
     }
 
     /*!
-     * \bried Get the number of moves made.
+     * \brief Get the current move number in play.
      *
-     * \return Number.
+     * \return If a game is in play, returns move number \> 0. Else returns 0.
      */
-    virtual int getNumberOfMovesMade()
+    virtual int getMoveNumInPlay() const
     {
-      return m_nNumMoves;
+      return m_nMoveNum;
     }
 
     /*!
@@ -277,18 +277,18 @@ namespace chess_engine
     bool          m_bIsBusy;          ///< backend engine is [not] busy
     float         m_fDifficulty;      ///< game engine difficulty [1,10]
     ChessColor    m_eColorTurn;       ///< color to play
-    int           m_nNumMoves;        ///< number of moves made (2 plies/move)
+    int           m_nMoveNum;         ///< move number currently in play
     ChessResult   m_eEoGReason;       ///< reason for ending game
     ChessColor    m_eWinner;          ///< winner, if any
 
     /*!
      * \brief Alternate player turns.
      *
-     * \param ePlayerLast   Last player to make a move.
+     * \param ePlayerThatMoved  Player that made the move.
      *
      * \return Next player to move.
      */
-    ChessColor alternateTurns(const ChessColor ePlayerLast);
+    ChessColor alternateTurns(const ChessColor ePlayerThatMoved);
   };
 
 
@@ -309,7 +309,7 @@ namespace chess_engine
     /*!
      * \brief Structure to hold intermediate parsed backend engine values.
      */
-    struct BeVars
+    struct BeParsedVars
     {
       int         m_nMoveNum;     ///< read new move number
       std::string m_strAN;        ///< read parsed AN
@@ -408,15 +408,6 @@ namespace chess_engine
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     // Extended Interface
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-    /*!
-     * \brief Convert function return code to move result enum.
-     *
-     * \param rc    Return code.
-     *
-     * \return Result enum.
-     */
-    ChessResult rcToMoveResult(int rc);
 
     /*!
      * \brief Get any end of game declaration by engine.
@@ -526,8 +517,8 @@ namespace chess_engine
 
     // working parsed and derived variables read from backend input
 
-    std::string m_strLastLine;      ///< last unmatched line read from engine
-    BeVars      m_var;              ///< last parsed values
+    std::string   m_strLastLine;    ///< last unmatched line read from engine
+    BeParsedVars  m_parsed;         ///< last parsed values
 
     /*!
      * \brief Test what version of gnuchess is running.
@@ -698,12 +689,12 @@ namespace chess_engine
      * Response:  multi-line game history.
      * Variables: m_var.m_strSAN
      *
-     * \param nMove   Move number to search for.
-     * \param eColor  Color of move to search for.
+     * \param nMoveNum  Move number to search for.
+     * \param eColor    Color of move to search for.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    virtual int cmdShowGame(int nMove, ChessColor color);
+    virtual int cmdShowGame(int nMoveNum, ChessColor color);
 
     /*!
      * \brief Show the game board state.

@@ -8,6 +8,8 @@
 ---
 string        white_name  # white player's name
 string        black_name  # black player's name
+ChessColor    whose_turn  # whose turn to move, if any [White, Black, NoColor]
 uint16        num_moves   # number of moves already played
-ChessColor    game_winner # who won, if any winner
-ChessResult   play_state  # play state code (InPlay == game in progress)
+ChessColor    game_winner # who won, if any winner [White, Black, NoColor]
+ChessResult   play_state  # play state code [NoGame, InPlay, Checkmate, Draw,
+                          #                  Resign, Disqualified, GameFatal]

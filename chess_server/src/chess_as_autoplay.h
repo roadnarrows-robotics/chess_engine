@@ -6,7 +6,7 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_as_auto_play.h
+// File:      chess_as_autoplay.h
 //
 /*! \file
  *
@@ -53,8 +53,8 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _CHESS_AS_AUTO_PLAY_H
-#define _CHESS_AS_AUTO_PLAY_H
+#ifndef _CHESS_AS_AUTOPLAY_H
+#define _CHESS_AS_AUTOPLAY_H
 
 #include <unistd.h>
 
@@ -66,7 +66,6 @@
 
 #include "actionlib/server/simple_action_server.h"
 
-#include "chess_server/ChessMove.h"
 #include "chess_server/AutoPlayAction.h"
 
 namespace chess_server
@@ -77,11 +76,13 @@ namespace chess_server
   class ChessServer;
 
   /*!
-   * \brief Get chess engine's next move action server class.
+   * \brief AutoPlay action server class.
    */
   class ASAutoPlay
   {
-    // de-uglify typedef
+    //
+    // Useful de-uglified types
+    //
     typedef actionlib::SimpleActionServer<AutoPlayAction> action_server;
 
   public:
@@ -137,4 +138,4 @@ namespace chess_server
 
 } // namespace chess_server
 
-#endif // _CHESS_AS_AUTO_PLAY_H
+#endif // _CHESS_AS_AUTOPLAY_H

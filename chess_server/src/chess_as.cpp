@@ -6,16 +6,16 @@
 //
 // ROS Node:  chess_server
 //
-// File:      chess_as_get_engines_move.cpp
+// File:      chess_as.cpp
 //
 /*! \file
  *
- * \brief Get the chess engine's next move action server class implementation.
+ * \brief The ROS chess_server action servers container implementation.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2014-2016  RoadNarrows
+ * (C) 2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -53,84 +53,75 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <stdlib.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <sstream>
+#include <string>
+#include <map>
 
 #include <boost/bind.hpp>
 
 #include "ros/ros.h"
 
-#include "std_msgs/String.h"
+// chess engine library
+#include "chess_engine/ceTypes.h"
 
-#include "actionlib/server/simple_action_server.h"
-
-#include "chess_server/ChessMove.h"
-#include "chess_server/GetEnginesMove.h"
-
-#include "chess_engine/ceMove.h"
-#include "chess_engine/ceError.h"
-
-#include "chess_as_get_engines_move.h"
+// chess_server
+#include "chess_server.h"
+#include "chess_as.h"
+#include "chess_as_autoplay.h"
+#include "chess_as_cem.h"
+#include "chess_as_mam.h"
 
 using namespace std;
-using namespace chess_engine;
+using namespace chess_server;
+
+/*!
+ * \brief Registered action server names.
+ */
+static const string AsNameAutoPlay("auto_play_action");
+static const string AsNameComputeEnginesMove("compute_engines_move_action");
+static const string AsNameMakeAMoveAN("make_a_move_an_action");
+
+/*
+ * \brief Helpful values.
+ */
+static const int CS_OK = chess_engine::CE_OK; ///< a okay
 
 
-void ASGetEnginesMove::execute_cb(
-                          const chess_server::GetEnginesMoveGoalConstPtr &goal)
+//------------------------------------------------------------------------------
+// ChessActionServers Class
+//------------------------------------------------------------------------------
+
+ChessActionServers::ChessActionServers(ChessServer &chess_server) :
+  m_asAutoPlay(AsNameAutoPlay, chess_server),
+  m_asComputeEnginesMove(AsNameComputeEnginesMove, chess_server),
+  m_asMakeAMoveAN(AsNameMakeAMoveAN, chess_server)
 {
-  Move      move;
-  int       rc;
-
-  ROS_INFO("%s: Execute.", action_name_.c_str());
-
-  //
-  // Get engine's move. This can take up to 30 seconds, depending on the
-  // difficulty setting. To provide real feedaback, need a callback from the
-  // engine. May not be needed.
-  //
-  rc = chess_.getEngine().getEnginesMove(move);
-
-  ROS_DEBUG_STREAM(action_name_ << ": " << move << endl);
-
-  //
-  // Convert move to result.
-  //
-  chess_.toMsgMove(move, result_.move);
-
-  //
-  // Action was preempted.
-  //
-  if( as_.isPreemptRequested() || !ros::ok() )
-  {
-    ROS_INFO("%s: Execution preempted", action_name_.c_str());
-    as_.setPreempted(result_); // set the action state to preempted
-  }
-
-  //
-  // Action resulted in an error.
-  //
-  else if( rc != CE_OK )
-  {
-    ROS_INFO("%s: Execution error: %s(%d)",
-        action_name_.c_str(), strerror(rc).c_str(), rc);
-    as_.setAborted(result_); // abort action on error
-  }
-
-  //
-  // Success.
-  //
-  else
-  {
-    //result_.sequence = feedback_.sequence;
-    ROS_INFO("%s: Exectution succeeded", action_name_.c_str());
-    as_.setSucceeded(result_); // set the action state to succeeded
-  }
 }
 
-void ASGetEnginesMove::preempt_cb()
+ChessActionServers::~ChessActionServers()
 {
-  ROS_INFO("%s: Preempt.", action_name_.c_str());
-  chess_.getEngine().abortRead();
-  as_.setPreempted();
-  //as_.acceptNewGoal();  // does return from execution autoset this state?
+}
+
+int ChessActionServers::start()
+{
+  int   cnt = 0;
+
+  m_asAutoPlay.start();
+
+  ++cnt;
+
+  m_asComputeEnginesMove.start();
+
+  ++cnt;
+
+  m_asMakeAMoveAN.start();
+
+  ++cnt;
+
+  return cnt;
 }

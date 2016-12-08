@@ -1,9 +1,0 @@
-### Get backend chess engine's move action server.
-
-# Goal
----
-# Result
-ChessMove move    # engine's fully quantified move
----
-# Feedback
-uint16  thinking  # engine progress "thinking" in ticks

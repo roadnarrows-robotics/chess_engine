@@ -90,6 +90,7 @@
 #include "chess_engine/ceRosMsgs.h"
 
 // chess_server
+#include "chess_thread.h"
 #include "chess_server.h"
 
 
@@ -119,12 +120,6 @@ static const string PubNameMoveStatus("move_status");
 static const string PubNameEndOfGameStatus("end_of_game_status");
 
 /*!
- * \brief Registered action server names.
- */
-static const string AsNameAutoPlay("auto_play_action");
-static const string AsNameComputeEnginesMove("compute_engines_move_action");
-
-/*!
  * \brief Helpful typedefs
  */
 typedef chess_engine::ChessFile               chess_file;
@@ -150,30 +145,28 @@ static const int CS_OK = chess_engine::CE_OK; ///< a okay
 //------------------------------------------------------------------------------
 
 ChessServer::ChessServer(ros::NodeHandle &nh) :
-  m_nh(nh),
-  m_asAutoPlay(AsNameAutoPlay, *this)
+    m_nh(nh),
+    m_threadTask(m_chess)
 {
   initPubVars();
 
   initSvcSeq();
 
   initAutoPlay();
-
-#ifdef INC_ACTION_THREAD
-  createActionThread();
-#endif // INC_ACTION_THREAD
 }
 
 ChessServer::~ChessServer()
 {
-#ifdef INC_ACTION_THREAD
-  destroyActionThread();
-#endif // INC_ACTION_THREAD
 }
 
-int ChessServer::initializeChess()
+int ChessServer::initialize()
 {
-  return m_chess.initialize();
+  int   rc;
+
+  if( (rc =  m_chess.initialize()) == CS_OK )
+  {
+    rc = m_threadTask.createThread();
+  }
 }
 
 
@@ -263,7 +256,9 @@ bool ChessServer::startNewGame(StartNewGame::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameStartNewGame);
 
-  endAutoPlay("new game started");
+  endAutoPlay("New game started", -chess_engine::CE_ECODE_INTR);
+
+  endMoveSvcSeq(true);
 
   rc = m_chess.startNewGame(req.white_name, req.black_name);
 
@@ -300,52 +295,32 @@ bool ChessServer::makeAMoveAN(MakeAMoveAN::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameMakeAMoveAN);
 
-  endAutoPlay("chess move requested");
-
+  //
+  // Pull out fields from request.
+  //
   ePlayer = chess_engine::tr(req.player);
 
-  // test if busy with previous move
-  if( isMoveSvcBusy() )
-  {
-    move.m_ePlayer = ePlayer;
-    move.m_eResult = chess_engine::Busy;
+  //
+  // Fill move with known information.
+  //
+  move.m_ePlayer  = ePlayer;
+  move.m_strSAN   = req.AN;
 
-    rc = -chess_engine::CE_ECODE_BUSY;
-  }
+  //
+  // Make a synchronous chess move.
+  //
+  rc = makeAMove(SvcNameMakeAMoveAN, move, true);
 
-  // make the logical move
-  else
-  {
-    rc = m_chess.makeAMove(ePlayer, req.AN, move);
-  }
-
-  if( rc == CS_OK )
-  {
-    ROS_INFO_STREAM(SvcNameMakeAMoveAN << ": "
-        << move.m_nMoveNum << ". "
-        << nameOfColor(move.m_ePlayer) << " "
-        << move.m_strSAN << ".");
-
-    beginMoveSvcSeq(ePlayer);
-
-    if( !m_chess.isPlayingAGame() )
-    {
-      m_pub.m_bPubEndOfGame = true;
-
-      endMoveSvcSeq();
-    }
-  }
-  else
-  {
-    ROS_ERROR_STREAM(SvcNameMakeAMoveAN << ": "
-        << nameOfColor(ePlayer) << " "
-        << req.AN << ": "
-        << chess_engine::strecode(rc) << "(" << rc << ")");
-  }
-
+  //
+  // Copy move to response.
+  //
   chess_engine::copyMoveToMsg(move, rsp.move);
 
-  return true;  // has valid response regardless of success or failure
+  //
+  // Return true since response message is valid. The move constains the
+  // (error) result code.
+  //
+  return true;
 }
 
 bool ChessServer::makeAMove(MakeAMove::Request  &req,
@@ -360,8 +335,9 @@ bool ChessServer::makeAMove(MakeAMove::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameMakeAMove);
 
-  endAutoPlay("chess move requested");
-
+  //
+  // Pull out fields from request.
+  //
   ePlayer = chess_engine::tr(req.player);
 
   chess_engine::copyMsgToPos(req.src, posSrc);
@@ -369,51 +345,29 @@ bool ChessServer::makeAMove(MakeAMove::Request  &req,
 
   ePiecePromoted = chess_engine::tr(req.promoted);
 
-  // test if busy with previous move
-  if( isMoveSvcBusy() )
-  {
-    move.m_ePlayer        = ePlayer;
-    move.m_posSrc         = posSrc;
-    move.m_posDst         = posDst;
-    move.m_ePiecePromoted = ePiecePromoted;
-    move.m_eResult        = chess_engine::Busy;
+  //
+  // Fill move with known information.
+  //
+  move.m_ePlayer        = ePlayer;
+  move.m_posSrc         = posSrc;
+  move.m_posDst         = posDst;
+  move.m_ePiecePromoted = ePiecePromoted;
+ 
+  //
+  // Make a synchronous chess move.
+  //
+  rc = makeAMove(SvcNameMakeAMove, move, true);
 
-    rc = -chess_engine::CE_ECODE_BUSY;
-  }
+  //
+  // Copy move to response.
+  //
+  chess_engine::copyMoveToMsg(move, rsp.move);
 
-  // make the logical move
-  else
-  {
-    rc = m_chess.makeAMove(ePlayer, posSrc, posDst, ePiecePromoted, move);
-  }
-
-  if( rc == CS_OK )
-  {
-    ROS_INFO_STREAM(SvcNameMakeAMove << ": "
-        << move.m_nMoveNum << ". "
-        << nameOfColor(move.m_ePlayer) << " "
-        << move.m_strSAN << ".");
-
-    beginMoveSvcSeq(ePlayer);
-
-    if( !m_chess.isPlayingAGame() )
-    {
-      m_pub.m_bPubEndOfGame = true;
-
-      endMoveSvcSeq();
-    }
-  }
-  else
-  {
-    ROS_ERROR_STREAM(SvcNameMakeAMove << ": "
-        << nameOfColor(ePlayer) << " "
-        << posSrc << posDst << ": "
-        << chess_engine::strecode(rc) << "(" << rc << ")");
-  }
-
-  copyMoveToMsg(move, rsp.move);
-
-  return true;  // has valid response regardless of success or failure
+  //
+  // Return true since response message is valid. The move constains the
+  // (error) result code.
+  //
+  return true;
 }
 
 bool ChessServer::computeEnginesMove(ComputeEnginesMove::Request  &req,
@@ -425,50 +379,26 @@ bool ChessServer::computeEnginesMove(ComputeEnginesMove::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameComputeEnginesMove);
 
-  endAutoPlay("compute engine's move requested");
+  //
+  // Fill move with known information.
+  //
+  move.m_ePlayer = m_chess.whoseTurn();
 
-  ePlayer = m_chess.whoseTurn();
+  //
+  // Make a synchronous chess move.
+  //
+  rc = computeEnginesMove(SvcNameComputeEnginesMove, move, true);
 
-  // test if busy with previous move
-  if( isMoveSvcBusy() )
-  {
-    move.m_ePlayer = ePlayer;
-    move.m_eResult = chess_engine::Busy;
-
-    rc = -chess_engine::CE_ECODE_BUSY;
-  }
-
-  // compute the logical next move
-  else
-  {
-    rc = m_chess.computeEnginesMove(move);
-  }
-
-  if( rc == CS_OK )
-  {
-    ROS_INFO_STREAM(SvcNameComputeEnginesMove << ": "
-        << move.m_nMoveNum << ". "
-        << nameOfColor(move.m_ePlayer) << " "
-        << move.m_strSAN << ".");
-
-    beginMoveSvcSeq(ePlayer);
-
-    if( !m_chess.isPlayingAGame() )
-    {
-      m_pub.m_bPubEndOfGame = true;
-
-      endMoveSvcSeq();
-    }
-  }
-  else
-  {
-    ROS_ERROR_STREAM(SvcNameComputeEnginesMove << ": "
-        << chess_engine::strecode(rc) << "(" << rc << ")");
-  }
-
+  //
+  // Copy move to response.
+  //
   chess_engine::copyMoveToMsg(move, rsp.move);
 
-  return true;  // has valid response regardless of success or failure
+  //
+  // Return true since response message is valid. The move constains the
+  // (error) result code.
+  //
+  return true;
 }
 
 bool ChessServer::markMoveCompleted(MoveCompleted::Request  &req,
@@ -481,20 +411,34 @@ bool ChessServer::markMoveCompleted(MoveCompleted::Request  &req,
 
   ePlayer = chess_engine::tr(req.player);
 
-  if( m_svcseq.m_ePlayerMakingMove == ePlayer )
+  if( m_svcseq.m_eMoveSeqState != MoveSeqStateResult )
   {
-    endMoveSvcSeq();
+    rc = -chess_engine::CE_ECODE_NO_EXEC;
+  }
 
-    ROS_INFO_STREAM(SvcNameMarkMoveCompleted << ": "
-        << chess_engine::nameOfColor(ePlayer) << " "
-        << "completed move.");
+  else if( m_svcseq.m_ePlayerMakingMove == ePlayer )
+  {
+    rc = -chess_engine::CE_ECODE_CHESS_OUT_OF_TURN;
+  }
+
+  else
+  {
+    markMoveSvcSeq(MoveSeqStateMarked);
+
+    endMoveSvcSeq();
 
     rc = CS_OK;
   }
+
+  if( rc == CS_OK )
+  {
+    ROS_INFO_STREAM(SvcNameMarkMoveCompleted << ": "
+        << chess_engine::nameOfColor(ePlayer) << " "
+        << "marked move as completed.");
+  }
+
   else
   {
-    rc = -chess_engine::CE_ECODE_CHESS_OUT_OF_TURN;
-
     ROS_ERROR_STREAM(SvcNameMarkMoveCompleted << ": "
         << chess_engine::nameOfColor(ePlayer) << ": "
         << chess_engine::strecode(rc) << "(" << rc << ")");
@@ -513,7 +457,7 @@ bool ChessServer::resign(Resign::Request  &req,
 
   ROS_DEBUG_STREAM(SvcNameResign);
 
-  endAutoPlay("player resigned");
+  endAutoPlay("Player resigned", -chess_engine::CE_ECODE_INTR);
 
   ePlayer = chess_engine::tr(req.player);
 
@@ -523,7 +467,7 @@ bool ChessServer::resign(Resign::Request  &req,
   {
     m_pub.m_bPubEndOfGame = true;
 
-    endMoveSvcSeq();
+    endMoveSvcSeq(true);
 
     ROS_INFO_STREAM(SvcNameResign << ": " << nameOfColor(ePlayer) << ".");
   }
@@ -542,45 +486,50 @@ bool ChessServer::resign(Resign::Request  &req,
 bool ChessServer::autoplay(AutoPlay::Request  &req,
                            AutoPlay::Response &rsp)
 {
-  int   rc = CS_OK;
+  bool    bRun;
+  int     rc;
 
   ROS_DEBUG_STREAM(SvcNameAutoPlay);
 
-  // test if busy with previous move
-  if( isMoveSvcBusy() )
-  {
-    rc = -chess_engine::CE_ECODE_BUSY;
-  }
+  bRun = req.run;
 
-  // no game
-  else if( !m_chess.isPlayingAGame() )
+  //
+  // Begin autoplay
+  //
+  if( bRun )
   {
-    rc = -chess_engine::CE_ECODE_CHESS_NO_GAME;
-  }
+    int     nNumPlies = (int)req.num_plies;
+    double  fDelay    = (double)req.delay;
 
-  if( rc == CS_OK )
-  {
-    if( req.run )
+    rc = beginAutoPlay(nNumPlies, fDelay);
+
+    if( rc == CS_OK )
     {
       ROS_INFO_STREAM(SvcNameAutoPlay << ": "
-        << "run = " << chess_engine::nameOfBool(req.run) << ", "
-        << "num_moves = " << req.num_moves << ", "
-        << "delay = " << req.delay << ".");
+        << "run = " << chess_engine::nameOfBool(bRun) << ", "
+        << "num_plies = " << nNumPlies << ", "
+        << "delay = " << fDelay << ".");
 
-      beginAutoPlay((int)req.num_moves, (double)req.delay);
     }
     else
     {
-      ROS_INFO_STREAM(SvcNameAutoPlay << ": "
-        << "run = " << chess_engine::nameOfBool(req.run) << ".");
-
-      endAutoPlay("autoplay stopped");
+      ROS_ERROR_STREAM(SvcNameAutoPlay << ": "
+        << "run = " << chess_engine::nameOfBool(bRun) << ", "
+        << chess_engine::strecode(rc) << "(" << rc << ")");
     }
   }
+
+  //
+  // End autoplay
+  //
   else
   {
-    ROS_ERROR_STREAM(SvcNameAutoPlay << ": "
-        << chess_engine::strecode(rc) << "(" << rc << ")");
+    endAutoPlay("Stop requested");
+
+    ROS_INFO_STREAM(SvcNameAutoPlay << ": "
+        << "run = " << chess_engine::nameOfBool(bRun) << ".");
+
+    rc = CS_OK;
   }
 
   rsp.rc = rc;
@@ -624,7 +573,8 @@ bool ChessServer::getGameState(GetGameState::Request  &req,
 
   m_chess.getPlayerNames(rsp.white_name, rsp.black_name);
 
-  rsp.num_moves   = m_chess.getNumOfMoves();
+  rsp.whose_turn  = chess_engine::msg( m_chess.whoseTurn() ); 
+  rsp.num_moves   = getNumOfMovesPlayed();
   rsp.game_winner = chess_engine::msg( m_chess.getWinner() ); 
   rsp.play_state  = chess_engine::msg( m_chess.getPlayState() );
 
@@ -723,7 +673,7 @@ void ChessServer::publish()
   int nNumOfPlies;
 
   // number of plies to publish except any busy move
-  nNumOfPlies = isMoveSvcBusy()? m_svcseq.m_nPlyNum - 1: m_svcseq.m_nPlyNum;
+  nNumOfPlies = isMoveSvcSeqBusy()? m_svcseq.m_nPlyNum - 1: m_svcseq.m_nPlyNum;
 
   // publish new game status
   if( m_pub.m_bPubNewGame )
@@ -783,45 +733,84 @@ int ChessServer::subscribeToTopics()
 
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Action Servers
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-int ChessServer::startActionServers()
-{
-  int   cnt = 0;
-
-  m_asAutoPlay.start();
-
-  ++cnt;
-#if 0 // RDK
-  ASGetEnginesMove m_asGetEnginesMove("get_engines_move_action", chessServer);
-#endif // RDK
-
-  return cnt;
-}
-
-
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Service Sequence State
+// Service Sequencing States
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 void ChessServer::initSvcSeq()
 {
-  m_svcseq.m_bBusy              = false;
+  m_svcseq.m_eMoveSeqState      = MoveSeqStateIdle;
   m_svcseq.m_ePlayerMakingMove  = chess_engine::NoColor;
   m_svcseq.m_nPlyNum            = 0;
 }
 
 void ChessServer::beginMoveSvcSeq(chess_player ePlayer)
 {
-  m_svcseq.m_bBusy              = true;
+  m_svcseq.m_eMoveSeqState      = MoveSeqStateStart;
   m_svcseq.m_ePlayerMakingMove  = ePlayer;
-  m_svcseq.m_nPlyNum            = m_chess.getNumOfPlies();
+  m_svcseq.m_nPlyNum            = getNumOfPliesPlayed() + 1;
 }
 
-void ChessServer::endMoveSvcSeq()
+void ChessServer::markMoveSvcSeq(const MoveSeqState eState)
 {
-  m_svcseq.m_bBusy = false;
+  m_svcseq.m_eMoveSeqState = eState;
+}
+
+void ChessServer::endMoveSvcSeq(bool bAbort)
+{
+  // abort todo 
+ 
+  m_svcseq.m_eMoveSeqState = MoveSeqStateIdle;
+}
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Asynchronous Methods
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+int ChessServer::asyncMakeAMove(const chess_player ePlayer, const string &strAN)
+{
+  static const string strEvent("AsyncMakeAMove");
+
+  chess_move  move;
+  int         rc;
+
+  //
+  // Fill move with known information.
+  //
+  move.m_ePlayer = m_chess.whoseTurn();
+  move.m_strSAN  = strAN;
+
+  //
+  // Make asynchronous chess move.
+  //
+  rc = makeAMove(strEvent, move, false);
+
+  return rc;
+}
+
+int ChessServer::asyncComputeEnginesMove()
+{
+  static const string strEvent("AsyncComputeEnginesMove");
+
+  chess_move  move;
+  int         rc;
+
+  //
+  // Fill move with known information.
+  //
+  move.m_ePlayer = m_chess.whoseTurn();
+
+  //
+  // Make asynchronous chess move.
+  //
+  rc = computeEnginesMove(strEvent, move, false);
+
+  return rc;
+}
+
+int ChessServer::asyncGetLastMove(chess_move &move)
+{
+  return m_threadTask.getLastMove(move);
 }
 
 
@@ -832,26 +821,56 @@ void ChessServer::endMoveSvcSeq()
 void ChessServer::initAutoPlay()
 {
   m_autoplay.m_bRun         = false;
-  m_autoplay.m_nNumMoves    = 0;
-  m_autoplay.m_nLastMoveNum = 0;
+  m_autoplay.m_nNumPlies    = 0;
+  m_autoplay.m_nLastPlyNum  = 0;
   m_autoplay.m_fDelay       = 0.0;
+  m_autoplay.m_rcAutoPlay   = CS_OK;
 }
 
-void ChessServer::beginAutoPlay(int nNumMoves, double fDelay)
+int ChessServer::beginAutoPlay(int nNumPlies, double fDelay)
 {
+  int   rc;
+
   m_autoplay.m_timer.stop();
 
-  m_autoplay.m_bRun         = true;
-  m_autoplay.m_nNumMoves    = nNumMoves;
-  m_autoplay.m_nLastMoveNum = m_chess.getNumOfMoves() + nNumMoves;
-  m_autoplay.m_fDelay       = fDelay;
+  // make sure there is a game
+  if( !isPlayingAGame() )
+  {
+    rc = -chess_engine::CE_ECODE_CHESS_NO_GAME;
+    m_autoplay.m_rcAutoPlay = rc;
+  }
 
-  ROS_INFO_STREAM("Autoplay started.");
+  // cannot start autoplay if a move is already in progress
+  else if( isMoveInProgress() )
+  {
+    rc = -chess_engine::CE_ECODE_BUSY;
+    m_autoplay.m_rcAutoPlay = rc;
+  }
 
-  execAutoPlay();
+  else
+  {
+    rc = CS_OK;
+
+    m_autoplay.m_bRun         = true;
+    m_autoplay.m_nNumPlies    = nNumPlies;
+    m_autoplay.m_nLastPlyNum  = getNumOfPliesPlayed() + nNumPlies;
+    m_autoplay.m_fDelay       = fDelay;
+    m_autoplay.m_rcAutoPlay   = rc;
+
+    ROS_INFO_STREAM("Autoplay started.");
+
+    execAutoPlay();
+  }
+
+  return rc;
 }
 
-void ChessServer::endAutoPlay(const string &strReason)
+bool ChessServer::isInAutoPlay()
+{
+  return m_autoplay.m_bRun;
+}
+
+void ChessServer::endAutoPlay(const string &strReason, const int nReasonCode)
 {
   if( m_autoplay.m_bRun )
   {
@@ -859,8 +878,15 @@ void ChessServer::endAutoPlay(const string &strReason)
 
     m_autoplay.m_timer.stop();
 
+    m_autoplay.m_rcAutoPlay = nReasonCode <= 0? nReasonCode: -nReasonCode;
+
     ROS_INFO_STREAM("Autoplay stopped: " << strReason << ".");
   }
+}
+
+int ChessServer::getAutoPlayReasonCode()
+{
+  return m_autoplay.m_rcAutoPlay;
 }
 
 void ChessServer::execAutoPlay()
@@ -875,11 +901,11 @@ void ChessServer::execAutoPlay()
   {
     tStart = ros::WallTime::now().toSec();
 
-    rc = m_chess.computeEnginesMove(move);
+    rc = computeEnginesMove("AutoPlay", move, true);
 
     tMove = ros::WallTime::now().toSec();
 
-    if( m_chess.isPlayingAGame() )
+    if( isPlayingAGame() )
     {
       tDelta = tMove - tStart;
       tDelay = m_autoplay.m_fDelay - tDelta;
@@ -889,10 +915,9 @@ void ChessServer::execAutoPlay()
         tDelay = tMin;
       }
 
-      if( (m_autoplay.m_nNumMoves == 0) ||
-          (m_autoplay.m_nLastMoveNum < m_chess.getNumOfMoves()) )
+      if( (m_autoplay.m_nNumPlies == 0) ||
+          (m_autoplay.m_nLastPlyNum < getNumOfPliesPlayed()) )
       {
-
         m_autoplay.m_timer = m_nh.createWallTimer(
                     ros::WallDuration(tDelay),
                     boost::bind(&ChessServer::cbAutoPlay, this, _1),
@@ -901,14 +926,20 @@ void ChessServer::execAutoPlay()
       else
       {
         stringstream ss;
-        ss << m_autoplay.m_nNumMoves << " moves autoplayed";
+        ss  << "Requested "
+            << m_autoplay.m_nNumPlies
+            << " plies (1/2 moves) autoplayed";
         endAutoPlay(ss.str());
       }
     }
 
     else
     {
-      endAutoPlay("game ended");
+      stringstream ss;
+      ss  << "Game ended after "
+          << getNumOfPliesPlayed()
+          << " plies (1/2 moves)";
+      endAutoPlay(ss.str());
     }
   }
 }
@@ -923,132 +954,207 @@ void ChessServer::cbAutoPlay(const ros::WallTimerEvent& event)
 
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Action thread
+// Move Execution
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-#ifdef INC_ACTION_THREAD
-int ChessServer::createActionThread()
+int ChessServer::makeAMove(const string &strEvent,
+                           chess_move   &move,
+                           bool         bSynchronous)
 {
+  bool  bIsANMove;
   int   rc;
 
-  m_eActionState  = ActionStateWorking;
+  endAutoPlay("Make a move requested", -chess_engine::CE_ECODE_INTR);
 
-  pthread_mutex_init(&m_mutexAction, NULL);
-  pthread_cond_init(&m_condAction,   NULL);
-  
-  rc = pthread_create(&m_threadAction, NULL, actionThread, (void*)this);
- 
-  if( rc == 0 )
+  // Determine if move specifed by algebraic notation or by source/destination.
+  bIsANMove = !move.m_strSAN.empty();
+
+  //
+  // Make sure there is a game in play
+  //
+  if( !isPlayingAGame() )
   {
-    m_eActionState = ActionStateIdle;
-    rc = CS_OK;
+    move.m_eResult = chess_engine::NoGame;
+    rc = -chess_engine::CE_ECODE_CHESS_NO_GAME;
   }
 
+  //
+  // Make sure no move is already in progress
+  //
+  else if( isMoveInProgress() )
+  {
+    move.m_eResult = chess_engine::Busy;
+    rc = -chess_engine::CE_ECODE_BUSY;
+  }
+
+  //
+  // Schedule the move and, optionally, synchronously wait for completion.
+  //
   else
   {
-    m_eActionState = ActionStateExit;
-    pthread_cond_destroy(&m_condAction);
-    pthread_mutex_destroy(&m_mutexAction);
-    rc = -chess_engine::CE_ECODE_SYS;
-    ROS_ERROR("pthread_create()");
-  }
+    beginMoveSvcSeq(move.m_ePlayer);
 
-  return rc;
-}
-
-void ChessServer::destroyActionThread()
-{
-  m_eActionState = ActionStateExit;
-
-  signalActionThread();
-
-  pthread_cancel(m_threadAction);
-  pthread_join(m_threadAction, NULL);
-
-  pthread_cond_destroy(&m_condAction);
-  pthread_mutex_destroy(&m_mutexAction);
-
-  ROS_INFO("%s: Node action thread destroyed.",
-      ros::this_node::getName().c_str());
-}
-
-int ChessServer::execAction(boost::function<void()> execAction)
-{
-  int   rc;
-
-  lock();
-
-  if( m_eActionState == ActionStateIdle )
-  {
-    m_execAction = execAction;
-    m_eActionState = ActionStateWorking;
-    signalActionThread();
-    rc = CS_OK;
-  }
-  else
-  {
-    rc = -chess_engine::CE_ECODE_NO_EXEC;
-  }
-
-  unlock();
-
-  return rc;
-}
-
-void ChessServer::signalActionThread()
-{
-  pthread_cond_signal(&m_condAction);
-}
-
-void ChessServer::idleWait()
-{
-  lock();
-  while( m_eActionState == ActionStateIdle )
-  {
-    pthread_cond_wait(&m_condAction, &m_mutexAction);
-  }
-  unlock();
-}
-
-void *ChessServer::actionThread(void *pArg)
-{
-  ChessServer *pThis = (ChessServer *)pArg;
-  int       oldstate;
-  int       rc;
-
-  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &oldstate);
-  pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldstate);
-  //pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldstate);
-
-  ROS_INFO("%s: Node action thread created.",
-      ros::this_node::getName().c_str());
-
-  while( pThis->m_eActionState != ActionStateExit )
-  {
-    pThis->idleWait();
-
-    switch( pThis->m_eActionState )
+    if( bIsANMove )
     {
-      case ActionStateWorking:
-        pThis->m_execAction();
-        pThis->lock();
-        pThis->m_eActionState = ActionStateIdle;
-        pThis->unlock();
+      rc = m_threadTask.schedMoveToMake(move.m_ePlayer, move.m_strSAN);
+    }
+    else
+    {
+      rc = m_threadTask.schedMoveToMake(move.m_ePlayer,
+                                        move.m_posSrc, move.m_posDst,
+                                        move.m_ePiecePromoted);
+    }
+
+    switch( rc )
+    {
+      case CS_OK:
+        if( bSynchronous )
+        {
+          if( (rc = m_threadTask.waitForMove(move)) == CS_OK )
+          {
+            markMoveSvcSeq(MoveSeqStateResult);
+          }
+        }
         break;
-      case ActionStateIdle:
-      case ActionStateExit:
+      case -chess_engine::CE_ECODE_BUSY:
+        move.m_eResult = chess_engine::Busy;
+        break;
+      case -chess_engine::CE_ECODE_NO_EXEC:
       default:
+        move.m_eResult = chess_engine::GameFatal;
         break;
+    }
+
+    if( rc != CS_OK )
+    {
+      endMoveSvcSeq(true);
     }
   }
 
-  pThis->m_eActionState = ActionStateExit;
+  //
+  // Success
+  //
+  if( rc == CS_OK )
+  {
+    // move can result in the end of the game
+    if( !isPlayingAGame() )
+    {
+      m_pub.m_bPubEndOfGame = true;
+      endMoveSvcSeq();
+    }
 
-  ROS_INFO("%s: Node action thread exited.", ros::this_node::getName().c_str());
+    ROS_INFO_STREAM(strEvent << ": "
+        << move.m_nMoveNum << ". "
+        << nameOfColor(move.m_ePlayer) << " "
+        << move.m_strSAN << ".");
+  }
 
-  return NULL;
+  //
+  // Failure
+  //
+  else
+  {
+    ROS_ERROR_STREAM(strEvent << ": "
+        << nameOfColor(move.m_ePlayer) << " "
+        << move.m_strSAN << " "
+        << move.m_posSrc << move.m_posDst << ": "
+        << chess_engine::strecode(rc) << "(" << rc << ")");
+  }
+
+  return rc;
 }
-#endif // INC_ACTION_THREAD
+
+int ChessServer::computeEnginesMove(const string &strEvent,
+                                    chess_move   &move,
+                                    bool         bSynchronous)
+{
+  int   rc;
+
+  endAutoPlay("Compute engine's move requested", -chess_engine::CE_ECODE_INTR);
+
+  //
+  // Make sure there is a game in play
+  //
+  if( !isPlayingAGame() )
+  {
+    move.m_eResult = chess_engine::NoGame;
+    rc = -chess_engine::CE_ECODE_CHESS_NO_GAME;
+  }
+
+  //
+  // Make sure no move is already in progress
+  //
+  else if( isMoveInProgress() )
+  {
+    move.m_eResult = chess_engine::Busy;
+    rc = -chess_engine::CE_ECODE_BUSY;
+  }
+
+  //
+  // Schedule the move and synchronously wait for completion
+  //
+  else
+  {
+    beginMoveSvcSeq(move.m_ePlayer);
+
+    rc = m_threadTask.schedMoveToCompute(move.m_ePlayer);
+
+    switch( rc )
+    {
+      case CS_OK:
+        if( bSynchronous )
+        {
+          if( (rc = m_threadTask.waitForMove(move)) == CS_OK )
+          {
+            markMoveSvcSeq(MoveSeqStateResult);
+          }
+        }
+        break;
+      case -chess_engine::CE_ECODE_BUSY:
+        move.m_eResult = chess_engine::Busy;
+        break;
+      case -chess_engine::CE_ECODE_NO_EXEC:
+      default:
+        move.m_eResult = chess_engine::GameFatal;
+        break;
+    }
+
+    if( rc != CS_OK )
+    {
+      endMoveSvcSeq(true);
+    }
+  }
+
+  //
+  // Success
+  //
+  if( rc == CS_OK )
+  {
+    // move can end the game
+    if( !isPlayingAGame() )
+    {
+      m_pub.m_bPubEndOfGame = true;
+      endMoveSvcSeq();
+    }
+
+    ROS_INFO_STREAM(strEvent << ": "
+        << move.m_nMoveNum << ". "
+        << nameOfColor(move.m_ePlayer) << " "
+        << move.m_strSAN << ".");
+  }
+
+  //
+  // Failure
+  //
+  else
+  {
+    ROS_ERROR_STREAM(strEvent << ": "
+        << nameOfColor(move.m_ePlayer) << " "
+        << chess_engine::strecode(rc) << "(" << rc << ")");
+  }
+
+  return rc;
+}
 
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

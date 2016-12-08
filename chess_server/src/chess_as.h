@@ -4,22 +4,22 @@
 //
 // Link:      https://github.com/roadnarrows-robotics/chess_engine
 //
-// Library:   libchessengine
+// ROS Node:  chess_server
 //
-// File:      ceError.cpp
+// File:      chess_as.h
 //
 /*! \file
  *
- * \brief Common chess engine return values and error codes.
+ * \brief The ROS chess_server action servers container interface.
  *
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013-2016  RoadNarrows
+ * (C) 2016  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
- * \par License:
+ * \par Licence:
  * MIT
  */
 /*
@@ -53,59 +53,65 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
+#ifndef _CHESS_AS_H
+#define _CHESS_AS_H
 
+#include <sstream>
 #include <string>
 #include <map>
 
-#include "boost/assign.hpp"
+#include <boost/bind.hpp>
 
+#include "ros/ros.h"
+
+// chess engine library
 #include "chess_engine/ceTypes.h"
-#include "chess_engine/ceError.h"
 
-using namespace std;
-using namespace boost::assign;
+// chess_server
+#include "chess_server.h"
+#include "chess_as_autoplay.h"
+#include "chess_as_cem.h"
+#include "chess_as_mam.h"
 
-namespace chess_engine
+
+namespace chess_server
 {
-  /*! error strings */
-  static map<int, string> Errors = map_list_of
-    (CE_OK,                       "")
-    (CE_ECODE_GEN,                "Error")
-    (CE_ECODE_SYS,                "System error")
-    (CE_ECODE_NO_SUPP,            "Operation not supported")
-    (CE_ECODE_TIMEDOUT,           "Operation timed out")
-    (CE_ECODE_NO_EXEC,            "Cannot execute")
-    (CE_ECODE_BUSY,               "Resource busy")
-    (CE_ECODE_INTR,               "Execution interrupted")
-    (CE_ECODE_CHESS_NO_GAME,      "No active chess game")
-    (CE_ECODE_CHESS_BAD_MOVE,     "Invalid chess move")
-    (CE_ECODE_CHESS_OUT_OF_TURN,  "Chess move out-of-turn")
-    (CE_ECODE_CHESS_RSP,          "Algebraic Notation parse failed")
-    (CE_ECODE_CHESS_PARSE,        "Unexpected backend chess engine response")
-    (CE_ECODE_CHESS_SYNC,         "Chess game state out-of-sync")
-    (CE_ECODE_CHESS_FATAL,       "Chess game in unrecoverable error condition");
 
-  string strecode(int ecode)
+  //----------------------------------------------------------------------------
+  // ChessActionServers Class
+  //----------------------------------------------------------------------------
+
+  /*!
+   * \brief Chess action servers container class.
+   */
+  class ChessActionServers
   {
-    map<int, string>::iterator pos;
+  public:
+    /*!
+     * \brief Default constructor.
+     *
+     * \param chess_server  Reference to the chess_server node instance.
+     */
+    ChessActionServers(ChessServer &chess_server);
 
-    if( ecode < 0 )
-    {
-      ecode = -ecode;
-    }
+    /*!
+     * \brief Destructor.
+     */
+    virtual ~ChessActionServers();
 
-    if( (pos = Errors.find(ecode)) != Errors.end() )
-    {
-      return pos->second;
-    }
-    else
-    {
-      return "Unknown error code";
-    }
-  }
+    /*!
+     * \brief Start action servers.
+     *
+     * \return Number of action servers started.
+     */
+    virtual int start();
 
-} // namespace chess_engine
+  protected:
+    ASAutoPlay            m_asAutoPlay;           ///< autoplay action server
+    ASComputeEnginesMove  m_asComputeEnginesMove; ///< compute mv action server
+    ASMakeAMoveAN         m_asMakeAMoveAN;        ///< make move action server
+  };
+
+} // namespace chess_server
+
+#endif // _CHESS_AS_H

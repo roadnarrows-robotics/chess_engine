@@ -244,23 +244,35 @@ namespace chess_engine
     }
 
     /*!
-     * \brief Get the number of moves played.
-     *
-     * \return Number of moves.
-     */
-    int getNumOfMoves() const
-    {
-      return m_game.getNumOfMoves();
-    }
-
-    /*!
-     * \brief Get the number of plies (1/2 moves) played.
+     * \brief Get the number of plies (half-moves) played.
      *
      * \return Number of plies.
      */
-    int getNumOfPlies() const
+    int getNumOfPliesPlayed() const
     {
-      return m_game.getNumOfPlies();
+      return m_game.getNumOfPliesPlayed();
+    }
+
+    /*!
+     * \brief Get the number of completed moves played.
+     *
+     * One completed move is White then Black, with White always starting.
+     *
+     * \return Number of moves.
+     */
+    int getNumOfMovesPlayed() const
+    {
+      return m_game.getNumOfMovesPlayed();
+    }
+
+    /*!
+     * \brief Get the current move number in play.
+     *
+     * \return If a game is in play, returns move number \> 0. Else returns 0.
+     */
+    int getMoveNumInPlay() const
+    {
+      return m_game.getMoveNumInPlay();
     }
 
     /*!
