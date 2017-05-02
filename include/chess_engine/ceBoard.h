@@ -472,49 +472,45 @@ namespace chess_engine
      */
     void setupBoard(ChessColor eColor);
   
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     // Friends
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  
+    /*!
+     * \brief ChessBoard output stream operator.
+     *
+     * An ascii or unicode board is generated as determined by the graphic
+     * state.
+     *
+     * \param os    Output stream.
+     * \param board Chess board.
+     *
+     * \return Output stream.
+     */
     friend std::ostream &operator<<(std::ostream &os, const ChessBoard &board);
+  
+    /*!
+     * \brief Generate ChessBoard graphic output stream.
+     *
+     * \param os    Output stream.
+     * \param board Chess board.
+     *
+     * \return Output stream.
+     */
     friend std::ostream &ographic(std::ostream &os, const ChessBoard &board);
+  
+    /*!
+     * \brief Generate ChessBoard non-graphic ascii output stream.
+     *
+     * \param os    Output stream.
+     * \param board Chess board.
+     *
+     * \return Output stream.
+     */
     friend std::ostream &oascii(std::ostream &os, const ChessBoard &board);
   };
 
-
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  // Friends
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-  /*!
-   * \brief ChessBoard output stream operator.
-   *
-   * An ascii or unicode board is generated as determined by the graphic state.
-   *
-   * \param os    Output stream.
-   * \param board Chess board.
-   *
-   * \return Output stream.
-   */
-  extern std::ostream &operator<<(std::ostream &os, const ChessBoard &board);
-
-  /*!
-   * \brief Generate ChessBoard graphic output stream.
-   *
-   * \param os    Output stream.
-   * \param board Chess board.
-   *
-   * \return Output stream.
-   */
-  extern std::ostream &ographic(std::ostream &os, const ChessBoard &board);
-
-  /*!
-   * \brief Generate ChessBoard non-graphic ascii output stream.
-   *
-   * \param os    Output stream.
-   * \param board Chess board.
-   *
-   * \return Output stream.
-   */
-  extern std::ostream &oascii(std::ostream &os, const ChessBoard &board);
-
-} // chess_engine
+} // namespace chess_engine
 
 #endif // _CE_BOARD_H

@@ -18,6 +18,7 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <run_depend>chess_server</run_depend>
+  <run_depend>chess_parser</run_depend>
   <!-- <run_depend>chess_launch</run_depend> -->
 
   <export>

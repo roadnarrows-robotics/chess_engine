@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
+
 project(chess_server)
+
+set(CE_ROOT ..)
 
 find_package(catkin 
   REQUIRED COMPONENTS 
@@ -69,7 +72,7 @@ catkin_package(
 
 include_directories(
   include 
-  ../include
+  ${CE_ROOT}/include
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
 )

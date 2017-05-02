@@ -635,134 +635,137 @@ void ChessBoard::setupBoard(ChessColor eColor)
 //  Friends
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-ostream &chess_engine::operator<<(ostream &os, const ChessBoard &board)
+namespace chess_engine
 {
-  if( board.m_bGraphic )
+  ostream &operator<<(ostream &os, const ChessBoard &board)
   {
-    return ographic(os, board);
-  }
-  else
-  {
-    return oascii(os, board);
-  }
-}
-
-ostream &chess_engine::ographic(ostream &os, const ChessBoard &board)
-{
-  int         row, col;     // board matrix row,column
-  ChessFile   file;;        // chess board file
-  ChessRank   rank;;        // chess board rank
-  ChessColor  eSquareColor; // color of square (white or black)
-  ChessPiece  ePieceType;   // type of piece
-  ChessColor  ePieceColor;  // color of piece (white or black)
-  string      strFigurine;  // piece figurine unicode character
-
-  for(row = 0; row < NumOfRanks; ++row)
-  {
-    rank = board.toRank(row);
-
-    os << (char)rank << ' ';
-
-    for(col = 0; col < NumOfFiles; ++col)
+    if( board.m_bGraphic )
     {
-      file = board.toFile(col);
-
-      const ChessSquare &sq = board.at(file, rank);
-
-      eSquareColor  = sq.getColor();
-      ePieceType    = sq.getPieceType();
-      ePieceColor   = sq.getPieceColor();
-      strFigurine   = figurineOfPiece(ePieceColor, ePieceType);
-
-      if( eSquareColor == White )
-      {
-        os << ColorWhiteSq;
-      }
-      else
-      {
-        os << ColorBlackSq;
-      }
-
-      os << strFigurine << " ";
-      os << strReset;
+      return ographic(os, board);
     }
-
-    os << endl;
+    else
+    {
+      return oascii(os, board);
+    }
   }
-
-  os << "  ";
-
-  for(col = 0; col < NumOfFiles; ++col)
+  
+  ostream &ographic(ostream &os, const ChessBoard &board)
   {
-    file = board.toFile(col);
-    os << (char)file << ' ';
-  }
-
-  os << endl;
-
-  return os;
-}
-
-ostream &chess_engine::oascii(ostream &os, const ChessBoard &board)
-{
-  int         row, col;       // board matrix row,column
-  ChessFile   file;;        // chess board file
-  ChessRank   rank;;        // chess board rank
-  ChessColor  eSquareColor;   // color of square (white or black)
-  ChessPiece  ePieceType;     // type of piece
-  ChessColor  ePieceColor;    // color of piece (white or black)
-  string      strPiece;       // piece one-character name
-  streamsize  w = os.width(); // save default width
-
-  for(row = 0; row < NumOfRanks; ++row)
-  {
-    rank = board.toRank(row);
-
-    // row border
-    os.width(NumOfFiles * 4 + 1);
-    os.fill('.');
-    os << '.';
-    os.width(w);
-    os << endl;
-
+    int         row, col;     // board matrix row,column
+    ChessFile   file;;        // chess board file
+    ChessRank   rank;;        // chess board rank
+    ChessColor  eSquareColor; // color of square (white or black)
+    ChessPiece  ePieceType;   // type of piece
+    ChessColor  ePieceColor;  // color of piece (white or black)
+    string      strFigurine;  // piece figurine unicode character
+  
+    for(row = 0; row < NumOfRanks; ++row)
+    {
+      rank = board.toRank(row);
+  
+      os << (char)rank << ' ';
+  
+      for(col = 0; col < NumOfFiles; ++col)
+      {
+        file = board.toFile(col);
+  
+        const ChessSquare &sq = board.at(file, rank);
+  
+        eSquareColor  = sq.getColor();
+        ePieceType    = sq.getPieceType();
+        ePieceColor   = sq.getPieceColor();
+        strFigurine   = figurineOfPiece(ePieceColor, ePieceType);
+  
+        if( eSquareColor == White )
+        {
+          os << ColorWhiteSq;
+        }
+        else
+        {
+          os << ColorBlackSq;
+        }
+  
+        os << strFigurine << " ";
+        os << strReset;
+      }
+  
+      os << endl;
+    }
+  
+    os << "  ";
+  
     for(col = 0; col < NumOfFiles; ++col)
     {
       file = board.toFile(col);
-
-      const ChessSquare &sq = board.at(file, rank);
-
-      eSquareColor  = sq.getColor();
-      ePieceType    = sq.getPieceType();
-      ePieceColor   = sq.getPieceColor();
-
-      if( ePieceType == NoPiece )
+      os << (char)file << ' ';
+    }
+  
+    os << endl;
+  
+    return os;
+  }
+  
+  ostream &oascii(ostream &os, const ChessBoard &board)
+  {
+    int         row, col;       // board matrix row,column
+    ChessFile   file;;        // chess board file
+    ChessRank   rank;;        // chess board rank
+    ChessColor  eSquareColor;   // color of square (white or black)
+    ChessPiece  ePieceType;     // type of piece
+    ChessColor  ePieceColor;    // color of piece (white or black)
+    string      strPiece;       // piece one-character name
+    streamsize  w = os.width(); // save default width
+  
+    for(row = 0; row < NumOfRanks; ++row)
+    {
+      rank = board.toRank(row);
+  
+      // row border
+      os.width(NumOfFiles * 4 + 1);
+      os.fill('.');
+      os << '.';
+      os.width(w);
+      os << endl;
+  
+      for(col = 0; col < NumOfFiles; ++col)
       {
-        strPiece    = " ";
-        ePieceColor = eSquareColor;
+        file = board.toFile(col);
+  
+        const ChessSquare &sq = board.at(file, rank);
+  
+        eSquareColor  = sq.getColor();
+        ePieceType    = sq.getPieceType();
+        ePieceColor   = sq.getPieceColor();
+  
+        if( ePieceType == NoPiece )
+        {
+          strPiece    = " ";
+          ePieceColor = eSquareColor;
+        }
+        else if( ePieceColor == White )
+        {
+          strPiece = (char)ePieceType;
+        }
+        else
+        {
+          strPiece = (char)tolower(ePieceType);
+        }
+  
+        os << "|";
+        os << " " << strPiece << " ";
       }
-      else if( ePieceColor == White )
-      {
-        strPiece = (char)ePieceType;
-      }
-      else
-      {
-        strPiece = (char)tolower(ePieceType);
-      }
-
+  
       os << "|";
-      os << " " << strPiece << " ";
+      os << endl;
     }
-
-    os << "|";
+  
+    os.width(NumOfFiles * 4 + 1);
+    os.fill('-');
+    os << '-' << endl;
+    os.width(w);
+  
     os << endl;
+  
+    return os;
   }
-
-  os.width(NumOfFiles * 4 + 1);
-  os.fill('-');
-  os << '-' << endl;
-  os.width(w);
-
-  os << endl;
-
-  return os;
-}
+} // namespace chess_engine

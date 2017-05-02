@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(libchessengine)
+
+project(chessengine)
+
+#set(CMAKE_VERBOSE_MAKEFILE ON)
+
+set(CE_ROOT ..)
 
 find_package(catkin 
   REQUIRED COMPONENTS 
@@ -10,17 +15,17 @@ find_package(Boost REQUIRED COMPONENTS system)
 
 catkin_package(
   DEPENDS Boost
-  INCLUDE_DIRS ../include
-  LIBRARIES chessengine
+  INCLUDE_DIRS ${CE_ROOT}/include
+  LIBRARIES ${PROJECT_NAME}
 )
 
 include_directories(
-  ../include
+  ${CE_ROOT}/include
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
 )
 
-add_library(chessengine
+add_library(${PROJECT_NAME}
   src/ceBoard.cpp
   src/ceChess.cpp
   src/ceCore.cpp
@@ -33,12 +38,13 @@ add_library(chessengine
   src/ceUtils.cpp
 )
 
-install(TARGETS chessengine
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+# does not seem to work.
+install(DIRECTORY ${CE_ROOT}/include/chess_engine/
+  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}/chess_engine/
+  #FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
 
-# not actually install to devel/include, but other packages can include
-install(DIRECTORY ../include/
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+install(TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 )

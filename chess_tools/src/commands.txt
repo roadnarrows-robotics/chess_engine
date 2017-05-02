@@ -1,0 +1,19 @@
+# Chess Parser
+help [<cmd>]
+set parser {bnf | regex}
+get parser
+<AN>
+quit
+
+# Chess CLI
+help [<cmd>]
+new
+resign
+autoplay <n:int>
+compute
+<AN>
+set autoshow {on | off}
+set gui {on | off}
+get {autoshow | gui | all}
+show
+quit

@@ -254,20 +254,20 @@ namespace chess_engine
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     // Friends.
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    /*!
+     * \brief Stream move state to output stream.
+     *
+     * \param os    Output stream.
+     * \param move  Chess move object
+     *
+     * \return Reference to output stream.
+     */
     friend std::ostream &operator<<(std::ostream &os, const ChessMove &move);
     
   protected:
   };
 
-  /*!
-   * \brief Stream move state to output stream.
-   *
-   * \param os    Output stream.
-   * \param move  Chess move object
-   *
-   * \return Reference to output stream.
-   */
-  extern std::ostream &operator<<(std::ostream &os, const ChessMove &move);
 } // namespace chess_engine
 
 
