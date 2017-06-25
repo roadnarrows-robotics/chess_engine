@@ -16,7 +16,10 @@ find_package(catkin
 
 find_package(Boost REQUIRED COMPONENTS system)
 
-include(${CE_ROOT}/chess_engine/FindReadline.cmake)
+set(rnr-sdk_DIR /usr/local/lib/cmake/rnr)
+find_package(rnr-sdk
+  REQUIRED
+)
 
 catkin_package(
   DEPENDS Boost
@@ -31,20 +34,22 @@ endif()
 include_directories(
   include 
   ${CE_ROOT}/include
+  ${rnr-sdk_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${READLINE_INCLUDE_DIRS}
 )
 
-#add_executable(chess_parser
-#  src/chess_parser.cpp
-#)
+add_executable(chess_parser
+  src/chess_parser.cpp
+)
 
-#target_link_libraries(chess_parser
-#  chessengine
-#  ${catkin_LIBRARIES}
-#  ${READLINE_LIBRARIES}
-#)
+target_link_libraries(chess_parser
+  chessengine
+  ${rnr-sdk_LIBRARIES}
+  ${catkin_LIBRARIES}
+  ${READLINE_LIBRARIES}
+)
 
 #add_executable(chess_cli
 #  src/chess_cli.cpp

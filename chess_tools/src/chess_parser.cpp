@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -61,29 +61,258 @@
 #include <string>
 #include <map>
 
-#ifdef USE_READLINE
-#include <readline/readline.h>
-#include <readline/history.h>
-#endif // USE_READLINE
+#include "rnr/rnrconfig.h"
+#include "rnr/log.h"
+#include "rnr/opts.h"
+#include "rnr/pkg.h"
+
+#include "rnr/appkit/CommandLine.h"
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceParser.h"
 
 using namespace std;
+using namespace rnr;
+using namespace rnr::cmd;
 using namespace chess_engine;
 
+/*!
+ * \ingroup apps
+ * \defgroup appkit_eg rnr_eg_cli
+ * \{
+ */
 
-//------------------------------------------------------------------------------
-// Private Interface
-//------------------------------------------------------------------------------
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Application
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-//
-// Application exit codes
-//
-#define APP_EC_OK   0   ///< success
-#define APP_EC_INIT 2   ///< initialization fatal error
-#define APP_EC_EXEC 4   ///< execution fatal error
+#define APP_EC_OK       0   ///< success exit code
+#define APP_EC_ARGS     2   ///< command-line options/arguments error exit code
+#define APP_EC_EXEC     4   ///< execution exit code
+
+static char    *Argv0;              ///< the command
+
+/*!
+ * \brief Program information.
+ */
+static OptsPgmInfo_T PgmInfo =
+{
+  // usage_args
+  NULL,
+
+  // synopsis
+  "A chess engine move parser.",
+
+  // long_desc = 
+  "The %P command parses chess Algebraic Notation moves. The notation can be "
+  "in either Cannonical or Standard notation.",
+
+  // diagnostics
+  NULL
+};
+
+/*!
+ * \brief Command line options information.
+ */
+static OptsInfo_T OptsInfo[] =
+{
+  {NULL, }
+};
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// The CommandLine Interface.
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+
+const string    CliName("Chess_Parser");    ///< CLI name 
+const string    CliPrompt("AN> ");          ///< CLI prompt
+CommandLine     Cli(CliName, CliPrompt);    ///< the CLI
+bool            CliQuit = false;            ///< do [not] quit
+map<int, int>   UidToIndexMap;              ///< uid to index map
+
+/*!
+ * \{
+ * \brief Error and warning printing macros.
+ */
+#define PERROR(_err) \
+  cout << CliName << ": " << "Error: " << _err << endl
+
+#define PWARN(_warn) \
+  cout << CliName << ": " << _warn << endl
+
+#define PCMDERROR(_cmd, _err) \
+    cout << CliName << ": " << _cmd << ": " << "Error: " << _err << endl
+
+#define PCMDWARN(_cmd, _warn) \
+    cout << CliName << ": " << _cmd << ": " << _warn << endl
+/*
+ * \}
+ */
+
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// CommandLine Commands Definitions
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+// forward declarations
+static int execHelp(const ExtArgVec &argv);
+static int execCliTest(const ExtArgVec &argv);
+
+/*!
+ * \brief Execute 'quit' command.
+ *
+ * \param argv  Command line arguments.
+ *
+ * \return OK(0) on success, negative value on failure.
+ */
+static int execQuit(const ExtArgVec &argv)
+{
+  CliQuit = true;
+
+  return OK;
+}
+
+/*
+help [<cmd>]
+set parser {bnf | regex}
+get parser
+<AN>
+quit
+*/
+
+/*!
+ * \brief Command description and exectuion structure.
+ */
+struct CmdExec
+{
+  CmdDesc       m_desc;     ///< command description and syntax specification
+  CmdExec2Func  m_fnExec;   ///< command execution function
+};
+
+/*!
+ * \brief The command descriptions.
+ */
+CmdExec Commands[] =
+{
+  { { "help",
+      "help [{--usage | -u}] [<cmd:word>]",
+      "Print this help.",
+      "Print command help. If the --usage option is specified, then only the "
+      "command(s) usages are printed. If the <cmd> is specified, then only "
+      "help for that command is printed. Otherwise all command help is "
+      "printed."
+    },
+    execHelp
+  },
+
+  { { "quit",
+      "quit",
+      "Quit example application.",
+      NULL
+    },
+    execQuit
+  },
+}
+
+/*!
+ * \brief Number of commands.
+ */
+const size_t NumOfCmds = arraysize(Commands);
+
+/*!
+ * \brief Execute 'help' command.
+ *
+ * help [{usage | long}] [<cmd>]
+ *
+ * \param argv  Command line arguments.
+ *
+ * \return OK(0) on success, negative value on failure.
+ */
+static int execHelp(const ExtArgVec &argv)
+{
+  static const char *cmdname = "help";
+
+  size_t  argc = argv.size();
+  int     iCmd;
+  size_t  i;
+
+  // optional defaults
+  bool    bLongHelp = true;
+  string  strCmdName;
+
+  if( checkCmd(argv[0], argc, cmdname) != OK )
+  {
+    return RC_ERROR;
+  }
+
+  //
+  // Process Input arguments.
+  //
+  for(i = 1; i < argv.size(); ++i)
+  {
+    if( i == 1 )
+    {
+      if( (argv[i] == "--usage") || (argv[i] == "-u") )
+      {
+        bLongHelp = false;
+      }
+      else
+      {
+        strCmdName = argv[i].s();
+      }
+    }
+    else if( i == 2 )
+    {
+      strCmdName = argv[i].s();
+    }
+  }
+
+  //
+  // Print help for all commands.
+  //
+  if( strCmdName.empty() )
+  {
+    for(i = 0; i < NumOfCmds; ++i)
+    {
+      if( Cli.hasCmd(Commands[i].m_desc.m_sName) )
+      {
+        help(cout, Commands[i].m_desc, bLongHelp);
+        if( bLongHelp )
+        {
+          cout << "    ---" << endl << endl;
+        }
+        else
+        {
+          cout << endl;
+        }
+      }
+    }
+    cout << "  " << Cli.numOfCmds() << " commands" << endl;
+    return OK;
+  }
+
+  //
+  // Print help for a solitary command.
+  //
+  else if( ((iCmd = findCommand(strCmdName)) >= 0) && Cli.hasCmd(strCmdName) )
+  {
+    help(cout, Commands[iCmd].m_desc, bLongHelp);
+    return OK;
+  }
+
+  //
+  // No help.
+  //
+  else
+  {
+    PCMDERROR(cmdname, "No help for command '" << strCmdName << "'.");
+    return RC_ERROR;
+  }
+}
+
+
 
 
 #if 0 // RDK
