@@ -78,7 +78,7 @@ namespace chess_engine
   public:
     int           m_nMoveNum;       ///< move number (2 plies/move)
     ChessColor    m_ePlayer;        ///< player (and piece) color
-    std::string   m_strSAN;         ///< standard algebraic notation of move
+    std::string   m_strAN;          ///< algebraic notation of move
 
     ChessPiece    m_ePieceMoved;    ///< moved piece
     ChessPos      m_posSrc;         ///< moved piece source chess square
@@ -219,37 +219,6 @@ namespace chess_engine
      */
     static std::string SAN(ChessMove &move);
     
-    /*!
-     * \brief Parse Coordinate Algebraic Notation string to populate move
-     * values.
-     *
-     * This parse variation uses regular expressions to determine the move.
-     *
-     * \note Conversion will only partially set the move state since
-     * neither the board nor game context is included.
-     *
-     * \param strCAN      Coordinate Algebraic Notation string.
-     * \param [out] move  Chess move.
-     *
-     * \return Returns CE_OK on success, negative error code on failure.
-     */
-    static int parseCAN(const std::string &strCAN, ChessMove &move);
-    
-    /*!
-     * \brief Parse Standard Algebraic Notation string to populate move values.
-     *
-     * This parse variation uses regular expressions to determine the move.
-     *
-     * \note Conversion will only partially modify the state since
-     * neither the board nor game context is included.
-     *
-     * \param strSAN      Standard Algebraic Notation string.
-     * \param [out] move  Chess move.
-     *
-     * \return Returns CE_OK on success, negative error code on failure.
-     */
-    static int parseSAN(const std::string &strSAN, ChessMove &move);
-
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     // Friends.

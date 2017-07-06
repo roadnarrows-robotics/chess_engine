@@ -108,7 +108,7 @@ void ASMakeAMoveAN::cbExecute(const mam_goal_ptr &goal)
   ROS_INFO("%s: Execute.", action_name_.c_str());
 
   move.m_ePlayer = chess_engine::tr(goal->player);
-  move.m_strSAN  = goal->AN;
+  move.m_strAN   = goal->AN;
 
   uTicks = 0;
 
@@ -118,7 +118,7 @@ void ASMakeAMoveAN::cbExecute(const mam_goal_ptr &goal)
   // Get engine's move. This can take up to 30 seconds, depending on the
   // difficulty setting.
   //
-  rc = chess_server_.asyncMakeAMove(move.m_ePlayer, move.m_strSAN);
+  rc = chess_server_.asyncMakeAMove(move.m_ePlayer, move.m_strAN);
 
   bSuccess = rc == chess_engine::CE_OK? true: false;
 

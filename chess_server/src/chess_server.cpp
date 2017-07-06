@@ -303,8 +303,8 @@ bool ChessServer::makeAMoveAN(MakeAMoveAN::Request  &req,
   //
   // Fill move with known information.
   //
-  move.m_ePlayer  = ePlayer;
-  move.m_strSAN   = req.AN;
+  move.m_ePlayer = ePlayer;
+  move.m_strAN   = req.AN;
 
   //
   // Make a synchronous chess move.
@@ -628,7 +628,7 @@ bool ChessServer::getPlayHistory(GetPlayHistory::Request  &req,
     const chess_move &move = *iter;
 
     rsp.player.push_back( chess_engine::msg(move.m_ePlayer) );
-    rsp.SAN.push_back(move.m_strSAN);
+    rsp.SAN.push_back(move.m_strAN);
   }
 
   ROS_INFO_STREAM(SvcNameGetPlayHistory << ": retrieved play history, "
@@ -778,7 +778,7 @@ int ChessServer::asyncMakeAMove(const chess_player ePlayer, const string &strAN)
   // Fill move with known information.
   //
   move.m_ePlayer = m_chess.whoseTurn();
-  move.m_strSAN  = strAN;
+  move.m_strAN   = strAN;
 
   //
   // Make asynchronous chess move.
@@ -967,7 +967,7 @@ int ChessServer::makeAMove(const string &strEvent,
   endAutoPlay("Make a move requested", -chess_engine::CE_ECODE_INTR);
 
   // Determine if move specifed by algebraic notation or by source/destination.
-  bIsANMove = !move.m_strSAN.empty();
+  bIsANMove = !move.m_strAN.empty();
 
   //
   // Make sure there is a game in play
@@ -996,7 +996,7 @@ int ChessServer::makeAMove(const string &strEvent,
 
     if( bIsANMove )
     {
-      rc = m_threadTask.schedMoveToMake(move.m_ePlayer, move.m_strSAN);
+      rc = m_threadTask.schedMoveToMake(move.m_ePlayer, move.m_strAN);
     }
     else
     {
@@ -1046,7 +1046,7 @@ int ChessServer::makeAMove(const string &strEvent,
     ROS_INFO_STREAM(strEvent << ": "
         << move.m_nMoveNum << ". "
         << nameOfColor(move.m_ePlayer) << " "
-        << move.m_strSAN << ".");
+        << move.m_strAN << ".");
   }
 
   //
@@ -1056,7 +1056,7 @@ int ChessServer::makeAMove(const string &strEvent,
   {
     ROS_ERROR_STREAM(strEvent << ": "
         << nameOfColor(move.m_ePlayer) << " "
-        << move.m_strSAN << " "
+        << move.m_strAN << " "
         << move.m_posSrc << move.m_posDst << ": "
         << chess_engine::strecode(rc) << "(" << rc << ")");
   }
@@ -1140,7 +1140,7 @@ int ChessServer::computeEnginesMove(const string &strEvent,
     ROS_INFO_STREAM(strEvent << ": "
         << move.m_nMoveNum << ". "
         << nameOfColor(move.m_ePlayer) << " "
-        << move.m_strSAN << ".");
+        << move.m_strAN << ".");
   }
 
   //

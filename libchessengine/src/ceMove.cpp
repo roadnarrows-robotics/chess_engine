@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013-2016  RoadNarrows
+ * (C) 2013-2017 RoadNarrows LLC
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -59,10 +59,6 @@
 #include <sstream>
 #include <string>
 
-#include <boost/regex.hpp>
-
-#include <ros/console.h>
-
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceError.h"
 #include "chess_engine/ceUtils.h"
@@ -70,136 +66,6 @@
 
 using namespace std;
 using namespace chess_engine;
-
-
-// -----------------------------------------------------------------------------
-// Private Interface 
-// -----------------------------------------------------------------------------
-
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Algebraic Notation Regular Expressions
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-/*!
- * \brief Regular expression helper macros.
- */
-#define SOL "^"                           ///< start of line
-#define EOL "$"                           ///< end of line
-#define G(expr) string("(" + expr + ")")  ///< match group expression
-
-/*!
- * \brief Helper (marked) sub-expression strings used in regular expressions.
- */
-static const string exprFile("[a-h]");
-static const string exprRank("[1-8]");
-static const string exprRankPenult("[27]");
-static const string exprRankUlt("[18]");
-
-static const string exprPiece("[KQRBNP]");
-static const string exprPieceMajor("[KQRBN]");
-static const string exprPiecePromo("[QRBN]");
-
-static const string exprCastlingKingSide("0-0|O-O");
-static const string exprCastlingQueenSide("0-0-0|O-O-O");
-
-static const string exprModCapture("x|:");
-static const string exprModEnPassant("e.p");
-static const string exprModPromotion("[=/]");
-static const string exprModCheck("\\+|\\+\\+|#");
-
-static const string grpDisambig(G(exprFile + "?" + exprRank + "?"));
-static const string grpPos(G(exprFile+exprRank));
-static const string grpPosPenult(G(exprFile + exprRankPenult));
-static const string grpPosUlt(G(exprFile + exprRankUlt));
-
-/*!
- * \brief Coordinate and Standard Algebraic Notation regular expressions.
- */
-
-// 2 groups. "a2a4" "g6a6" ...
-static boost::regex reCAN(SOL + grpPos + grpPos + EOL);
-
-// 3 groups. "c7c8=Q" "b2a1/N" "d2d1Q" ...
-static boost::regex reCANPromotion1(SOL + grpPosPenult + grpPosUlt
-                                        + exprModPromotion
-                                        + G(exprPiecePromo)
-                                      + EOL);
-
-// 3 groups. "c7c8(Q)" ...
-static boost::regex reCANPromotion2(SOL + grpPosPenult + grpPosUlt
-                                        + "\\("+G(exprPiecePromo)+"\\)"
-                                      + EOL);
-
-// 1 group. 0-0 ...
-static boost::regex reCastleKingSide(SOL + G(exprCastlingKingSide) + EOL);
-
-// 1 group. 0-0-0 ...
-static boost::regex reCastleQueenSide(SOL + G(exprCastlingQueenSide) + EOL);
-
-// 2 groups. "bxc6e.p" "gxf3e.p" "b5xc6e.p" ...
-static boost::regex reEnPassant(SOL + grpDisambig + exprModCapture
-                                    + grpPos + exprModEnPassant
-                                  + EOL);
-
-// 3 groups. "c8=Q" "bxa1/Q" "d1Q" "axb8=N" ...
-static boost::regex rePawnPromotion1(SOL + grpDisambig + ".?" + grpPos
-                                         + exprModPromotion + G(exprPiecePromo)
-                                      + EOL);
-
-// 3 groups. "c7c8(Q)" "dxc8(R)" ...
-static boost::regex rePawnPromotion2(SOL + grpDisambig + ".?" + grpPos
-                                        + "\\("+G(exprPiecePromo)+"\\)"
-                                      + EOL);
-
-// 2 groups. "a4" "exf5" "a2a4" ...
-static boost::regex rePawnMove(SOL + grpDisambig + ".?" + grpPos + EOL);
-
-// 3 groups. "Ba4" "Qxf5" "Ra2a4" ...
-static boost::regex reMajorMove(SOL + G(exprPieceMajor)
-                                    + grpDisambig + ".?" + grpPos
-                                  + EOL);
-
-// 1 group. "x" ...
-static boost::regex reModCapture(".+" + G(exprModCapture) + ".+");
-
-// 1 group. "+" ...
-static boost::regex reModCheck(".+" + G(exprModCheck) + EOL);
-
-/*!
- * \brief RegEx helper to parse position.
- *
- * \param strExpr   Move (sub)position.
- * \param [out] pos Position.
- */
-static void _position(const string &strExpr, ChessPos &pos)
-{
-  pos.m_file = (ChessFile)strExpr[0];
-  pos.m_rank = (ChessRank)strExpr[1];
-}
-
-/*!
- * \brief RegEx helper to parse disambiguous position.
- *
- * \param strExpr   Move (sub)position.
- * \param [out] pos Position.
- */
-static void _disambiguate(const string &strExpr, ChessPos &pos)
-{
-  if( strExpr.size() == 2 )
-  {
-    _position(strExpr, pos);
-  }
-  else if( (strExpr[0] >= (char)ChessFileA) && 
-           (strExpr[0] <= (char)ChessFileH) )
-  {
-    pos.m_file = (ChessFile)strExpr[0];
-  }
-  else if( (strExpr[0] >= (char)ChessRank1) && 
-           (strExpr[0] <= (char)ChessRank8) )
-  {
-    pos.m_rank = (ChessRank)strExpr[0];
-  }
-}
 
 
 // -----------------------------------------------------------------------------
@@ -240,7 +106,7 @@ void ChessMove::copy(const ChessMove &src)
 {
   m_nMoveNum        = src.m_nMoveNum;
   m_ePlayer         = src.m_ePlayer;
-  m_strSAN          = src.m_strSAN;
+  m_strAN           = src.m_strAN;
   m_ePieceMoved     = src.m_ePieceMoved;
   m_posSrc          = src.m_posSrc;
   m_posDst          = src.m_posDst;
@@ -256,7 +122,7 @@ void ChessMove::clear()
 {
   m_nMoveNum        = 0;
   m_ePlayer         = NoColor;
-  m_strSAN.clear();
+  m_strAN.clear();
   m_ePieceMoved     = NoPiece;
   m_posSrc.clear();
   m_posDst.clear();
@@ -394,112 +260,6 @@ string ChessMove::SAN(ChessMove &move)
   return "notsupported";
 }
 
-int ChessMove::parseCAN(const string &strCAN, ChessMove &move)
-{
-  boost::cmatch what;
-
-  // pawn promotion
-  if( boost::regex_match(strCAN.c_str(), what, reCANPromotion1) ||
-      boost::regex_match(strCAN.c_str(), what, reCANPromotion2) )
-  {
-    move.m_ePiecePromoted = (ChessPiece)what[3].str()[0];
-  }
-
-  // basic coordinate move
-  else if( !boost::regex_match(strCAN.c_str(), what, reCAN) )
-  {
-    return -CE_ECODE_CHESS_PARSE;
-  }
-
-  _position(what[1].str(), move.m_posSrc);
-  _position(what[2].str(), move.m_posDst);
-
-  return CE_OK;
-}
-
-int ChessMove::parseSAN(const string &strSAN, ChessMove &move)
-{
-  boost::cmatch what;
-
-  // king side castle
-  if( boost::regex_match(strSAN.c_str(), what, reCastleKingSide) )
-  {
-    move.m_ePieceMoved = King;
-    move.m_eCastling   = KingSide;
-  }
-
-  // queen side castle
-  else if( boost::regex_match(strSAN.c_str(), what, reCastleQueenSide) )
-  {
-    move.m_ePieceMoved = King;
-    move.m_eCastling   = QueenSide;
-  }
-
-  // en passant
-  else if( boost::regex_match(strSAN.c_str(), what, reEnPassant) )
-  {
-    move. m_ePieceMoved = Pawn;
-    _disambiguate(what[1].str(), move.m_posSrc);
-    _position(what[2].str(),     move.m_posDst);
-  }
-
-  // pawn promotion
-  else if( boost::regex_match(strSAN.c_str(), what, rePawnPromotion1) ||
-           boost::regex_match(strSAN.c_str(), what, rePawnPromotion2) )
-  {
-    move.m_ePieceMoved = Pawn;
-    _disambiguate(what[1].str(), move.m_posSrc);
-    _position(what[2].str(), move.m_posDst);
-    move.m_ePiecePromoted = (ChessPiece)what[3].str()[0];
-  }
-
-  // pawn move
-  else if( boost::regex_match(strSAN.c_str(), what, rePawnMove) )
-  {
-    move.m_ePieceMoved    = Pawn;
-    _disambiguate(what[1].str(), move.m_posSrc);
-    _position(what[2].str(), move.m_posDst);
-  }
-
-  // major piece move
-  else if( boost::regex_match(strSAN.c_str(), what, reMajorMove) )
-  {
-    move.m_ePieceMoved = (ChessPiece)what[1].str()[0];
-    _disambiguate(what[2].str(), move.m_posSrc);
-    _position(what[3].str(), move.m_posDst);
-  }
-
-  else
-  {
-    return -CE_ECODE_CHESS_PARSE;
-  }
-
-  // capture
-  if( boost::regex_match(strSAN.c_str(), what, reModCapture) )
-  {
-    move.m_ePieceCaptured = move.m_bIsEnPassant? Pawn: UndefPiece;
-  }
-
-  // check or checkmate
-  if( boost::regex_match(strSAN.c_str(), what, reModCheck) )
-  {
-    if( what[1].str() == "+" )
-    {
-      move.m_eCheck = ModCheck;
-    }
-    else if( what[1].str() == "++" )
-    {
-      move.m_eCheck = ModDoubleCheck;
-    }
-    else if( what[1].str() == "#" )
-    {
-      move.m_eCheck = ModCheckmate;
-    }
-  }
-
-  return CE_OK;
-}
-
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 // Friends
@@ -518,7 +278,7 @@ std::ostream &chess_engine::operator<<(std::ostream &os,
         << nameOfColor(move.m_ePlayer)
         << "(" << (char)move.m_ePlayer << ")"
         << std::endl
-      << "  SAN        = " << move.m_strSAN << std::endl
+      << "  AN         = " << move.m_strAN << std::endl
       << "  piece      = "
         << nameOfPiece(move.m_ePieceMoved)
         << "(" << (char)move.m_ePieceMoved << ")"

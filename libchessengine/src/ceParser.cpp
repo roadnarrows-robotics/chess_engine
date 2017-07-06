@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows LLC
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -64,6 +64,8 @@
 
 #include <boost/fusion/include/adapt_struct.hpp>
 
+#include <boost/regex.hpp>
+
 #include <iostream>
 #include <string>
 #include <map>
@@ -77,165 +79,11 @@
 #include "chess_engine/ceBoard.h"
 #include "chess_engine/ceParser.h"
 
+using namespace std;
 
-//------------------------------------------------------------------------------
-// Chess Algebraic Notation Parser
-//------------------------------------------------------------------------------
-
-namespace chess_engine
-{
-
-/* RDK
-  struct chess_pos
-  {
-    char  m_file;
-    char  m_rank;
-
-    chess_pos()
-    {
-      m_file = NoFile;
-      m_rank = NoRank;
-    }
-
-    chess_pos(const chess_pos &src)
-    {
-      m_file = src.m_file;
-      m_rank = src.m_rank;
-    }
-
-    void clear()
-    {
-      m_file = NoFile;
-      m_rank = NoRank;
-    }
-  };
-*/
-
-  // --------------------------------------------------------------------------
-  // an_move structure
-  // --------------------------------------------------------------------------
-
-  /*!
-   * \brief Algebraic Notation parsed resultant object class.
-   */
-  struct an_move
-  {
-    std::string   m_strAN;          ///< associated AN string describing move
-    ChessAlgebra  m_algebra;        ///< chess algebra notation
-    ChessPiece    m_piece;          ///< moved piece
-    ChessPos      m_src;            ///< source chess position
-    ChessPos      m_dst;            ///< destination chess position
-    bool          m_capture;        ///< [not] a capture move
-    bool          m_en_passant;     ///< [not] en passant move
-    ChessCastling m_castling;       ///< castling move, if any
-    ChessPiece    m_promotion;      ///< promoted piece, if any
-    ChessCheckMod m_check;          ///< check or mate, if any
-
-    /*!
-     * \brief Default constructor.
-     */
-    an_move()
-    {
-      clear();
-    };
-
-    /*!
-     * \brief Copy constructor.
-     *
-     * \param src   Source object.
-     */
-    an_move(const an_move &src)
-    {
-      m_strAN       = src.m_strAN;
-      m_algebra     = src.m_algebra;
-      m_piece       = src.m_piece;
-      m_src         = src.m_src;
-      m_dst         = src.m_dst;
-      m_capture     = src.m_capture;
-      m_en_passant  = src.m_en_passant;
-      m_castling    = src.m_castling;
-      m_promotion   = src.m_promotion;
-      m_check       = src.m_check;
-    }
-
-    /*!
-     * \brief Clear data.
-     */
-    void clear()
-    {
-      m_strAN.clear();
-      m_algebra     = UnknownAN;
-      m_piece       = NoPiece;
-      m_src.clear();
-      m_dst.clear();
-      m_capture     = false;
-      m_en_passant  = false;
-      m_castling    = NoCastling;
-      m_promotion   = NoPiece;
-      m_check       = NoCheckMod;
-    }
-
-    /*!
-     * \brief Associtate the AN that populated the move fields.
-     *
-     * \param strAN   AN string.
-     */
-    void associateAN(const std::string &strAN)
-    {
-      m_strAN = strAN;
-    }
-
-    //
-    // Friends
-    //
-    friend std::ostream &operator<<(std::ostream &os, const an_move &move);
-  };
-
-  /*!
-   * \brief The an_move output stream operator.
-   */
-  std::ostream &operator<<(std::ostream &os, const an_move &move)
-  {
-    os
-      << "{" << std::endl
-        << "  AN         = " << move.m_strAN << std::endl
-        << "  algebra    = "
-          << nameOfAlgebra(move.m_algebra)
-          << "(" << move.m_algebra << ")"
-          << std::endl
-        << "  piece      = "
-          << nameOfPiece(move.m_piece)
-          << "(" << (char)move.m_piece << ")"
-          << std::endl
-        << "  srcdst     = "
-          << (char)move.m_src.m_file << (char)move.m_src.m_rank
-          << (char)move.m_dst.m_file << (char)move.m_dst.m_rank
-          << std::endl
-        << "  capture    = "
-          << nameOfBool(move.m_capture)
-          << "(" << move.m_capture << ")" << std::endl
-        << "  en_passant = "
-          << nameOfBool(move.m_en_passant) << "(" << move.m_en_passant << ")"
-          << std::endl
-        << "  castling   = "
-          << nameOfCastling(move.m_castling)
-          << "(" << (char)move.m_castling << ")"
-          << std::endl
-        << "  promotion  = "
-          << nameOfPiece(move.m_promotion)
-          << "(" << (char)move.m_promotion << ")"
-          << std::endl
-        << "  check      = "
-          << nameOfCheckMod(move.m_check)
-          << "(" << (char)move.m_check << ")"
-          << std::endl
-      << "}" << std::endl
-    ;
-
-    return os;
-  }
-
-} // namespace chess_engine
+// --------------------------------------------------------------------------
+// Chess Algebraic Notation in Backus Naur Form
+// --------------------------------------------------------------------------
 
 //
 // Adapt ChessPos structure for parser. Keep in global scope.
@@ -249,37 +97,41 @@ BOOST_FUSION_ADAPT_STRUCT(
 //
 // Adapted ChessPos member access helpers.
 //
-#define POS_FILE(p)     at_c<0>(p)  ///< position file
-#define POS_RANK(p)     at_c<1>(p)  ///< position rank
+#define AT_POS_FILE(_p) at_c<0>(_p)  ///< position file
+#define AT_POS_RANK(_p) at_c<1>(_p)  ///< position rank
 
 //
-// Adapt an_move structure for parser. Keep in global scope.
+// Adapt ChessANDecomp structure for parser. Keep in global scope.
 //
 BOOST_FUSION_ADAPT_STRUCT(
-    chess_engine::an_move,
-    (chess_engine::ChessAlgebra, m_algebra)   // 0
-    (chess_engine::ChessPiece, m_piece)       // 1
-    (chess_engine::ChessPos, m_src)           // 2
-    (chess_engine::ChessPos, m_dst)           // 3
-    (bool, m_capture)                         // 4
-    (bool, m_en_passant)                      // 5
-    (chess_engine::ChessPiece, m_promotion)   // 6
-    (chess_engine::ChessCheckMod, m_check)    // 7
-    (chess_engine::ChessCastling, m_castling) // 8
+    chess_engine::ChessANDecomp,
+    (chess_engine::ChessAlgebra, m_eAlgebra)      // 0
+    (chess_engine::ChessPiece, m_ePieceMoved)     // 1
+    (chess_engine::ChessPiece, m_eColorMoved)     // 2
+    (chess_engine::ChessPos, m_posSrc)            // 3
+    (chess_engine::ChessPos, m_posDst)            // 4
+    (bool, m_bHasCaptured)                        // 5
+    (chess_engine::ChessPiece, m_ePieceCaptured)  // 6
+    (chess_engine::ChessPiece, m_ePiecePromoted)  // 7
+    (bool, m_bIsEnPassant)                        // 8
+    (chess_engine::ChessCastling, m_eCastling)    // 9
+    (chess_engine::ChessCheckMod, m_eCheck)       // 10
 )
 
 //
-// Adapted an_move member access helpers.
+// Adapted ChessANDecomp member access helpers.
 //
-#define MOVE_ALGEBRA(m)     at_c<0>(m)  ///< move algebra
-#define MOVE_PIECE(m)       at_c<1>(m)  ///< move piece
-#define MOVE_SRC_POS(m)     at_c<2>(m)  ///< move source position
-#define MOVE_DST_POS(m)     at_c<3>(m)  ///< move destination position
-#define MOVE_CAPTURE(m)     at_c<4>(m)  ///< move capture
-#define MOVE_EN_PASSANT(m)  at_c<5>(m)  ///< move en passant
-#define MOVE_PROMOTION(m)   at_c<6>(m)  ///< move promotion piece
-#define MOVE_CHECK(m)       at_c<7>(m)  ///< move check modifier
-#define MOVE_CASTLING(m)    at_c<8>(m)  ///< move castling type
+#define AT_ALGEBRA(_d)        at_c<0>(_d)  ///< algebra notation syntax
+#define AT_MOVED_PIECE(_d)    at_c<1>(_d)  ///< move piece
+#define At_MOVED_COLOR(_d)    at_c<2>(_d)  ///< moved piece color
+#define AT_SRC_POS(_d)        at_c<3>(_d)  ///< move source position
+#define AT_DST_POS(_d)        at_c<4>(_d)  ///< move destination position
+#define AT_HAS_CAPTURED(_d)   at_c<5>(_d)  ///< [no] captured piece
+#define AT_CAPTURED_PIECE(_d) at_c<6>(_d)  ///< captured piece
+#define AT_PROMOTED(_d)       at_c<7>(_d)  ///< move promotion piece
+#define AT_EN_PASSANT(_d)     at_c<8>(_d)  ///< move en passant
+#define AT_CASTLING(_d)       at_c<9>(_d)  ///< move castling type
+#define AT_CHECK(_d)          at_c<10>(_d)  ///< move check modifier
 
 //
 // Rule helpers.
@@ -290,6 +142,10 @@ namespace chess_engine
 {
   namespace qi = boost::spirit::qi;
   namespace ascii = boost::spirit::ascii;
+
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // Token,Value Symbols
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
   /*!
    * \brief Chess file token,value pairs.
@@ -534,11 +390,12 @@ namespace chess_engine
   };
   
 
-  //----------------------------------------------------------------------------
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
   // Grammar Template
-  //----------------------------------------------------------------------------
+  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
   template <typename Iterator> struct an_grammar :
-      qi::grammar<Iterator, an_move()>
+      qi::grammar<Iterator, ChessANDecomp()>
   {
     an_grammar() : an_grammar::base_type(an)
     {
@@ -560,7 +417,7 @@ namespace chess_engine
         using phoenix::val;
 
         // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        // Grammer rules.
+        // Grammar rules.
         // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         
         //
@@ -569,8 +426,8 @@ namespace chess_engine
         an =
           eps >>
           (
-              can [_val = _1, MOVE_ALGEBRA(_val) = CAN]
-            | san [_val = _1, MOVE_ALGEBRA(_val) = SAN]
+              can [_val = _1, AT_ALGEBRA(_val) = CAN]
+            | san [_val = _1, AT_ALGEBRA(_val) = SAN]
           )
         ;
 
@@ -582,20 +439,20 @@ namespace chess_engine
         can =
             can_promotion  [_val = _1]
           |
-                pos [MOVE_SRC_POS(_val) = _1]
-            >>  pos [MOVE_DST_POS(_val) = _1]
+                pos [AT_SRC_POS(_val) = _1]
+            >>  pos [AT_DST_POS(_val) = _1]
         ;
 
         RULE_NAME(can);
 
         //
-        // CAN pawn promotion. Examples: "(Q) "=N".
+        // CAN pawn promotion. Examples: "Q" "(Q) "=N".
         //
         can_promotion = 
-                promotion_src_pos [MOVE_SRC_POS(_val) = _1]
-            >>  promotion_dst_pos [MOVE_DST_POS(_val) = _1]
-            >>  promotion         [MOVE_PROMOTION(_val) = _1,
-                                   MOVE_PIECE(_val) = Pawn]
+                promotion_src_pos [AT_SRC_POS(_val) = _1]
+            >>  promotion_dst_pos [AT_DST_POS(_val) = _1]
+            >>  promotion         [AT_PROMOTED(_val) = _1,
+                                   AT_MOVED_PIECE(_val) = Pawn]
         ;
 
         RULE_NAME(can_promotion);
@@ -611,7 +468,7 @@ namespace chess_engine
             | san_capture_move    [_val = _1] 
             | san_basic_move      [_val = _1]
           )
-          >   -(check_or_mate) [MOVE_CHECK(_val) = _1]
+          >   -(check_or_mate) [AT_CHECK(_val) = _1]
         ;
 
         RULE_NAME(san);
@@ -620,7 +477,7 @@ namespace chess_engine
         // SAN castling move. Examples: "0-0" "0-0-0" "O-O".
         //
         san_castling_move =
-          castling [MOVE_CASTLING(_val) = _1, MOVE_PIECE(_val) = King]
+          castling [AT_CASTLING(_val) = _1, AT_MOVED_PIECE(_val) = King]
         ;
 
         RULE_NAME(san_castling_move);
@@ -629,28 +486,31 @@ namespace chess_engine
         // SAN en passant move. Examples: "dxc6e.p" "hxg3e.p".
         //
         san_en_passant_move =
-              disambig_pawn       [MOVE_SRC_POS(_val) = _1]
-          >>  capture_mod         [MOVE_CAPTURE(_val) = true]
-          >>  en_passant_dst_pos  [MOVE_DST_POS(_val) = _1]
-          >>  en_passant_mod      [MOVE_EN_PASSANT(_val) = true,
-                                   MOVE_PIECE(_val) = Pawn]
+              disambig_pawn       [AT_SRC_POS(_val) = _1]
+          >>  capture_mod         [AT_HAS_CAPTURED(_val) = true]
+          >>  en_passant_dst_pos  [AT_DST_POS(_val) = _1]
+          >>  en_passant_mod      [AT_EN_PASSANT(_val) = true,
+                                   AT_MOVED_PIECE(_val) = Pawn,
+                                   AT_CAPTURED_PIECE(_val) = Pawn]
         ;
 
         RULE_NAME(san_en_passant_move);
 
         //
-        // SAN pawn promotion move. Examples: "b8=Q" "b1/Q" "h8N" "gxf8(N)".
+        // SAN pawn promotion move.
+        // Examples: "h1Q" "b8=Q" "b1/Q" "h8N" "gxf8(N)".
         //
         san_promotion_move =
-                promotion_dst_pos   [MOVE_DST_POS(_val) = _1]
-            >>  promotion           [MOVE_PROMOTION(_val) = _1, 
-                                     MOVE_PIECE(_val) = Pawn]
+                promotion_dst_pos   [AT_DST_POS(_val) = _1]
+            >>  promotion           [AT_PROMOTED(_val) = _1, 
+                                     AT_MOVED_PIECE(_val) = Pawn]
           |
-                disambig_pawn [MOVE_SRC_POS(_val) = _1]
-            >>  capture_mod   [MOVE_CAPTURE(_val) = true]
-            >>  promotion_dst_pos   [MOVE_DST_POS(_val) = _1]
-            >>  promotion           [MOVE_PROMOTION(_val) = _1, 
-                                     MOVE_PIECE(_val) = Pawn]
+                disambig_pawn       [AT_SRC_POS(_val) = _1]
+            >>  capture_mod         [AT_HAS_CAPTURED(_val) = true,
+                                     AT_CAPTURED_PIECE(_val) = UndefPiece]
+            >>  promotion_dst_pos   [AT_DST_POS(_val) = _1]
+            >>  promotion           [AT_PROMOTED(_val) = _1, 
+                                     AT_MOVED_PIECE(_val) = Pawn]
         ;
 
         RULE_NAME(san_promotion_move);
@@ -659,7 +519,7 @@ namespace chess_engine
         // SAN capture move.
         //
         san_capture_move = 
-            san_pawn_capturing   [_val = _1, MOVE_PIECE(_val) = Pawn]
+            san_pawn_capturing   [_val = _1, AT_MOVED_PIECE(_val) = Pawn]
           | san_major_capturing  [_val = _1]
         ;
 
@@ -669,10 +529,11 @@ namespace chess_engine
         // SAN pawn capturing move. Examples: "exd7" "axb4".
         //
         san_pawn_capturing =
-              disambig_pawn [MOVE_SRC_POS(_val) = _1]
-          >>  capture_mod   [MOVE_CAPTURE(_val) = true]
-          >   pos           [MOVE_DST_POS(_val) = _1,
-                             MOVE_PIECE(_val) = Pawn]
+              disambig_pawn [AT_SRC_POS(_val) = _1]
+          >>  capture_mod   [AT_HAS_CAPTURED(_val) = true,
+                             AT_CAPTURED_PIECE(_val) = UndefPiece]
+          >   pos           [AT_DST_POS(_val) = _1,
+                             AT_MOVED_PIECE(_val) = Pawn]
         ;
 
         RULE_NAME(san_pawn_capturing);
@@ -681,10 +542,11 @@ namespace chess_engine
         // SAN major piece capturing move. Examples: "Bxe5" "Ngxf3".
         //
         san_major_capturing =
-              major_piece [MOVE_PIECE(_val) = _1]
-          >>  -(disambig) [MOVE_SRC_POS(_val) = _1]
-          >>  capture_mod [MOVE_CAPTURE(_val) = true]
-          >   pos         [MOVE_DST_POS(_val) = _1]
+              major_piece [AT_MOVED_PIECE(_val) = _1]
+          >>  -(disambig) [AT_SRC_POS(_val) = _1]
+          >>  capture_mod [AT_HAS_CAPTURED(_val) = true,
+                           AT_CAPTURED_PIECE(_val) = UndefPiece]
+          >   pos         [AT_DST_POS(_val) = _1]
         ;
 
         RULE_NAME(san_major_capturing);
@@ -693,7 +555,7 @@ namespace chess_engine
         // SAN basic move (i.e. no capture, not special move).
         //
         san_basic_move = 
-            san_pawn_move   [_val = _1, MOVE_PIECE(_val) = Pawn]
+            san_pawn_move   [_val = _1, AT_MOVED_PIECE(_val) = Pawn]
           | san_major_move  [_val = _1]
         ;
 
@@ -703,11 +565,11 @@ namespace chess_engine
         // SAN pawn basic move. Examples: "c3" "e5" "de3".
         //
         san_pawn_move =
-            pos               [MOVE_DST_POS(_val) = _1]
+            pos               [AT_DST_POS(_val) = _1]
           |
-                file_or_rank  [MOVE_SRC_POS(_val) = _1]
-            >>  pos           [MOVE_DST_POS(_val) = _1,
-                               MOVE_PIECE(_val) = Pawn]
+                file_or_rank  [AT_SRC_POS(_val) = _1]
+            >>  pos           [AT_DST_POS(_val) = _1,
+                               AT_MOVED_PIECE(_val) = Pawn]
         ;
         
         RULE_NAME(san_pawn_move);
@@ -716,12 +578,12 @@ namespace chess_engine
         // SAN major piece basic move. Examples: "Nc3" "Kd2" "Rdd5" "N5f3".
         //
         san_major_move =
-                major_piece [MOVE_PIECE(_val) = _1]
-            >>  pos         [MOVE_DST_POS(_val) = _1]
+                major_piece [AT_MOVED_PIECE(_val) = _1]
+            >>  pos         [AT_DST_POS(_val) = _1]
           |
-                major_piece [MOVE_PIECE(_val) = _1]
-            >>  disambig    [MOVE_SRC_POS(_val) = _1]
-            >>  pos         [MOVE_DST_POS(_val) = _1]
+                major_piece [AT_MOVED_PIECE(_val) = _1]
+            >>  disambig    [AT_SRC_POS(_val) = _1]
+            >>  pos         [AT_DST_POS(_val) = _1]
         ;
 
         RULE_NAME(san_major_move);
@@ -740,14 +602,14 @@ namespace chess_engine
         //
         // File only position.
         //
-        file_only_pos = file  [POS_FILE(_val) = _1];
+        file_only_pos = file  [AT_POS_FILE(_val) = _1];
 
         RULE_NAME(file_only_pos);
 
         //
         // Rank only position.
         //
-        rank_only_pos = rank  [POS_RANK(_val) = _1];
+        rank_only_pos = rank  [AT_POS_RANK(_val) = _1];
 
         RULE_NAME(rank_only_pos);
 
@@ -843,23 +705,23 @@ namespace chess_engine
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     // start
-    qi::rule<Iterator, an_move()> an;
+    qi::rule<Iterator, ChessANDecomp()> an;
 
     // CAN
-    qi::rule<Iterator, an_move()> can;
-    qi::rule<Iterator, an_move()> can_promotion;
+    qi::rule<Iterator, ChessANDecomp()> can;
+    qi::rule<Iterator, ChessANDecomp()> can_promotion;
 
     // SAN
-    qi::rule<Iterator, an_move()> san;
-    qi::rule<Iterator, an_move()> san_castling_move;
-    qi::rule<Iterator, an_move()> san_en_passant_move;
-    qi::rule<Iterator, an_move()> san_promotion_move;
-    qi::rule<Iterator, an_move()> san_capture_move;
-    qi::rule<Iterator, an_move()> san_pawn_capturing;
-    qi::rule<Iterator, an_move()> san_major_capturing;
-    qi::rule<Iterator, an_move()> san_basic_move;
-    qi::rule<Iterator, an_move()> san_pawn_move;
-    qi::rule<Iterator, an_move()> san_major_move;
+    qi::rule<Iterator, ChessANDecomp()> san;
+    qi::rule<Iterator, ChessANDecomp()> san_castling_move;
+    qi::rule<Iterator, ChessANDecomp()> san_en_passant_move;
+    qi::rule<Iterator, ChessANDecomp()> san_promotion_move;
+    qi::rule<Iterator, ChessANDecomp()> san_capture_move;
+    qi::rule<Iterator, ChessANDecomp()> san_pawn_capturing;
+    qi::rule<Iterator, ChessANDecomp()> san_major_capturing;
+    qi::rule<Iterator, ChessANDecomp()> san_basic_move;
+    qi::rule<Iterator, ChessANDecomp()> san_pawn_move;
+    qi::rule<Iterator, ChessANDecomp()> san_major_move;
 
 
     // piece
@@ -886,6 +748,180 @@ namespace chess_engine
 } // namespace chess_engine
 
 
+// --------------------------------------------------------------------------
+// Chess Algebraic Notation in Regular Expressions
+// --------------------------------------------------------------------------
+
+/*!
+ * \brief Regular expression helper macros.
+ */
+#define SOL "^"                           ///< start of line
+#define EOL "$"                           ///< end of line
+#define G(expr) string("(" + expr + ")")  ///< match group expression
+
+namespace chess_engine
+{
+  /*!
+   * \brief Helper (marked) sub-expression strings used in regular expressions.
+   * \{
+   */
+  // file and rank position expressions
+  static const string exprFile("[a-h]");
+  static const string exprRank("[1-8]");
+  static const string exprRankPenult("[27]");
+  static const string exprRankUlt("[18]");
+  
+  // piece expressions
+  static const string exprPiece("[KQRBNP]");
+  static const string exprPieceMajor("[KQRBN]");
+  static const string exprPiecePromo("[QRBN]");
+  
+  // castlin expressions
+  static const string exprCastlingKingSide("0-0|O-O");
+  static const string exprCastlingQueenSide("0-0-0|O-O-O");
+  
+  // modifier expressions
+  static const string exprModCapture("x|:");
+  static const string exprModEnPassant("e\\.p");
+  static const string exprModPromotion("[=/]");
+  static const string exprModCheck("\\+{1,2}|#");
+  
+  // groups
+  static const string grpDisambig(G(exprFile + "?" + exprRank + "?"));
+  static const string grpPos(G(exprFile+exprRank));
+  static const string grpPosPenult(G(exprFile + exprRankPenult));
+  static const string grpPosUlt(G(exprFile + exprRankUlt));
+  static const string grpModCheckOpt(G(exprModCheck) + "?");
+  /*! \} */
+  
+  /*!
+   * \brief Coordinate and Standard Algebraic Notation regular expressions.
+   * \{
+   */
+  
+  // 2 groups. "a2a4" "g6a6" ...
+  static boost::regex reCAN(SOL + grpPos + grpPos + EOL);
+  
+  // 3 groups. "c7c8=Q" "b2a1/N" "d2d1Q" ...
+  static boost::regex reCANPromotion1(
+                        SOL
+                          + grpPosPenult + grpPosUlt
+                          + exprModPromotion
+                          + G(exprPiecePromo)
+                        + EOL);
+  
+  // 3 groups. "c7c8(Q)" ...
+  static boost::regex reCANPromotion2(
+                        SOL
+                          + grpPosPenult + grpPosUlt
+                          + "\\("+G(exprPiecePromo)+"\\)"
+                        + EOL);
+  
+  // 1 group. 0-0 ...
+  static boost::regex reCastleKingSide(
+                        SOL
+                          + G(exprCastlingKingSide)
+                          + grpModCheckOpt
+                          + G(exprModCheck) + "?"
+                        + EOL);
+  
+  // 1 group. 0-0-0 ...
+  static boost::regex reCastleQueenSide(
+                        SOL
+                          + G(exprCastlingQueenSide)
+                          + grpModCheckOpt
+                        + EOL);
+  
+  // 3 groups. "bxc6e.p" "gxf3e.p" "b5xc6e.p" ...
+  static boost::regex reEnPassant(
+                        SOL
+                          + grpDisambig
+                          + G(exprModCapture)
+                          + grpPos
+                          + exprModEnPassant
+                          + grpModCheckOpt
+                        + EOL);
+  
+  // 3 groups. "c8=Q" "bxa1/Q" "d1Q" "axb8=N" "f8Q" ...
+  static boost::regex rePawnPromotion1(
+                        SOL
+                          + grpDisambig + ".?" + grpPos
+                          + exprModPromotion + "?"
+                          + G(exprPiecePromo)
+                          + grpModCheckOpt
+                        + EOL);
+  
+  // 3 groups. "c7c8(Q)" "dxc8(R)" ...
+  static boost::regex rePawnPromotion2(
+                        SOL
+                          + grpDisambig + ".?" + grpPos
+                          + "\\("+G(exprPiecePromo)+"\\)"
+                          + grpModCheckOpt
+                        + EOL);
+  
+  // 2 groups. "a4" "exf5" "a2a4" ...
+  static boost::regex rePawnMove(
+                        SOL
+                          + grpDisambig
+                          + ".?"
+                          + grpPos
+                          + grpModCheckOpt
+                        + EOL);
+  
+  // 3 groups. "Ba4" "Qxf5" "Ra2a4" ...
+  static boost::regex reMajorMove(
+                        SOL
+                          + G(exprPieceMajor)
+                          + grpDisambig + ".?" + grpPos
+                          + grpModCheckOpt
+                        + EOL);
+  
+  // 1 group. "x" ...
+  static boost::regex reModCapture(".+" + G(exprModCapture) + ".+");
+  
+  // 1 group. "+" ...
+  static boost::regex reModCheck("[^\\+]+" + G(exprModCheck) + EOL);
+  /*! \} */
+  
+  /*!
+   * \brief RegEx helper to parse position.
+   *
+   * \param strExpr   Move (sub)position.
+   * \param [out] pos Position.
+   */
+  static void _position(const string &strExpr, ChessPos &pos)
+  {
+    pos.m_file = (ChessFile)strExpr[0];
+    pos.m_rank = (ChessRank)strExpr[1];
+  }
+  
+  /*!
+   * \brief RegEx helper to parse disambiguous position.
+   *
+   * \param strExpr   Move (sub)position.
+   * \param [out] pos Position.
+   */
+  static void _disambiguate(const string &strExpr, ChessPos &pos)
+  {
+    if( strExpr.size() == 2 )
+    {
+      _position(strExpr, pos);
+    }
+    else if( (strExpr[0] >= (char)ChessFileA) && 
+             (strExpr[0] <= (char)ChessFileH) )
+    {
+      pos.m_file = (ChessFile)strExpr[0];
+    }
+    else if( (strExpr[0] >= (char)ChessRank1) && 
+             (strExpr[0] <= (char)ChessRank8) )
+    {
+      pos.m_rank = (ChessRank)strExpr[0];
+    }
+  }
+
+} // namespace chess_engine
+
+
 //----------------------------------------------------------------------------
 // Class impl
 //----------------------------------------------------------------------------
@@ -898,10 +934,9 @@ class impl
 public:
   typedef std::string::const_iterator iterator_type;
   typedef chess_engine::an_grammar<iterator_type> an_grammar;
-  typedef chess_engine::an_move an_move;
+  typedef chess_engine::ChessANDecomp an_decomp;
 
   an_grammar  m_grammar;    ///< the grammar
-  an_move     m_an_move;    ///< parsed output
 
   /*!
    * \brief Default constructor.
@@ -914,28 +949,175 @@ public:
   virtual ~impl() { };
 };
 
+using namespace chess_engine;
+
+
+// --------------------------------------------------------------------------
+// Struct ChessANDecomp
+// --------------------------------------------------------------------------
+
+/*!
+ * \brief Default constructor.
+ */
+ChessANDecomp::ChessANDecomp()
+{
+  clear();
+};
+
+/*!
+ * \brief Copy constructor.
+ *
+ * \param src   Source object.
+ */
+ChessANDecomp::ChessANDecomp(const ChessANDecomp &src)
+{
+  m_strAN           = src.m_strAN;
+  m_ePlayer         = src.m_ePlayer;
+  m_eAlgebra        = src.m_eAlgebra;
+  m_ePieceMoved     = src.m_ePieceMoved;
+  m_eColorMoved     = src.m_eColorMoved;
+  m_posSrc          = src.m_posSrc;
+  m_posDst          = src.m_posDst;
+  m_bHasCaptured    = src.m_bHasCaptured;
+  m_ePieceCaptured  = src.m_ePieceCaptured;
+  m_ePiecePromoted  = src.m_ePiecePromoted;
+  m_bIsEnPassant    = src.m_bIsEnPassant;
+  m_eCastling       = src.m_eCastling;
+  m_eCheck          = src.m_eCheck;
+}
+
+/*!
+ * \brief Clear data.
+ */
+void ChessANDecomp::clear()
+{
+  m_strAN.clear();
+  m_ePlayer         = NoColor;
+  m_eAlgebra        = UnknownAN;
+  m_ePieceMoved     = UndefPiece;
+  m_eColorMoved     = UndefColor;
+  m_posSrc.clear();
+  m_posDst.clear();
+  m_bHasCaptured    = false;
+  m_ePieceCaptured  = NoPiece;
+  m_ePiecePromoted  = NoPiece;
+  m_bIsEnPassant    = false;
+  m_eCastling       = NoCastling;
+  m_eCheck          = NoCheckMod;
+}
+
+/*!
+ * \brief The ChessANDecomp output stream operator.
+ */
+std::ostream &chess_engine::operator<<(std::ostream        &os,
+                                       const ChessANDecomp &obj)
+{
+  os
+    << "{" << endl
+      << "  AN             = " << obj.m_strAN << endl
+      << "  player         = "
+        << nameOfColor(obj.m_ePlayer)
+        << "(" << (char)obj.m_ePlayer << ")"
+        << endl
+      << "  algebra        = "
+        << nameOfAlgebra(obj.m_eAlgebra)
+        << "(" << obj.m_eAlgebra << ")"
+        << endl
+      << "  piece moved    = "
+        << nameOfPiece(obj.m_ePieceMoved)
+        << "(" << (char)obj.m_ePieceMoved << ")"
+        << endl
+      << "  color moved    = "
+        << nameOfColor(obj.m_eColorMoved)
+        << "(" << (char)obj.m_eColorMoved << ")"
+        << endl
+      << "  srcdst         = " << obj.m_posSrc << obj.m_posDst << endl
+      << "  capture        = "
+        << nameOfBool(obj.m_bHasCaptured)
+        << "(" << obj.m_bHasCaptured << ")" << endl
+      << "  piece captured = "
+        << nameOfPiece(obj.m_ePieceCaptured)
+        << "(" << (char)obj.m_ePieceCaptured << ")"
+        << endl
+      << "  piece promoted = "
+        << nameOfPiece(obj.m_ePiecePromoted)
+        << "(" << (char)obj.m_ePiecePromoted << ")"
+        << endl
+      << "  en_passant     = "
+        << nameOfBool(obj.m_bIsEnPassant) << "(" << obj.m_bIsEnPassant << ")"
+        << endl
+      << "  castling       = "
+        << nameOfCastling(obj.m_eCastling)
+        << "(" << (char)obj.m_eCastling << ")"
+        << endl
+      << "  check          = "
+        << nameOfCheckMod(obj.m_eCheck)
+        << "(" << (char)obj.m_eCheck << ")"
+        << endl
+    << "}" << endl;
+  ;
+
+  return os;
+}
+
+
+//----------------------------------------------------------------------------
+// Class ChessANParser
+//----------------------------------------------------------------------------
+
+/*!
+ * \brief ChessANParser helper strings, functions, and macros.
+ * \{
+ */
+
+const static string ErrorPreface("Parse error: ");
+const static string TracePreface("Trace: ");
+
 //
 // Implementation access macros.
 //
 #define IMPL(p)         ((impl *)p)
 #define IMPL_GRAMMAR(p) IMPL(p)->m_grammar
-#define IMPL_MOVE(p)    IMPL(p)->m_an_move
 
+// Parse trace macro. (Or is it an ant race?).
+#define AN_TRACE(_trace) \
+do \
+{ \
+  if( m_bTrace ) cout << TracePreface << _trace << endl; \
+} \
+while(0)
 
-//----------------------------------------------------------------------------
-// Class ChessANparser
-//----------------------------------------------------------------------------
+// Parse error macro.
+#define AN_ERROR(_err) \
+do \
+{ \
+  stringstream ss; \
+  ss << ErrorPreface << _err; \
+  m_strError = ss.str(); \
+} \
+while(0)
 
-using namespace std;
-using namespace chess_engine;
+const string nameOfParser(ChessANParser::Method eMethod)
+{
+  switch( eMethod )
+  {
+    case ChessANParser::MethodBNF:
+      return "BNF Parser";
+    case ChessANParser::MethodRegEx:
+      return "RegEx Parser";
+    default:
+      return "Unknown Parser";
+  }
+}
 
-/*! parse error preface string */
-const static string ErrorPreface("Parse error: ");
+/*! \} */
+
 
 ChessANParser::ChessANParser()
 {
   m_impl    = new impl;
   m_bTrace  = false;
+  m_eMethod = MethodBNF;
 }
 
 ChessANParser::~ChessANParser()
@@ -943,57 +1125,97 @@ ChessANParser::~ChessANParser()
   delete IMPL(m_impl);
 }
 
-int ChessANParser::parse(const string &strAN,
-                         ChessMove    &move)
+int ChessANParser::parse(const string     &strAN,
+                         const ChessColor ePlayer,
+                         ChessANDecomp    &decomp)
 {
-  string::const_iterator iter  = strAN.begin();
-  string::const_iterator end   = strAN.end();
-  
-  bool bOk;   // parse result
+  int   rc;   // return code
 
-  if( m_bTrace )
-  {
-    cout << "Input: " << strAN << endl << endl;
-  }
+  AN_TRACE("Input: "
+      << "AN = '" << strAN << "' "
+      << "player = " << nameOfColor(ePlayer));
+  AN_TRACE("Using: " << nameOfParser(m_eMethod));
 
   // clear errors
   clearErrors();
 
-  bOk = qi::parse(iter, end, IMPL_GRAMMAR(m_impl), IMPL_MOVE(m_impl));
+  // call parser
+  switch( m_eMethod )
+  {
+    case MethodBNF:
+      rc = runParserBNF(strAN, decomp);
+      break;
+    case MethodRegEx:
+      rc = runParserRegEx(strAN, decomp);
+      break;
+    default:
+      AN_ERROR("Bug: Unknown parser");
+      rc = -CE_ECODE_GEN;
+  }
 
-  // do this after parse which clears move data prior to parse
-  IMPL_MOVE(m_impl).associateAN(strAN);
+  // do this after the parser which may clear data prior to parse
+  decomp.m_strAN    = strAN;
+  decomp.m_ePlayer  = ePlayer;
 
-  // unparsed trailing tokens
+  AN_TRACE("Parsed: " << decomp);
+
+  //
+  // The parse succeeded. Now perform post-processing.
+  //
+  if( rc == CE_OK )
+  {
+    rc = postprocess(decomp);
+  }
+
+  if( rc == CE_OK )
+  {
+    AN_TRACE("Post-Processed: " << decomp);
+    AN_TRACE("Ok");
+  }
+  else
+  {
+    AN_TRACE(m_strError);
+  }
+
+  return rc;
+}
+
+int ChessANParser::parse(const string     &strAN,
+                         const ChessColor ePlayer,
+                         ChessMove        &move)
+{
+  int   rc;
+
+  ChessANDecomp decomp;
+
+  if( (rc = parse(strAN, ePlayer, decomp)) == CE_OK )
+  {
+    toChessMove(decomp, move);
+  }
+
+  return rc;
+}
+
+int ChessANParser::runParserBNF(const string &strAN, ChessANDecomp &decomp)
+{
+  string::const_iterator iter = strAN.begin();
+  string::const_iterator end  = strAN.end();
+  
+  // bnf parser
+  bool bOk = qi::parse(iter, end, IMPL_GRAMMAR(m_impl), decomp);
+
+  // unparsed trailing tokens is considered a failure
   if( iter != end )
   {
     bOk = false;
   }
 
-  if( m_bTrace )
-  {
-    cout << "parsed move: " << IMPL_MOVE(m_impl) << endl;
-  }
-
-  //
-  // The parse succeeded. Now perform post-processing.
-  //
-  if( bOk )
-  {
-    bOk = postprocess();
-
-    if( bOk && m_bTrace )
-    {
-      cout << "post-processed move: " << IMPL_MOVE(m_impl) << endl;
-    }
-  }
-
   //
   // The parse failed. 
   //
-  else
+  if( !bOk )
   {
-    // error message from parse handler
+    // error message from bnf parse handler
     string strError(IMPL_GRAMMAR(m_impl).m_ssError.str());
 
     // no error caught from parse handler, so create error message here
@@ -1001,332 +1223,668 @@ int ChessANParser::parse(const string &strAN,
     {
       string sstr(iter, end);
 
-      strError = "Bad syntax, stopped at \"" + sstr + "\"";
+      strError = "Bad syntax at '" + sstr + "'";
     }
 
-    m_strError = ErrorPreface + strError;
+    AN_ERROR(strError);
+
+    return -CE_ECODE_CHESS_PARSE;
   }
 
-  if( !bOk & m_bTrace )
-  {
-    cout << m_strError << endl;
-  }
-
-  return bOk? CE_OK: -CE_ECODE_CHESS_PARSE;
+  return CE_OK;
 }
 
-bool ChessANParser::postprocess()
+int ChessANParser::runParserRegEx(const string &strAN, ChessANDecomp &decomp)
 {
-  if( IMPL_MOVE(m_impl).m_castling != NoCastling )
+  int   rc;
+
+  // try CAN first
+  if( (rc = parseCANRegEx(strAN, decomp)) != CE_OK )
   {
-    return postprocCastling();
+    // else try SAN
+    rc = parseSANRegEx(strAN, decomp);
   }
 
-  else if( IMPL_MOVE(m_impl).m_en_passant )
+  return rc;
+}
+
+int ChessANParser::parseCANRegEx(const string &strCAN, ChessANDecomp &decomp)
+{
+  boost::cmatch what;
+  ChessAlgebra  an = CAN;
+  string preface = nameOfParser(m_eMethod) + ": " + nameOfAlgebra(an) + ": ";
+
+  // pawn promotion
+  if( boost::regex_match(strCAN.c_str(), what, reCANPromotion1) ||
+      boost::regex_match(strCAN.c_str(), what, reCANPromotion2) )
   {
-    return postprocEnPassant();
+    AN_TRACE(preface << NameOfMovePawnPromotion << " move matched.");
+    decomp.m_ePieceMoved    = Pawn;
+    decomp.m_ePiecePromoted = (ChessPiece)what[3].str()[0];
   }
 
-  else if( IMPL_MOVE(m_impl).m_promotion != NoPiece )
+  // basic coordinate move
+  else if( boost::regex_match(strCAN.c_str(), what, reCAN) )
   {
-    return postprocPromotion();
+    AN_TRACE(preface << NameOfMoveCoord << " move matched.");
   }
 
-  // can add other postprocs here, especially pawn moves
- 
+  // unknown or bad syntax
   else
   {
-    return true;
+    AN_ERROR(preface << "No matches - unknown AN pattern.");
+    return -CE_ECODE_CHESS_PARSE;
   }
+
+  //
+  // Good
+  //
+  decomp.m_eAlgebra = an;
+  _position(what[1].str(), decomp.m_posSrc);
+  _position(what[2].str(), decomp.m_posDst);
+
+  return CE_OK;
 }
 
-//
-// Castling.
-//
-// Without piece color, only source and destinaion files are known.
-//
-bool ChessANParser::postprocCastling()
+int ChessANParser::parseSANRegEx(const string &strSAN, ChessANDecomp &decomp)
 {
-  an_move &m = IMPL_MOVE(m_impl);
+  boost::cmatch what;
+  ChessAlgebra an = SAN;
+  string  preface = nameOfParser(m_eMethod) + ": " + nameOfAlgebra(an) + ": ";
 
-  //
-  // Kingside castling.
-  //
-  if( m.m_castling == KingSide )
+  // king side castle
+  if( boost::regex_match(strSAN.c_str(), what, reCastleKingSide) )
   {
-    m.m_src.m_file = ChessFileE;
-    m.m_dst.m_file = ChessFileG;
+    AN_TRACE(preface << "Kingside " << NameOfMoveCastling << " move matched.");
+    decomp.m_ePieceMoved = King;
+    decomp.m_eCastling   = KingSide;
+  }
+
+  // queen side castle
+  else if( boost::regex_match(strSAN.c_str(), what, reCastleQueenSide) )
+  {
+    AN_TRACE(preface << "Queenside " << NameOfMoveCastling << " move matched.");
+    decomp.m_ePieceMoved = King;
+    decomp.m_eCastling   = QueenSide;
+  }
+
+  // en passant
+  else if( boost::regex_match(strSAN.c_str(), what, reEnPassant) )
+  {
+    AN_TRACE(preface << NameOfMoveEnPassant << " move matched.");
+    decomp.m_ePieceMoved = Pawn;
+    _disambiguate(what[1].str(), decomp.m_posSrc);
+    _position(what[3].str(),     decomp.m_posDst);
+    decomp.m_bHasCaptured = true;
+    decomp.m_bIsEnPassant = true;
+  }
+
+  // pawn promotion
+  else if( boost::regex_match(strSAN.c_str(), what, rePawnPromotion1) ||
+           boost::regex_match(strSAN.c_str(), what, rePawnPromotion2) )
+  {
+    AN_TRACE(preface << NameOfMovePawnPromotion << " move matched.");
+    decomp.m_ePieceMoved = Pawn;
+    _disambiguate(what[1].str(), decomp.m_posSrc);
+    _position(what[2].str(), decomp.m_posDst);
+    decomp.m_ePiecePromoted = (ChessPiece)what[3].str()[0];
+  }
+
+  // pawn move
+  else if( boost::regex_match(strSAN.c_str(), what, rePawnMove) )
+  {
+    AN_TRACE(preface << nameOfPiece(Pawn) << " move matched.");
+    decomp.m_ePieceMoved = Pawn;
+    _disambiguate(what[1].str(), decomp.m_posSrc);
+    _position(what[2].str(), decomp.m_posDst);
+  }
+
+  // major piece move
+  else if( boost::regex_match(strSAN.c_str(), what, reMajorMove) )
+  {
+    AN_TRACE(preface << NameOfMoveMajor << " move matched.");
+    decomp.m_ePieceMoved = (ChessPiece)what[1].str()[0];
+    _disambiguate(what[2].str(), decomp.m_posSrc);
+    _position(what[3].str(), decomp.m_posDst);
+  }
+
+  else
+  {
+    AN_ERROR(preface << "No matches - unknown AN pattern.");
+    return -CE_ECODE_CHESS_PARSE;
+  }
+
+  // capture
+  if( boost::regex_match(strSAN.c_str(), what, reModCapture) )
+  {
+    AN_TRACE(preface << NameOfMoveCapture << " move matched.");
+    decomp.m_bHasCaptured   = true;
+    decomp.m_ePieceCaptured = decomp.m_bIsEnPassant? Pawn: UndefPiece;
+  }
+
+  // check or checkmate
+  if( boost::regex_match(strSAN.c_str(), what, reModCheck) )
+  {
+    if( what[1].str() == "+" )
+    {
+      decomp.m_eCheck = ModCheck;
+    }
+    else if( what[1].str() == "++" )
+    {
+      decomp.m_eCheck = ModDoubleCheck;
+    }
+    else if( what[1].str() == "#" )
+    {
+      decomp.m_eCheck = ModCheckmate;
+    }
+
+    AN_TRACE(preface << nameOfCheckMod(decomp.m_eCheck)
+        << " modifier matched.");
   }
 
   //
-  // Queenside castling.
+  // Good
   //
-  else if( m.m_castling == QueenSide )
-  {
-    m.m_src.m_file = ChessFileE;
-    m.m_dst.m_file = ChessFileC;
-  }
+  decomp.m_eAlgebra = an;
 
-  return true;
+  return CE_OK;
 }
 
-//
-// En Passant.
-//
-// Without game state, only the source rank can be determined.
-//
-bool ChessANParser::postprocEnPassant()
+int ChessANParser::postprocess(ChessANDecomp &decomp)
 {
-  an_move &m = IMPL_MOVE(m_impl);
+  int rc = CE_OK;
 
-  ChessRank         rank;
-  stringstream ssError;
-  bool              verified = false;
-
-  //
-  // Determine source rank.
-  //
-  switch( m.m_dst.m_rank )
+  // castling move
+  if( decomp.m_eCastling != NoCastling )
   {
-    case ChessRank6:        // white
-      rank = ChessRank5;
+    rc = postprocCastling(decomp);
+  }
+
+  // pawn en passant move
+  else if( decomp.m_bIsEnPassant )
+  {
+    rc = postprocEnPassant(decomp);
+  }
+
+  // pawn promotion move
+  else if( decomp.m_ePiecePromoted != NoPiece )
+  {
+    rc = postprocPromotion(decomp);
+  }
+
+  // pawn simple move
+  else if( decomp.m_ePieceMoved == Pawn )
+  {
+    rc = postprocPawn(decomp);
+  }
+
+  // final post-processing
+  if( rc == CE_OK )
+  {
+    // player's color is known
+    if( decomp.m_ePlayer != NoColor )
+    {
+      if( (decomp.m_eColorMoved == UndefColor) ||
+          (decomp.m_eColorMoved == NoColor) )
+      {
+        decomp.m_eColorMoved = decomp.m_ePlayer;
+      }
+    }
+  }
+
+  return rc;
+}
+
+int ChessANParser::postprocCastling(ChessANDecomp &decomp)
+{
+  //
+  // Determine source,destination file
+  //
+  switch( decomp.m_eCastling )
+  {
+    case KingSide:
+      decomp.m_posSrc.m_file = ChessFileE;
+      decomp.m_posDst.m_file = ChessFileG;
       break;
-    case ChessRank3:        // black
-      rank = ChessRank4;
+    case QueenSide:
+      decomp.m_posSrc.m_file = ChessFileE;
+      decomp.m_posDst.m_file = ChessFileC;
       break;
     default:
-      ssError << ErrorPreface
-        << "En Passant bad destination rank \""
-        << (char)m.m_dst.m_rank
-        << "\"";
-      m_strError = ssError.str();
-      return false;
+      AN_ERROR("Bug: Not a " << NameOfMoveCastling << " move.");
+      return -CE_ECODE_CHESS_PARSE;
   }
 
-  // set source rank
-  if( m.m_src.m_rank == NoRank )
+  //
+  // Determine source,destination rank (if possible)
+  //
+  switch( decomp.m_ePlayer )
   {
-    m.m_src.m_rank = rank;
+    case White:
+      decomp.m_posSrc.m_rank = ChessRank1;
+      decomp.m_posDst.m_rank = ChessRank1;
+      break;
+    case Black:
+      decomp.m_posSrc.m_rank = ChessRank8;
+      decomp.m_posDst.m_rank = ChessRank8;
+      break;
+    case NoColor:
+    default:
+      break;
   }
 
-  // verify source rank
-  else if( m.m_src.m_rank != rank )
+  return CE_OK;
+}
+
+int ChessANParser::postprocEnPassant(ChessANDecomp &decomp)
+{
+  ChessColor    color;    // moved piece color
+  ChessRank     rank;     // source rank
+  ChessFile     fileL;    // source file left of destination
+  ChessFile     fileR;    // source file right of destination
+
+  //
+  // Determine piece color and source rank from destination rank
+  //
+  switch( decomp.m_posDst.m_rank )
   {
-    ssError << ErrorPreface
-      << "En Passant bad source rank \""
-      << (char)m.m_src.m_rank
-      << "\"";
-    m_strError = ssError.str();
-    return false;
+    case ChessRank6:        // white
+      color = White;
+      rank  = ChessRank5;
+      break;
+    case ChessRank3:        // black
+      color = Black;
+      rank  = ChessRank4;
+      break;
+    default:
+      AN_ERROR(NameOfMoveEnPassant
+        << " move "
+        << decomp.m_posSrc << decomp.m_posDst
+        << " specifies bad destination rank '"
+        << (char)decomp.m_posDst.m_rank
+        << "'.");
+      return -CE_ECODE_CHESS_PARSE;
+  }
+
+  // set moved piece color
+  decomp.m_eColorMoved = color;
+
+  // verify against player's color
+  if( (decomp.m_ePlayer != NoColor) &&
+      (decomp.m_ePlayer != decomp.m_eColorMoved) )
+  {
+    AN_ERROR(NameOfMoveEnPassant
+      << " move "
+      << decomp.m_posSrc << decomp.m_posDst
+      << " is applicable for "
+      << nameOfColor(decomp.m_eColorMoved)
+      << ", but the player is "
+      << nameOfColor(decomp.m_ePlayer)
+      << ".");
+    return -CE_ECODE_CHESS_PARSE;
+  }
+
+  // if not specified set source rank
+  if( decomp.m_posSrc.m_rank == NoRank )
+  {
+    decomp.m_posSrc.m_rank = rank;
+  }
+
+  // otherwise verify source rank
+  else if( decomp.m_posSrc.m_rank != rank )
+  {
+    AN_ERROR(NameOfMoveEnPassant
+      << " move "
+      << decomp.m_posSrc << decomp.m_posDst
+      << " specifies bad source rank '"
+      << (char)decomp.m_posSrc.m_rank
+      << "'.");
+    return -CE_ECODE_CHESS_PARSE;
   }
 
   //
   // Verify source file.
   //
-  if( m.m_src.m_file == NoFile )
+  
+  fileL = ChessBoard::shiftFile(decomp.m_posDst.m_file, -1);
+  fileR = ChessBoard::shiftFile(decomp.m_posDst.m_file, 1);
+
+  // en passant requires diagonal move
+  if( (decomp.m_posSrc.m_file != fileL) &&
+      (decomp.m_posSrc.m_file != fileR) )
   {
-    verified = true;  // nothing to verify
+    AN_ERROR(NameOfMoveEnPassant
+      << " move "
+      << decomp.m_posSrc << decomp.m_posDst
+      << " specifies bad source file '"
+      << (char)decomp.m_posSrc.m_file
+      << "'.");
+    return -CE_ECODE_CHESS_PARSE;
   }
 
-  // en passant move to the right
-  else if( m.m_src.m_file == ChessBoard::ChessBoard::shiftFile(m.m_dst.m_file, -1) )
-  {
-    verified = true;
-  }
-
-  // en passant move to the left
-  else if( m.m_src.m_file == ChessBoard::ChessBoard::shiftFile(m.m_dst.m_file, 1) )
-  {
-    verified = true;
-  }
-
-  if( !verified )
-  {
-    ssError << ErrorPreface
-      << "En Passant bad source file \""
-      << (char)m.m_src.m_file
-      << "\"";
-    m_strError = ssError.str();
-  }
-
-  return verified;
+  return CE_OK;
 }
 
-//
-// Pawn promotion.
-//
-// Without game state the source can only be partially determined.
-//
-bool ChessANParser::postprocPromotion()
+int ChessANParser::postprocPromotion(ChessANDecomp &decomp)
 {
-  an_move &m = IMPL_MOVE(m_impl);
-
-  ChessRank         rank;
-  stringstream ssError;
-  bool              verified = false;
+  ChessColor    color;    // moved piece color
+  ChessRank     rank;     // source rank
+  ChessFile     fileL;    // source file left of destination
+  ChessFile     fileR;    // source file right of destination
 
   //
-  // Determine source rank.
+  // Determine piece color and source rank from destination rank
   //
-  switch( m.m_dst.m_rank )
+  switch( decomp.m_posDst.m_rank )
   {
     case ChessRank8:      // white
-      rank = ChessRank7;
+      color = White;
+      rank  = ChessRank7;
       break;
-    case ChessRank1:
-      rank = ChessRank2;  // black
+    case ChessRank1:      // black
+      color = Black;
+      rank  = ChessRank2;
       break;
     default:
-      ssError << ErrorPreface
-        << "Promotion bad destination rank \""
-        << (char)m.m_dst.m_rank
-        << "\"";
-      m_strError = ssError.str();
-      return false;
+      AN_ERROR(NameOfMovePawnPromotion
+        << " move "
+        << decomp.m_posSrc << decomp.m_posDst
+        << " specifies bad destination rank '"
+        << (char)decomp.m_posDst.m_rank
+        << "'.");
+      return -CE_ECODE_CHESS_PARSE;
   }
 
-  // set source rank
-  if( m.m_src.m_rank == NoRank )
+  // set moved piece color
+  decomp.m_eColorMoved = color;
+
+  // verify against player's color
+  if( (decomp.m_ePlayer != NoColor) &&
+      (decomp.m_ePlayer != decomp.m_eColorMoved) )
   {
-    m.m_src.m_rank = rank;
+    AN_ERROR(NameOfMovePawnPromotion
+      << " move "
+      << decomp.m_posSrc << decomp.m_posDst
+      << " is applicable for "
+      << nameOfColor(decomp.m_eColorMoved)
+      << ", but the player is "
+      << nameOfColor(decomp.m_ePlayer)
+      << ".");
+    return -CE_ECODE_CHESS_PARSE;
   }
 
-  // verify source rank
-  else if( m.m_src.m_rank != rank )
+  // if not specified set source rank
+  if( decomp.m_posSrc.m_rank == NoRank )
   {
-    ssError << ErrorPreface
-      << "Promotion bad source rank \""
-      << (char)m.m_src.m_rank
-      << "\"";
-    m_strError = ssError.str();
-    return false;
+    decomp.m_posSrc.m_rank = rank;
   }
 
-  //
-  // CAN algebra move. Note that CAN drives capture state.
-  //
-  if( m.m_algebra == CAN )
+  // otherwise verify source rank
+  else if( decomp.m_posSrc.m_rank != rank )
   {
-    // no capture move
-    if( m.m_src.m_file == (ChessFile)m.m_dst.m_file )
-    {
-      verified = true;
-    }
-
-    // capture move to the right
-    else if( m.m_src.m_file == ChessBoard::shiftFile(m.m_dst.m_file, -1) )
-    {
-      m.m_capture = true;
-      verified    = true;
-    }
-
-    // capture move to the left
-    else if( m.m_src.m_file == ChessBoard::shiftFile(m.m_dst.m_file, 1) )
-    {
-      m.m_capture = true;
-      verified    = true;
-    }
+    AN_ERROR(NameOfMovePawnPromotion
+      << " move "
+      << decomp.m_posSrc << decomp.m_posDst
+      << " specifies bad source rank '"
+      << (char)decomp.m_posSrc.m_rank
+      << "'.");
+    return -CE_ECODE_CHESS_PARSE;
   }
 
+  fileL = ChessBoard::shiftFile(decomp.m_posDst.m_file, -1);
+  fileR = ChessBoard::shiftFile(decomp.m_posDst.m_file, 1);
+
   //
-  // SAN algebra move with capture.
+  // CAN does not have a capture notation. However, a capture can be inferred
+  // if the pawn has moved diagonally.
   //
-  else if( m.m_capture )
+  if( !decomp.m_bHasCaptured && (decomp.m_posSrc.m_file != NoFile) )
   {
-    // no source specified
-    if( m.m_src.m_file == NoFile )
+    // capture move from the right to the left
+    if( (decomp.m_posSrc.m_file == fileL) ||
+        (decomp.m_posSrc.m_file == fileR) )
     {
-      verified = true; // nothing to to verify
-    }
-
-    // capture move to the right
-    else if( m.m_src.m_file == ChessBoard::shiftFile(m.m_dst.m_file, -1) )
-    {
-      verified = true;
-    }
-
-    // capture move to the left
-    else if( m.m_src.m_file == ChessBoard::shiftFile(m.m_dst.m_file, 1) )
-    {
-      verified = true;
+      decomp.m_bHasCaptured   = true;
+      decomp.m_ePieceCaptured = UndefPiece;
     }
   }
 
   //
-  // SAN algebra move without capture.
+  // Pawn promotion with capture.
+  //
+  if( decomp.m_bHasCaptured )
+  {
+    // required source file not specified
+    if( decomp.m_posSrc.m_file == NoFile )
+    {
+      AN_ERROR(NameOfMovePawnPromotion
+        << " with "
+        << NameOfMoveCapture
+        << " move specifies no source file.");
+      return -CE_ECODE_CHESS_PARSE;
+    }
+
+    // verify source rank
+    else if( (decomp.m_posSrc.m_file != fileL) &&
+             (decomp.m_posSrc.m_file != fileR) )
+    {
+      AN_ERROR(NameOfMovePawnPromotion
+        << " with "
+        << NameOfMoveCapture
+        << " move "
+        << decomp.m_posSrc << decomp.m_posDst
+        << " specifies bad source file '"
+        << (char)decomp.m_posSrc.m_file
+        << "'.");
+      return -CE_ECODE_CHESS_PARSE;
+    }
+  }
+
+  //
+  // Pawn promotion without capture
   //
   else
   {
-    // set source file
-    if( m.m_src.m_file == NoFile )
+    // if not specified, set source file
+    if( decomp.m_posSrc.m_file == NoFile )
     {
-      m.m_src.m_file  = m.m_dst.m_file;
-      verified        = true;
+      decomp.m_posSrc.m_file = decomp.m_posDst.m_file;
     }
 
-    // pawn moves in same file
-    else if( m.m_src.m_file == m.m_dst.m_file )
+    // otherwise verify source file
+    else if( decomp.m_posSrc.m_file != decomp.m_posDst.m_file )
     {
-      verified = true;
+      AN_ERROR(NameOfMovePawnPromotion 
+        << " move "
+        << decomp.m_posSrc << decomp.m_posDst
+        << " specifies bad source file '"
+        << (char)decomp.m_posSrc.m_file
+        << "'.");
+      return -CE_ECODE_CHESS_PARSE;
     }
   }
 
-  if( !verified )
-  {
-    ssError << ErrorPreface
-      << "Promotion bad source file \""
-      << (char)m.m_src.m_file
-      << "\"";
-    m_strError = ssError.str();
-  }
-
-  return verified;
+  return CE_OK;
 }
 
-void ChessANParser::toChessMove(ChessMove &move)
+int ChessANParser::postprocPawn(ChessANDecomp &decomp)
 {
-  an_move &parsed = IMPL_MOVE(m_impl);
+  ChessColor    color;            // moved piece color
+  int           rows, cols;       // number of rank/file spaces moved
+  bool          capture;          // [not] a capture diagonal move
 
-  //
-  // SAN: piece and destination are known, source may (partially) be known
-  // CAN: unknown piece, source and destination are known
-  //
-  move.m_ePieceMoved  = parsed.m_piece;
-  move.m_posSrc       = parsed.m_src;
-  move.m_posDst       = parsed.m_dst;
+  const string pieceName(nameOfPiece(Pawn));
 
-  //
-  // SAN: capture is known, piece usually unknown
-  // CAN: unknown
-  //
-  if( parsed.m_capture )
+  // Assign piece color. it will be verified later if possible.
+  if( decomp.m_ePlayer != NoColor )
   {
-    move.m_ePieceCaptured = parsed.m_en_passant? Pawn: UndefPiece;
+    decomp.m_eColorMoved = decomp.m_ePlayer;
   }
 
   //
-  // SAN: known
-  // CAN: known
+  // Source rank unspecified. Can be determined if player's color is known.
   //
-  move.m_ePiecePromoted = parsed.m_promotion;
+  if( decomp.m_posSrc.m_rank == NoRank )
+  {
+    switch( decomp.m_eColorMoved )
+    {
+      case White:
+        decomp.m_posSrc.m_rank =
+          ChessBoard::shiftRank(decomp.m_posDst.m_rank, -1);
+        break;
+      case Black:
+        decomp.m_posSrc.m_rank =
+          ChessBoard::shiftRank(decomp.m_posDst.m_rank, +1);
+        break;
+      default:
+        break;
+    }
+  }
 
   //
-  // SAN: known
-  // CAN: unknown
+  // Source rank specified. So pawn color can be determined and move 
+  // partially verified.
   //
-  move.m_bIsEnPassant = parsed.m_en_passant;
+  else
+  {
+    rows = diffRanks(decomp.m_posDst.m_rank, decomp.m_posSrc.m_rank);
+
+    switch( rows )
+    {
+      case 1:
+      case 2:
+        color = White;
+        break;
+      case -1:
+      case -2:
+        color = Black;
+        break;
+      default:
+        AN_ERROR(pieceName
+          << " move "
+          << decomp.m_posSrc << decomp.m_posDst
+          << " is illegal from source rank '"
+          << (char)decomp.m_posSrc.m_rank
+          << "' to destination rank '"
+          << (char)decomp.m_posDst.m_rank
+          << "'.");
+        return -CE_ECODE_CHESS_PARSE;
+    }
+
+    // set moved piece color
+    decomp.m_eColorMoved = color;
+
+    // verify against player's color
+    if( (decomp.m_ePlayer != NoColor) &&
+        (decomp.m_ePlayer != decomp.m_eColorMoved) )
+    {
+      AN_ERROR(pieceName
+        << " move "
+        << decomp.m_posSrc << decomp.m_posDst
+        << " is applicable for "
+        << nameOfColor(decomp.m_eColorMoved)
+        << ", but the player is "
+        << nameOfColor(decomp.m_ePlayer)
+        << ".");
+      return -CE_ECODE_CHESS_PARSE;
+    }
+  }
 
   //
-  // SAN: known
-  // CAN: unknown
+  // Source file unspecified. Can possibly be determined.
   //
-  move.m_eCastling    = parsed.m_castling;
+  if( decomp.m_posSrc.m_file == NoFile )
+  {
+    if( decomp.m_bHasCaptured )
+    {
+      switch( decomp.m_posDst.m_file )
+      {
+        case ChessFileA: // capturing move must be from the right
+          decomp.m_posSrc.m_file = ChessFileB;
+          break;
+        case ChessFileH: // capturing move must be from the left
+          decomp.m_posSrc.m_file = ChessFileG;
+          break;
+        default:    // not determinable
+          break;
+      }
+    }
+    else
+    {
+      decomp.m_posSrc.m_file = decomp.m_posDst.m_file;
+    }
+  }
 
   //
-  // SAN: known
-  // CAN: unknown
+  // Source file specified. So unspecified capture can be determined and move 
+  // partially verified.
   //
-  move.m_eCheck         = parsed.m_check;       // SAN known
+  else
+  {
+    cols = diffFiles(decomp.m_posDst.m_file, decomp.m_posSrc.m_file);
+
+    switch( cols )
+    {
+      case 0:
+        capture = false;
+        break;
+      case 1:
+      case -1:
+        capture = true;
+        break;
+      default:
+        AN_ERROR(pieceName
+          << " move "
+          << decomp.m_posSrc << decomp.m_posDst
+          << " is illegal from source file '"
+          << (char)decomp.m_posSrc.m_file
+          << "' to destination file '"
+          << (char)decomp.m_posDst.m_file
+          << "'.");
+        return -CE_ECODE_CHESS_PARSE;
+    }
+
+    if( !capture && decomp.m_bHasCaptured )
+    {
+      AN_ERROR(pieceName
+          << " move "
+          << decomp.m_posSrc << decomp.m_posDst
+          << " is not a "
+          << NameOfMoveCapture
+          << " move.");
+      return -CE_ECODE_CHESS_PARSE;
+    }
+  }
+
+  return CE_OK;
+}
+
+void ChessANParser::toChessMove(const ChessANDecomp &decomp, ChessMove &move)
+{
+  move.m_strAN          = decomp.m_strAN;
+  move.m_ePieceMoved    = decomp.m_ePieceMoved;
+  move.m_posSrc         = decomp.m_posSrc;
+  move.m_posDst         = decomp.m_posDst;
+  move.m_ePieceCaptured = decomp.m_ePieceCaptured;
+  move.m_ePiecePromoted = decomp.m_ePiecePromoted;
+  move.m_bIsEnPassant   = decomp.m_bIsEnPassant;
+  move.m_eCastling      = decomp.m_eCastling;
+  move.m_eCheck         = decomp.m_eCheck;
+}
+
+ChessANParser::Method
+                  ChessANParser::setParserMethod(ChessANParser::Method eMethod)
+{
+  switch( eMethod )
+  {
+    case MethodBNF:
+    case MethodRegEx:
+      m_eMethod = eMethod;
+      break;
+    default:
+      break;
+  }
+  return m_eMethod;
 }
 
 void ChessANParser::clearErrors()

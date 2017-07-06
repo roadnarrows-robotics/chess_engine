@@ -64,15 +64,98 @@
 namespace chess_engine
 {
   //----------------------------------------------------------------------------
+  // Struct ChessANDecomp
+  //----------------------------------------------------------------------------
+
+  /*!
+   * \brief Chess Algebraic Notation parsed decomposition.
+   *
+   * \note Keep as struct since the Boost::Spirit library requires it.
+   */
+  struct ChessANDecomp
+  {
+    // parse source input
+    std::string   m_strAN;          ///< original algebraic notation
+    ChessColor    m_ePlayer;        ///< player (optional)
+
+    // resultant parsed output decompostion (not all fields are determinable)
+    ChessAlgebra  m_eAlgebra;       ///< CAN or SAN
+    ChessPiece    m_ePieceMoved;    ///< moved piece type
+    ChessColor    m_eColorMoved;    ///< moved piece color
+    ChessPos      m_posSrc;         ///< moved piece source chess square
+    ChessPos      m_posDst;         ///< moved piece destination chess square
+    bool          m_bHasCaptured;   ///< [no] captured piece
+    ChessPiece    m_ePieceCaptured; ///< captured piece type, if any
+    ChessPiece    m_ePiecePromoted; ///< promoted piece, if any
+    bool          m_bIsEnPassant;   ///< is [not] an en passant move
+    ChessCastling m_eCastling;      ///< castling side, if any
+    ChessCheckMod m_eCheck;         ///< opponent placed in check or mate
+
+    /*!
+     * \brief Default constructor.
+     */
+    ChessANDecomp();
+
+    /*!
+     * \brief Copy constructor.
+     *
+     * \param src   Source object.
+     */
+    ChessANDecomp(const ChessANDecomp &src);
+
+    /*!
+     * \brief Destructor.
+     */
+    ~ChessANDecomp() { }
+
+    /*!
+     * \brief Clear data.
+     */
+    void clear();
+
+
+    //
+    // Friends
+    //
+
+    /*!
+     * \brief The ChessANDecomp output stream insertion operator.
+     *
+     * \brief os    Output stream object.
+     * \brief obj   Object to insert.
+     *
+     * \return os
+     */
+    friend std::ostream &operator<<(std::ostream &os,const ChessANDecomp &obj);
+  };
+
+
+  //----------------------------------------------------------------------------
   // Class ChessANParser
   //----------------------------------------------------------------------------
 
   /*!
    * \brief Chess Algebraic Notation string parser class.
+   * 
+   * There are two parsers supported:
+   *  - BNF (default)
+   *  - RegEx
+   *
+   * The parsers infer extra state information based on the rules of chess.
+   * But no board or games state is known, except for an optional hint of 
+   * which player.
    */
   class ChessANParser
   {
   public:
+    /*!
+     * \brief AN parser method.
+     */
+    enum Method
+    {
+      MethodBNF,      ///< Backus-Naur Form parser (default)
+      MethodRegEx     ///< regular expression parser
+    };
 
     /*!
      * \brief Default constructor.
@@ -85,86 +168,66 @@ namespace chess_engine
     virtual ~ChessANParser();
 
     /*!
-     * \brief Parse AN string.
+     * \brief Parse AN string into it's decomposition.
      *
      * Supported algebras:
      *  - Coordinate Algebra Notation
      *  - Standard Algebra Notation
+     *
+     * This is the parser work horse method. All other parse variations call
+     * this member function.
+     *
+     * \param [in]  strAN   Input AN string.
+     * \param [in]  ePlayer Player's color (NoColor if not known).
+     * \param [out] decomp  Parsed AN decomposition.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int parse(const std::string &strAN,
+              const ChessColor  ePlayer,
+              ChessANDecomp     &decomp);
+
+    /*!
+     * \brief Parse AN string into it's decomposition.
+     *
+     * \param [in]  strAN   Input AN string.
+     * \param [out] decomp  Parsed AN decomposition.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int parse(const std::string &strAN, ChessANDecomp &decomp)
+    {
+      return parse(strAN, NoColor, decomp);
+    }
+
+    /*!
+     * \brief Parse AN string into it's decomposition and convert to chess move.
+     *
+     * \param [in]  strAN   Input AN string.
+     * \param [in]  ePlayer Player's color (NoColor if not known).
+     * \param [out] move    Chess move.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int parse(const std::string &strAN,
+              const ChessColor  ePlayer,
+              ChessMove         &move);
+
+    /*!
+     * \brief Parse AN string into it's decomposition and convert to chess move.
      *
      * \param [in] strAN    Input AN string.
      * \param [out] move    Chess move.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int parse(const std::string &strAN, ChessMove &move);
-
-    /*!
-     * \brief Get parse error string.
-     *
-     * If a parse fails, an error string will be set to indicate the error.
-     *
-     * \return String.
-     */
-    std::string getErrorStr()
+    int parse(const std::string &strAN, ChessMove &move)
     {
-      return m_strError;
+      return parse(strAN, NoColor, move);
     }
 
     /*!
-     * \brief Enable/disable limited parse tracing.
-     *
-     * Tracing will be written to stdout.
-     *
-     * \param bState  Enable(true) or disable(false).
-     */
-    void setTracing(bool bState)
-    {
-      m_bTrace = bState;
-    }
-
-  protected:
-    std::string   m_strError; ///< error string
-    bool          m_bTrace;   ///< trace enable/disable state
-
-    /*!
-     * \brief Post-process parsed AN.
-     *
-     * Any additional move fields are set if possible and cross-check
-     * verification is performed.
-     *
-     * \return Returns true on success, false otherwise.
-     */
-    bool postprocess();
-
-    /*!
-     * \brief Post-process castling move.
-     *
-     * Without piece color, only source and destinaion files are known.
-     * 
-     * \return Returns true on success, false otherwise.
-     */
-    bool postprocCastling();
-
-    /*!
-     * \brief Post-process en passant move.
-     *
-     * Without game state, only the source rank can be determined.
-     * 
-     * \return Returns true on success, false otherwise.
-     */
-    bool postprocEnPassant();
-
-    /*!
-     * \brief Post-process pawn promotion move.
-     *
-     * Without game state the source can only be partially determined.
-     * 
-     * \return Returns true on success, false otherwise.
-     */
-    bool postprocPromotion();
-
-    /*!
-     * \brief Convert parsed an_move structure to move object.
+     * \brief Convert parsed decompostion structure to move object.
      *
      * Note that SAN parsing gives more information than CAN.
      *
@@ -180,7 +243,191 @@ namespace chess_engine
      *
      * \param [out] move    Chess move object.
      */
-    void toChessMove(ChessMove &move);
+    void toChessMove(const ChessANDecomp &decomp, ChessMove &move);
+
+    /*!
+     * \brief Get parse error string.
+     *
+     * If a parse fails, an error string will be set to indicate the error.
+     *
+     * \return String.
+     */
+    std::string getErrorStr() const
+    {
+      return m_strError;
+    }
+
+    /*!
+     * \brief Set AN parser method.
+     *
+     * \param eMethod   New parser method.
+     *
+     * \return New method if valid, current otherwise.
+     */
+    Method setParserMethod(Method eMethod);
+
+    /*!
+     * \brief Get AN parser method.
+     *
+     * \return Current method.
+     */
+    Method getParserMethod() const
+    {
+      return m_eMethod;
+    }
+
+    /*!
+     * \brief Enable/disable limited parse tracing.
+     *
+     * Tracing will be written to stdout.
+     *
+     * \param bState  Enable(true) or disable(false).
+     */
+    void setTracing(bool bState)
+    {
+      m_bTrace = bState;
+    }
+
+    /*!
+     * \brief Get parse tracing setting.
+     *
+     * \return Enable(true) or disable(false).
+     */
+    bool getTracing() const
+    {
+      return m_bTrace;
+    }
+
+  protected:
+    std::string   m_strError; ///< error string
+    bool          m_bTrace;   ///< trace enable/disable state
+    Method        m_eMethod;  ///< AN parser method
+
+    /*!
+     * \brief Run an AN parser with the grammar specified in Backus-Naur Form.
+     *
+     * \param [in]  strAN   Input AN string.
+     * \param [out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int runParserBNF(const std::string &strAN, ChessANDecomp &decomp);
+
+    /*!
+     * \brief Run an AN parser with the grammar specified as regular
+     * expressions.
+     *
+     * \param [in]  strAN   Input AN string.
+     * \param [out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int runParserRegEx(const std::string &strAN, ChessANDecomp &decomp);
+
+    /*!
+     * \brief Parse Coordinate Algebraic Notation using regular expression
+     * matching.
+     *
+     * \param [in]  strAN   Input AN string.
+     * \param [out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int parseCANRegEx(const std::string &strAN, ChessANDecomp &decomp);
+
+    /*!
+     * \brief Parse Standard Algebraic Notation using regular expression
+     * matching.
+     *
+     * \param [in]  strAN   Input AN string.
+     * \param [out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int parseSANRegEx(const std::string &strAN, ChessANDecomp &decomp);
+
+    /*!
+     * \brief Post-process parsed AN.
+     *
+     * The rules of chess are applied to set additional fields and to
+     * cross-check verification.
+     *
+     * \param[in,out] decomp  Parsed AN decomposition.
+     *
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int postprocess(ChessANDecomp &decomp);
+
+    /*!
+     * \brief Post-process castling move.
+     *
+     * AN: 0-0 O-O 0-0-0 O-O-O
+     *
+     * Determine:
+     * - move source rank
+     * - move source file (requires known player color)
+     *
+     * Verify move.
+     *
+     * \param[in,out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int postprocCastling(ChessANDecomp &decomp);
+
+    /*!
+     * \brief Post-process en passant move.
+     *
+     * AN: exd6e.p cxd6e.p exd3e.p cxd3.p e5xd6e.p ...
+     *
+     * Determine:
+     * - moved piece color
+     * - source rank
+     *
+     * Verify move.
+     *
+     * \param[in,out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int postprocEnPassant(ChessANDecomp &decomp);
+
+    /*!
+     * \brief Post-process pawn promotion move.
+     *
+     * AN: e8=Q a1Q d7e8(N) dxe8/N ...
+     *
+     * Determine:
+     * - moved piece color
+     * - capture state (diagonal move)
+     * - source rank
+     * - source file (if no capture)
+     *
+     * Verify move.
+     *
+     * \param[in,out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int postprocPromotion(ChessANDecomp &decomp);
+
+    /*!
+     * \brief Post-process pawn simple move.
+     *
+     * AN: h4 f4f5 f4e5 ...
+     *
+     * Determine:
+     * - moved piece color
+     * - capture state (diagonal move)
+     * - source rank (non first moves rank 4/5 ambiguity)
+     *
+     * Verify move.
+     *
+     * \param[in,out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int postprocPawn(ChessANDecomp &decomp);
 
     /*!
      * \brief Clear parse errors.

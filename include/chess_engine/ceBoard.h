@@ -201,6 +201,8 @@ namespace chess_engine
     /*!
      * \brief Convert chess file to board array column.
      *
+     * \note File a is column 0, ..., file h is column 7.
+     *
      * \param file    Chess file ['a', 'h'].
      *
      * \return Board column (may be out-of-range).

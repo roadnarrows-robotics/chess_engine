@@ -165,9 +165,10 @@ namespace chess_engine
    */
   enum ChessColor
   {
-    NoColor = ChessValNone, ///< no color
-    White   = 'w',          ///< white
-    Black   = 'b'           ///< black
+    NoColor     = ChessValNone, ///< no color
+    White       = 'w',          ///< white
+    Black       = 'b',          ///< black
+    UndefColor  = ChessValUndef ///< undefined/unknown color
   };
 
   /*!

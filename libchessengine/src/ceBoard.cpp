@@ -202,6 +202,8 @@ bool ChessBoard::setMoveSrcPos(ChessMove &move)
 
 int ChessBoard::toRow(int rank)
 {
+  //fprintf(stderr, "toRow(rank=%c) = %d\n",
+  //    rank, NumOfRanks - (rank - (int)ChessRank1) - 1);
   return NumOfRanks - (rank - (int)ChessRank1) - 1;
 }
 
@@ -241,6 +243,8 @@ ChessRank ChessBoard::toRank(int row)
 {
   if( (row >= 0) && (row < NumOfRanks) )
   {
+    //fprintf(stderr, "toRank(row=%d) = %c\n",
+    //    row, (ChessRank)((int)ChessRank1 + NumOfRanks - row - 1));
     return (ChessRank)((int)ChessRank1 + NumOfRanks - row - 1);
   }
   else
@@ -266,7 +270,7 @@ ChessFile ChessBoard::shiftFile(int file, int offset)
 
 ChessRank ChessBoard::shiftRank(int rank, int offset)
 {
-  return toRank(toRow(rank) + offset);
+  return toRank(toRow(rank) - offset);
 }
 
 bool ChessBoard::isOnChessBoard(const ChessPos &pos)

@@ -78,6 +78,32 @@ namespace chess_engine
   }
 
   /*!
+   * \brief Calculate difference in file column positions.
+   *
+   * \param file1 Chess file minuend.
+   * \param file2 Chess file subtrahend.
+   *
+   * \return file1 - file2
+   */
+  inline int diffFiles(ChessFile file1, ChessFile file2)
+  {
+    return (int)file1 - (int)file2;
+  }
+
+  /*!
+   * \brief Calculate difference in rank row positions.
+   *
+   * \param rank1 Chess rank minuend.
+   * \param rank2 Chess rank subtrahend.
+   *
+   * \return rank1 - rank2
+   */
+  inline int diffRanks(ChessRank rank1, ChessRank rank2)
+  {
+    return (int)rank1 - (int)rank2;
+  }
+
+  /*!
    * \brief Get the name of the chess color.
    *
    * \param color Chess color enumeration.
@@ -152,6 +178,16 @@ namespace chess_engine
   {
     return v? "true": "false";
   }
+
+  /*!
+   * \brief Names of move categories.
+   */
+  const char* const NameOfMoveEnPassant     = "En Passant";
+  const char* const NameOfMovePawnPromotion = "Pawn Promotion";
+  const char* const NameOfMoveCastling      = "Castling";
+  const char* const NameOfMoveMajor         = "Major Piece";
+  const char* const NameOfMoveCoord         = "Coordinate";
+  const char* const NameOfMoveCapture       = "capture";
 
   /*!
    * \brief Convert function return code to move result enum.

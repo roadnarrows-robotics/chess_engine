@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013-2016  RoadNarrows
+ * (C) 2013-2017  RoadNarrows LLC
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -75,9 +75,10 @@ namespace chess_engine
 {
   /*! name of chess colors */
   static const map<int, string> NameColors = map_list_of
-    (NoColor, "nocolor")
-    (White,   "white")
-    (Black,   "black")
+    (NoColor,     "nocolor")
+    (White,       "white")
+    (Black,       "black")
+    (UndefColor,  "undefined")
   ;
   
   /*! name of chess pieces */

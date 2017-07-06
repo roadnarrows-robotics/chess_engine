@@ -2,7 +2,7 @@
 
 int16         move_num      # move number
 ChessColor    player        # player/piece color
-string        SAN           # move in FIDE Standard Algebraic Notation
+string        AN            # move in Algebraic Notation
 ChessPos      src           # move's source (from) square
 ChessPos      dst           # move's destination (to) square
 ChessPiece    moved         # moved piece

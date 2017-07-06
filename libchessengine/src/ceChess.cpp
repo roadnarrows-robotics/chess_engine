@@ -164,7 +164,7 @@ int Chess::makeAMove(const ChessColor ePlayer,
   // Fill in critical move fields.
   move.m_nMoveNum = nMoveNum;
   move.m_ePlayer  = ePlayer;
-  move.m_strSAN   = strSAN;
+  move.m_strAN    = strSAN;
   move.m_eResult  = Ok;
 
   // Failed backend move.
@@ -231,7 +231,7 @@ int Chess::computeEnginesMove(ChessMove &move)
   // Fill in critical move fields.
   move.m_nMoveNum = nMoveNum;
   move.m_ePlayer  = eMoveColor;
-  move.m_strSAN   = strSAN;
+  move.m_strAN    = strSAN;
   move.m_eResult  = Ok;
 
   if( rc != CE_OK )

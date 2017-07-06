@@ -288,7 +288,7 @@ namespace chess_engine
   {
     msg.move_num              = move.m_nMoveNum;
     msg.player.color          = (uint8_t)move.m_ePlayer;
-    msg.SAN                   = move.m_strSAN;
+    msg.AN                    = move.m_strAN;
     copyPosToMsg(move.m_posSrc, msg.src);
     copyPosToMsg(move.m_posDst, msg.dst);
     msg.moved.piece           = (uint8_t)move.m_ePieceMoved;
@@ -310,7 +310,7 @@ namespace chess_engine
   {
     move.m_nMoveNum       = msg.move_num;
     move.m_ePlayer        = (ChessColor)msg.player.color;
-    move.m_strSAN         = msg.SAN;
+    move.m_strAN          = msg.AN;
     copyMsgToPos(msg.src, move.m_posSrc);
     copyMsgToPos(msg.dst, move.m_posDst);
     move.m_ePieceMoved    = (ChessPiece)msg.moved.piece;
