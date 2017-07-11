@@ -486,7 +486,7 @@ namespace chess_engine
         // SAN en passant move. Examples: "dxc6e.p" "hxg3e.p".
         //
         san_en_passant_move =
-              disambig_pawn       [AT_SRC_POS(_val) = _1]
+              disambig            [AT_SRC_POS(_val) = _1]
           >>  capture_mod         [AT_HAS_CAPTURED(_val) = true]
           >>  en_passant_dst_pos  [AT_DST_POS(_val) = _1]
           >>  en_passant_mod      [AT_EN_PASSANT(_val) = true,
@@ -505,7 +505,12 @@ namespace chess_engine
             >>  promotion           [AT_PROMOTED(_val) = _1, 
                                      AT_MOVED_PIECE(_val) = Pawn]
           |
-                disambig_pawn       [AT_SRC_POS(_val) = _1]
+                disambig            [AT_SRC_POS(_val) = _1]
+            >>  promotion_dst_pos   [AT_DST_POS(_val) = _1]
+            >>  promotion           [AT_PROMOTED(_val) = _1, 
+                                     AT_MOVED_PIECE(_val) = Pawn]
+          |
+                -(disambig)         [AT_SRC_POS(_val) = _1]
             >>  capture_mod         [AT_HAS_CAPTURED(_val) = true,
                                      AT_CAPTURED_PIECE(_val) = UndefPiece]
             >>  promotion_dst_pos   [AT_DST_POS(_val) = _1]
@@ -529,7 +534,7 @@ namespace chess_engine
         // SAN pawn capturing move. Examples: "exd7" "axb4".
         //
         san_pawn_capturing =
-              disambig_pawn [AT_SRC_POS(_val) = _1]
+              -(disambig)   [AT_SRC_POS(_val) = _1]
           >>  capture_mod   [AT_HAS_CAPTURED(_val) = true,
                              AT_CAPTURED_PIECE(_val) = UndefPiece]
           >   pos           [AT_DST_POS(_val) = _1,
@@ -579,11 +584,12 @@ namespace chess_engine
         //
         san_major_move =
                 major_piece [AT_MOVED_PIECE(_val) = _1]
+            >>  disambig    [AT_SRC_POS(_val) = _1]
             >>  pos         [AT_DST_POS(_val) = _1]
           |
                 major_piece [AT_MOVED_PIECE(_val) = _1]
-            >>  disambig    [AT_SRC_POS(_val) = _1]
-            >>  pos         [AT_DST_POS(_val) = _1]
+            >>  pos         [AT_SRC_POS(_val) = NoPos,
+                             AT_DST_POS(_val) = _1]
         ;
 
         RULE_NAME(san_major_move);
@@ -648,7 +654,7 @@ namespace chess_engine
           | file_only_pos [_val = _1]
         ;
 
-        RULE_NAME(disambig);
+        RULE_NAME(disambig_pawn);
 
         //
         // En passant source position.
@@ -1079,6 +1085,8 @@ const static string TracePreface("Trace: ");
 #define IMPL(p)         ((impl *)p)
 #define IMPL_GRAMMAR(p) IMPL(p)->m_grammar
 
+#undef AN_DBG      ///< define or undef (not tracing)
+
 // Parse trace macro. (Or is it an ant race?).
 #define AN_TRACE(_trace) \
 do \
@@ -1135,6 +1143,9 @@ int ChessANParser::parse(const string     &strAN,
       << "AN = '" << strAN << "' "
       << "player = " << nameOfColor(ePlayer));
   AN_TRACE("Using: " << nameOfParser(m_eMethod));
+
+  // clear decomposition
+  decomp.clear();
 
   // clear errors
   clearErrors();
@@ -1241,7 +1252,7 @@ int ChessANParser::runParserRegEx(const string &strAN, ChessANDecomp &decomp)
   // try CAN first
   if( (rc = parseCANRegEx(strAN, decomp)) != CE_OK )
   {
-    // else try SAN
+    // otherwise try SAN
     rc = parseSANRegEx(strAN, decomp);
   }
 
@@ -1394,42 +1405,44 @@ int ChessANParser::postprocess(ChessANDecomp &decomp)
 {
   int rc = CE_OK;
 
-  // castling move
+  //
+  // Post-process the parsed castling move.
+  //
   if( decomp.m_eCastling != NoCastling )
   {
     rc = postprocCastling(decomp);
   }
 
-  // pawn en passant move
+  //
+  // Post-process the parsed pawn en passant move.
+  //
   else if( decomp.m_bIsEnPassant )
   {
     rc = postprocEnPassant(decomp);
   }
 
-  // pawn promotion move
+  //
+  // Post-process the parsed pawn promotion move.
+  //
   else if( decomp.m_ePiecePromoted != NoPiece )
   {
     rc = postprocPromotion(decomp);
   }
 
-  // pawn simple move
+  //
+  // Post-process the parsed pawn move.
+  //
   else if( decomp.m_ePieceMoved == Pawn )
   {
     rc = postprocPawn(decomp);
   }
 
-  // final post-processing
-  if( rc == CE_OK )
+  //
+  // Post-process the parsed major piece move.
+  //
+  else
   {
-    // player's color is known
-    if( decomp.m_ePlayer != NoColor )
-    {
-      if( (decomp.m_eColorMoved == UndefColor) ||
-          (decomp.m_eColorMoved == NoColor) )
-      {
-        decomp.m_eColorMoved = decomp.m_ePlayer;
-      }
-    }
+    rc = postprocMajorPiece(decomp);
   }
 
   return rc;
@@ -1456,19 +1469,22 @@ int ChessANParser::postprocCastling(ChessANDecomp &decomp)
   }
 
   //
-  // Determine source,destination rank (if possible)
+  // Determine color and source,destination rank (if possible)
   //
   switch( decomp.m_ePlayer )
   {
     case White:
+      decomp.m_eColorMoved   = White;
       decomp.m_posSrc.m_rank = ChessRank1;
       decomp.m_posDst.m_rank = ChessRank1;
       break;
     case Black:
+      decomp.m_eColorMoved   = Black;
       decomp.m_posSrc.m_rank = ChessRank8;
       decomp.m_posDst.m_rank = ChessRank8;
       break;
     case NoColor:
+    case UndefColor:
     default:
       break;
   }
@@ -1478,15 +1494,16 @@ int ChessANParser::postprocCastling(ChessANDecomp &decomp)
 
 int ChessANParser::postprocEnPassant(ChessANDecomp &decomp)
 {
-  ChessColor    color;    // moved piece color
-  ChessRank     rank;     // source rank
-  ChessFile     fileL;    // source file left of destination
-  ChessFile     fileR;    // source file right of destination
+  ChessPos    src(decomp.m_posSrc); // source position
+  ChessPos    dst(decomp.m_posDst); // destination position
+  ChessColor  color;                // required piece color
+  ChessRank   rank;                 // required source rank
+  ChessFile   fileL, fileR;         // required source file is left or right
 
   //
-  // Determine piece color and source rank from destination rank
+  // From destination rank, determine piece color and source rank.
   //
-  switch( decomp.m_posDst.m_rank )
+  switch( dst.m_rank )
   {
     case ChessRank6:        // white
       color = White;
@@ -1496,7 +1513,7 @@ int ChessANParser::postprocEnPassant(ChessANDecomp &decomp)
       color = Black;
       rank  = ChessRank4;
       break;
-    default:
+    default:                // error
       AN_ERROR(NameOfMoveEnPassant
         << " move "
         << decomp.m_posSrc << decomp.m_posDst
@@ -1506,18 +1523,16 @@ int ChessANParser::postprocEnPassant(ChessANDecomp &decomp)
       return -CE_ECODE_CHESS_PARSE;
   }
 
-  // set moved piece color
-  decomp.m_eColorMoved = color;
+  AN_TRACE(NameOfMoveEnPassant << "is for " << nameOfColor(color) << ".");
 
   // verify against player's color
-  if( (decomp.m_ePlayer != NoColor) &&
-      (decomp.m_ePlayer != decomp.m_eColorMoved) )
+  if( (decomp.m_ePlayer != NoColor) && (decomp.m_ePlayer != color) )
   {
     AN_ERROR(NameOfMoveEnPassant
       << " move "
       << decomp.m_posSrc << decomp.m_posDst
       << " is applicable for "
-      << nameOfColor(decomp.m_eColorMoved)
+      << nameOfColor(color)
       << ", but the player is "
       << nameOfColor(decomp.m_ePlayer)
       << ".");
@@ -1525,57 +1540,88 @@ int ChessANParser::postprocEnPassant(ChessANDecomp &decomp)
   }
 
   // if not specified set source rank
-  if( decomp.m_posSrc.m_rank == NoRank )
+  if( src.m_rank == NoRank )
   {
-    decomp.m_posSrc.m_rank = rank;
+    src.m_rank = rank;
   }
 
   // otherwise verify source rank
-  else if( decomp.m_posSrc.m_rank != rank )
+  else if( src.m_rank != rank )
   {
     AN_ERROR(NameOfMoveEnPassant
       << " move "
       << decomp.m_posSrc << decomp.m_posDst
       << " specifies bad source rank '"
-      << (char)decomp.m_posSrc.m_rank
+      << (char)src.m_rank
       << "'.");
     return -CE_ECODE_CHESS_PARSE;
   }
 
-  //
-  // Verify source file.
-  //
-  
-  fileL = ChessBoard::shiftFile(decomp.m_posDst.m_file, -1);
-  fileR = ChessBoard::shiftFile(decomp.m_posDst.m_file, 1);
 
-  // en passant requires diagonal move
-  if( (decomp.m_posSrc.m_file != fileL) &&
-      (decomp.m_posSrc.m_file != fileR) )
+  //
+  // If not specified try to determine source file.
+  //
+  if( src.m_file == NoFile )
   {
-    AN_ERROR(NameOfMoveEnPassant
-      << " move "
-      << decomp.m_posSrc << decomp.m_posDst
-      << " specifies bad source file '"
-      << (char)decomp.m_posSrc.m_file
-      << "'.");
-    return -CE_ECODE_CHESS_PARSE;
+    switch( dst.m_file )
+    {
+      case ChessFileA:  // capturing move must be from the right
+       src.m_file = ChessFileB;
+       break;
+     case ChessFileH:   // capturing move must be from the left
+       src.m_file = ChessFileG;
+       break;
+     default:           // not determinable
+       break;
+    }
   }
+
+  //
+  // Otherwise verify source file.
+  //
+  else
+  {
+    // source file is either to the left or right of destination file
+    fileL = ChessBoard::shiftFile(dst.m_file, -1);
+    fileR = ChessBoard::shiftFile(dst.m_file,  1);
+
+    // verify en passant diagonal move
+    if( (src.m_file != fileL) && (src.m_file != fileR)  )
+    {
+      AN_ERROR(NameOfMoveEnPassant
+        << " move "
+        << decomp.m_posSrc << decomp.m_posDst
+        << " specifies bad source file '"
+        << (char)src.m_file
+        << "'.");
+      return -CE_ECODE_CHESS_PARSE;
+    }
+  }
+  
+  //
+  // Ok
+  //
+  decomp.m_eColorMoved  = color;
+  decomp.m_posSrc       = src;
+  decomp.m_posDst       = dst;
 
   return CE_OK;
 }
 
 int ChessANParser::postprocPromotion(ChessANDecomp &decomp)
 {
-  ChessColor    color;    // moved piece color
-  ChessRank     rank;     // source rank
-  ChessFile     fileL;    // source file left of destination
-  ChessFile     fileR;    // source file right of destination
+  ChessPos    src(decomp.m_posSrc); // source position
+  ChessPos    dst(decomp.m_posDst); // destination position
+  ChessColor  color;                // required piece color
+  ChessRank   rank;                 // required source rank
+  ChessFile   fileL, fileR;         // source file to the left/right of destin.
+  bool        cap = decomp.m_bHasCaptured;        // has [not] captured 
+  ChessPiece  capPiece = decomp.m_ePieceCaptured; // captured piece, if any
 
   //
-  // Determine piece color and source rank from destination rank
+  // From destination rank, determine piece color and source rank.
   //
-  switch( decomp.m_posDst.m_rank )
+  switch( dst.m_rank )
   {
     case ChessRank8:      // white
       color = White;
@@ -1590,23 +1636,21 @@ int ChessANParser::postprocPromotion(ChessANDecomp &decomp)
         << " move "
         << decomp.m_posSrc << decomp.m_posDst
         << " specifies bad destination rank '"
-        << (char)decomp.m_posDst.m_rank
+        << (char)dst.m_rank
         << "'.");
       return -CE_ECODE_CHESS_PARSE;
   }
 
-  // set moved piece color
-  decomp.m_eColorMoved = color;
+  AN_TRACE(NameOfMovePawnPromotion << "is for " << nameOfColor(color) << ".");
 
   // verify against player's color
-  if( (decomp.m_ePlayer != NoColor) &&
-      (decomp.m_ePlayer != decomp.m_eColorMoved) )
+  if( (decomp.m_ePlayer != NoColor) && (decomp.m_ePlayer != color) )
   {
     AN_ERROR(NameOfMovePawnPromotion
       << " move "
       << decomp.m_posSrc << decomp.m_posDst
       << " is applicable for "
-      << nameOfColor(decomp.m_eColorMoved)
+      << nameOfColor(color)
       << ", but the player is "
       << nameOfColor(decomp.m_ePlayer)
       << ".");
@@ -1614,59 +1658,80 @@ int ChessANParser::postprocPromotion(ChessANDecomp &decomp)
   }
 
   // if not specified set source rank
-  if( decomp.m_posSrc.m_rank == NoRank )
+  if( src.m_rank == NoRank )
   {
-    decomp.m_posSrc.m_rank = rank;
+    src.m_rank = rank;
   }
 
   // otherwise verify source rank
-  else if( decomp.m_posSrc.m_rank != rank )
+  else if( src.m_rank != rank )
   {
     AN_ERROR(NameOfMovePawnPromotion
       << " move "
       << decomp.m_posSrc << decomp.m_posDst
       << " specifies bad source rank '"
-      << (char)decomp.m_posSrc.m_rank
+      << (char)src.m_rank
       << "'.");
     return -CE_ECODE_CHESS_PARSE;
   }
 
-  fileL = ChessBoard::shiftFile(decomp.m_posDst.m_file, -1);
-  fileR = ChessBoard::shiftFile(decomp.m_posDst.m_file, 1);
-
   //
-  // CAN does not have a capture notation. However, a capture can be inferred
-  // if the pawn has moved diagonally.
+  // If not specified, try to determine source file.
   //
-  if( !decomp.m_bHasCaptured && (decomp.m_posSrc.m_file != NoFile) )
+  if( src.m_file == NoFile )
   {
-    // capture move from the right to the left
-    if( (decomp.m_posSrc.m_file == fileL) ||
-        (decomp.m_posSrc.m_file == fileR) )
+    if( cap )
     {
-      decomp.m_bHasCaptured   = true;
-      decomp.m_ePieceCaptured = UndefPiece;
+      switch( dst.m_file )
+      {
+        case ChessFileA:  // capturing move must be from the right
+          src.m_file = ChessFileB;
+          break;
+        case ChessFileH:  // capturing move must be from the left
+          src.m_file = ChessFileG;
+          break;
+        default:          // not determinable
+          break;
+      }
+    }
+    else
+    {
+      src.m_file = dst.m_file;
     }
   }
 
   //
-  // Pawn promotion with capture.
+  // Otherwise verify source file.
   //
-  if( decomp.m_bHasCaptured )
+  else
   {
-    // required source file not specified
-    if( decomp.m_posSrc.m_file == NoFile )
+    // capture source file is either to the left or right of destination file
+    fileL = ChessBoard::shiftFile(dst.m_file, -1);
+    fileR = ChessBoard::shiftFile(dst.m_file,  1);
+
+    // CAN does not have a capture notation. However, a capture can be inferred
+    // if the pawn has moved diagonally.
+    if( decomp.m_eAlgebra == CAN )
     {
-      AN_ERROR(NameOfMovePawnPromotion
-        << " with "
-        << NameOfMoveCapture
-        << " move specifies no source file.");
-      return -CE_ECODE_CHESS_PARSE;
+      // diagonal move = capture move
+      if( (src.m_file == fileL) || (src.m_file == fileR) )
+      {
+        cap       = true;
+        capPiece  = UndefPiece;
+
+        AN_TRACE(NameOfMovePawnPromotion
+            << "in CAN specifies "
+            << NameOfMoveCapture << " move.");
+      }
+      else
+      {
+        cap       = false;
+        capPiece  = NoPiece;
+      }
     }
 
-    // verify source rank
-    else if( (decomp.m_posSrc.m_file != fileL) &&
-             (decomp.m_posSrc.m_file != fileR) )
+    // verify capture move source file
+    if( cap && (src.m_file != fileL) && (src.m_file != fileR) )
     {
       AN_ERROR(NameOfMovePawnPromotion
         << " with "
@@ -1674,67 +1739,89 @@ int ChessANParser::postprocPromotion(ChessANDecomp &decomp)
         << " move "
         << decomp.m_posSrc << decomp.m_posDst
         << " specifies bad source file '"
-        << (char)decomp.m_posSrc.m_file
+        << (char)src.m_file
         << "'.");
       return -CE_ECODE_CHESS_PARSE;
     }
-  }
 
-  //
-  // Pawn promotion without capture
-  //
-  else
-  {
-    // if not specified, set source file
-    if( decomp.m_posSrc.m_file == NoFile )
-    {
-      decomp.m_posSrc.m_file = decomp.m_posDst.m_file;
-    }
-
-    // otherwise verify source file
-    else if( decomp.m_posSrc.m_file != decomp.m_posDst.m_file )
+    // verify non-capture move source file
+    else if( !cap && (src.m_file != dst.m_file) )
     {
       AN_ERROR(NameOfMovePawnPromotion 
         << " move "
         << decomp.m_posSrc << decomp.m_posDst
         << " specifies bad source file '"
-        << (char)decomp.m_posSrc.m_file
+        << (char)src.m_file
         << "'.");
       return -CE_ECODE_CHESS_PARSE;
     }
   }
+
+  //
+  // Ok
+  //
+  decomp.m_eColorMoved    = color;
+  decomp.m_posSrc         = src;
+  decomp.m_posDst         = dst;
+  decomp.m_bHasCaptured   = cap;
+  decomp.m_ePieceCaptured = capPiece;
 
   return CE_OK;
 }
 
 int ChessANParser::postprocPawn(ChessANDecomp &decomp)
 {
-  ChessColor    color;            // moved piece color
-  int           rows, cols;       // number of rank/file spaces moved
-  bool          capture;          // [not] a capture diagonal move
+  ChessPos      src(decomp.m_posSrc); // source position
+  ChessPos      dst(decomp.m_posDst); // destination position
+  ChessColor    color;                // required piece color
+  ChessRank     rank;                 // required source rank
+  int           rows, cols;           // number of rank/file spaces moved
+  bool          cap = decomp.m_bHasCaptured;        // has [not] captured 
+  ChessPiece    capPiece = decomp.m_ePieceCaptured; // captured piece, if any
+  list_of_pos   positions;            // list of all source positions from dst
+  list_of_pos   filtered;             // filtered on (partial) src 
+  size_t        i;
+  const string  pieceName(nameOfPiece(decomp.m_ePieceMoved));
 
-  const string pieceName(nameOfPiece(Pawn));
+  // assign piece color
+  color = decomp.m_ePlayer != NoColor? decomp.m_ePlayer: decomp.m_eColorMoved;
 
-  // Assign piece color. it will be verified later if possible.
-  if( decomp.m_ePlayer != NoColor )
+  ChessBoard::findPawnSrcMoves(NoColor, dst, positions);
+
+#ifdef AN_DBG
+  cerr << "DBG: From '" << dst << "' there are " << positions.size()
+    << " candidate source positions:" << endl;
+  cerr << "  ";
+  for(i = 0; i < positions.size(); ++i)
   {
-    decomp.m_eColorMoved = decomp.m_ePlayer;
+    cerr << positions[i] << " ";
   }
+  cerr << endl;
+#endif
+
+  // assign piece color
+  color = decomp.m_ePlayer != NoColor? decomp.m_ePlayer: decomp.m_eColorMoved;
 
   //
-  // Source rank unspecified. Can be determined if player's color is known.
+  // Source rank unspecified. Might be determined if player's color is known.
   //
-  if( decomp.m_posSrc.m_rank == NoRank )
+  if( src.m_rank == NoRank )
   {
-    switch( decomp.m_eColorMoved )
+    switch( color )
     {
       case White:
-        decomp.m_posSrc.m_rank =
-          ChessBoard::shiftRank(decomp.m_posDst.m_rank, -1);
+        // white pawn can move 1 or 2 spaces to rank 4, so not determinable
+        if( dst.m_rank != ChessRank4 )
+        {
+          src.m_rank = ChessBoard::shiftRank(dst.m_rank, -1);
+        }
         break;
       case Black:
-        decomp.m_posSrc.m_rank =
-          ChessBoard::shiftRank(decomp.m_posDst.m_rank, +1);
+        // black pawn can move 1 or 2 spaces to rank 5, so not determinable
+        if( dst.m_rank != ChessRank5 )
+        {
+          src.m_rank = ChessBoard::shiftRank(dst.m_rank, 1);
+        }
         break;
       default:
         break;
@@ -1747,7 +1834,7 @@ int ChessANParser::postprocPawn(ChessANDecomp &decomp)
   //
   else
   {
-    rows = diffRanks(decomp.m_posDst.m_rank, decomp.m_posSrc.m_rank);
+    rows = diffRanks(dst.m_rank, src.m_rank);
 
     switch( rows )
     {
@@ -1764,25 +1851,23 @@ int ChessANParser::postprocPawn(ChessANDecomp &decomp)
           << " move "
           << decomp.m_posSrc << decomp.m_posDst
           << " is illegal from source rank '"
-          << (char)decomp.m_posSrc.m_rank
+          << (char)src.m_rank
           << "' to destination rank '"
-          << (char)decomp.m_posDst.m_rank
+          << (char)dst.m_rank
           << "'.");
         return -CE_ECODE_CHESS_PARSE;
     }
 
-    // set moved piece color
-    decomp.m_eColorMoved = color;
+    AN_TRACE(pieceName << "is for " << nameOfColor(color) << ".");
 
     // verify against player's color
-    if( (decomp.m_ePlayer != NoColor) &&
-        (decomp.m_ePlayer != decomp.m_eColorMoved) )
+    if( (decomp.m_ePlayer != NoColor) && (decomp.m_ePlayer != color) )
     {
       AN_ERROR(pieceName
         << " move "
         << decomp.m_posSrc << decomp.m_posDst
         << " is applicable for "
-        << nameOfColor(decomp.m_eColorMoved)
+        << nameOfColor(color)
         << ", but the player is "
         << nameOfColor(decomp.m_ePlayer)
         << ".");
@@ -1793,17 +1878,17 @@ int ChessANParser::postprocPawn(ChessANDecomp &decomp)
   //
   // Source file unspecified. Can possibly be determined.
   //
-  if( decomp.m_posSrc.m_file == NoFile )
+  if( src.m_file == NoFile )
   {
-    if( decomp.m_bHasCaptured )
+    if( cap )
     {
-      switch( decomp.m_posDst.m_file )
+      switch( dst.m_file )
       {
         case ChessFileA: // capturing move must be from the right
-          decomp.m_posSrc.m_file = ChessFileB;
+          src.m_file = ChessFileB;
           break;
         case ChessFileH: // capturing move must be from the left
-          decomp.m_posSrc.m_file = ChessFileG;
+          src.m_file = ChessFileG;
           break;
         default:    // not determinable
           break;
@@ -1811,7 +1896,7 @@ int ChessANParser::postprocPawn(ChessANDecomp &decomp)
     }
     else
     {
-      decomp.m_posSrc.m_file = decomp.m_posDst.m_file;
+      src.m_file = dst.m_file;
     }
   }
 
@@ -1821,30 +1906,32 @@ int ChessANParser::postprocPawn(ChessANDecomp &decomp)
   //
   else
   {
-    cols = diffFiles(decomp.m_posDst.m_file, decomp.m_posSrc.m_file);
+    cols = diffFiles(dst.m_file, src.m_file);
 
     switch( cols )
     {
       case 0:
-        capture = false;
+        cap       = false;
+        capPiece  = NoPiece;
         break;
       case 1:
       case -1:
-        capture = true;
+        cap       = true;
+        capPiece  = UndefPiece;
         break;
       default:
         AN_ERROR(pieceName
           << " move "
           << decomp.m_posSrc << decomp.m_posDst
           << " is illegal from source file '"
-          << (char)decomp.m_posSrc.m_file
+          << (char)src.m_file
           << "' to destination file '"
-          << (char)decomp.m_posDst.m_file
+          << (char)dst.m_file
           << "'.");
         return -CE_ECODE_CHESS_PARSE;
     }
 
-    if( !capture && decomp.m_bHasCaptured )
+    if( !cap && decomp.m_bHasCaptured )
     {
       AN_ERROR(pieceName
           << " move "
@@ -1855,6 +1942,122 @@ int ChessANParser::postprocPawn(ChessANDecomp &decomp)
       return -CE_ECODE_CHESS_PARSE;
     }
   }
+
+  ChessBoard::filterPositions(src, positions, filtered);
+
+#ifdef AN_DBG
+  cerr << "DBG: Filtered on '" << src << "' there are now " << filtered.size()
+    << " candidate source positions:" << endl;
+  cerr << "  ";
+  for(i = 0; i < filtered.size(); ++i)
+  {
+    cerr << filtered[i] << " ";
+  }
+  cerr << endl;
+#endif
+
+  //
+  // Sanity check
+  //
+  if( filtered.size() == 0 )
+  {
+    AN_ERROR(pieceName
+        << " move "
+        << decomp.m_posSrc << decomp.m_posDst
+        << " is not legal.");
+    return -CE_ECODE_CHESS_PARSE;
+  }
+
+  //
+  // Ok
+  //
+  decomp.m_eColorMoved    = color;
+  decomp.m_posSrc         = src;
+  decomp.m_posDst         = dst;
+  decomp.m_bHasCaptured   = cap;
+  decomp.m_ePieceCaptured = capPiece;
+
+  return CE_OK;
+}
+
+int ChessANParser::postprocMajorPiece(ChessANDecomp &decomp)
+{
+  ChessPos      src(decomp.m_posSrc); // source position
+  ChessPos      dst(decomp.m_posDst); // destination position
+  ChessColor    color;                // required piece color
+  list_of_pos   positions;            // list of all source positions from dst
+  list_of_pos   filtered;             // filtered on (partial) src 
+  size_t        i;
+  const string  pieceName(nameOfPiece(decomp.m_ePieceMoved));
+
+  // assign piece color
+  color = decomp.m_ePlayer != NoColor? decomp.m_ePlayer: decomp.m_eColorMoved;
+
+
+  ChessBoard::findMajorPieceMoves(decomp.m_ePieceMoved, dst, positions);
+  ChessBoard::filterPositions(src, positions, filtered);
+
+#ifdef AN_DBG
+  cerr << "DBG: From '" << dst << "' there are " << positions.size()
+    << " candiate source positions:" << endl;
+  cerr << "  ";
+  for(i = 0; i < positions.size(); ++i)
+  {
+    cerr << positions[i] << " ";
+  }
+  cerr << endl;
+
+  cerr << "DBG: Filtered on '" << src << "' there are now " << filtered.size()
+    << " candiate source positions:" << endl;
+  cerr << "  ";
+  for(i = 0; i < filtered.size(); ++i)
+  {
+    cerr << filtered[i] << " ";
+  }
+  cerr << endl;
+#endif
+
+  //
+  // Source and destination positions fully specified, simply verify.
+  //
+  if( src.isSpecified() )
+  {
+    // "No move" move
+    if( src == dst )
+    {
+      AN_ERROR(pieceName
+          << " move "
+          << decomp.m_posSrc << decomp.m_posDst
+          << " goes no where.");
+      return -CE_ECODE_CHESS_PARSE;
+    }
+
+    // multiple positions, but there should only be 1
+    else if( filtered.size() != 1 )
+    {
+      AN_ERROR(pieceName
+          << " move "
+          << decomp.m_posSrc << decomp.m_posDst
+          << " is not legal.");
+      return -CE_ECODE_CHESS_PARSE;
+    }
+  }
+
+  //
+  // Even though source is not fully specified, there exist only one source
+  // position possible.
+  //
+  else if( filtered.size() == 1 )
+  {
+    src = filtered[0];
+  }
+
+  //
+  // Ok
+  //
+  decomp.m_eColorMoved  = color;
+  decomp.m_posSrc       = src;
+  decomp.m_posDst       = dst;
 
   return CE_OK;
 }

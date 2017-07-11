@@ -112,6 +112,8 @@ namespace chess_engine
 
     /*!
      * \brief Default constructor.
+     *
+     * Position is initialized to 'no position'.
      */
     ChessPos();
 
@@ -145,13 +147,142 @@ namespace chess_engine
     void clear();
 
     /*!
+     * \brief Test if the position is fully specified.
+     *
+     * \return Returns true or false.
+     */
+    bool isSpecified() const
+    {
+      return (m_file != NoFile) && (m_rank != NoRank);
+    }
+
+    /*!
+     * \brief Test if file is specified.
+     *
+     * \return Returns true or false.
+     */
+    bool hasFile() const
+    {
+      return (m_file != NoFile);
+    }
+
+    /*!
+     * \brief Test if rank is specified.
+     *
+     * \return Returns true or false.
+     */
+    bool hasRank() const
+    {
+      return (m_rank != NoRank);
+    }
+
+    /*!
      * \brief Test if position specifies a location on a standard chess board.
      *
      * \return Returns true or false.
      */
     bool isOnChessBoard() const;
 
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Operators
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+    /*!
+     * \brief Equality operator.
+     *
+     * Test if both file and rank equal.
+     *
+     * \param b   Position to compare with.
+     *
+     * \return Returns true if equal, false otherwise.
+     */
+    bool operator==(const ChessPos &b) const
+    {
+      return (m_file == b.m_file) && (m_rank == b.m_rank);
+    }
+
+    /*!
+     * \brief Equality operator.
+     *
+     * Test if files equal.
+     *
+     * \param b   Chess file.
+     *
+     * \return Returns true if equal, false otherwise.
+     */
+    bool operator==(const ChessFile &b) const
+    {
+      return m_file == b;
+    }
+
+    /*!
+     * \brief Equality operator.
+     *
+     * Test if ranks equal.
+     *
+     * \param b   Chess rank.
+     *
+     * \return Returns true if equal, false otherwise.
+     */
+    bool operator==(const ChessRank &b) const
+    {
+      return (m_rank == b);
+    }
+
+    /*!
+     * \brief Inequality operator.
+     *
+     * Test if either the file or the rank do not equal.
+     *
+     * \param b   Position to compare with.
+     *
+     * \return Returns true if inequal, false otherwise.
+     */
+    bool operator!=(const ChessPos &b) const
+    {
+      return (m_file != b.m_file) || (m_rank != b.m_rank);
+    }
+
+    /*!
+     * \brief Inequality operator.
+     *
+     * Test if files do not equal.
+     *
+     * \param b   Chess file.
+     *
+     * \return Returns true if inequal, false otherwise.
+     */
+    bool operator!=(const ChessFile &b) const
+    {
+      return m_file != b;
+    }
+
+    /*!
+     * \brief Inequality operator.
+     *
+     * Test if ranks do not equal.
+     *
+     * \param b   Chess rank.
+     *
+     * \return Returns true if inequal, false otherwise.
+     */
+    bool operator!=(const ChessRank &b) const
+    {
+      return (m_rank != b);
+    }
+
+    //
     // Friends
+    //
+
+    /*!
+     * \brief Output stream insertion operator.
+     *
+     * \param os    Output stream.
+     * \param pos   Object to insert.
+     *
+     * \return Returns os.
+     */
     friend std::ostream &operator<<(std::ostream &os, const ChessPos &pos);
   };
 

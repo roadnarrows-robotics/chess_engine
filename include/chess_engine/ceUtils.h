@@ -198,6 +198,17 @@ namespace chess_engine
    */
   ChessResult rcToMoveResult(int rc);
 
+  /*!
+   * \brief Integer absolute value.
+   *
+   * \param a   Integer value.
+   *
+   * \return Returns |a|.
+   */
+  inline int iabs(const int a)
+  {
+    return a >= 0? a: -a;
+  }
 } // namespace chess_engine
 
 

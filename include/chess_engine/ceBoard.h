@@ -190,7 +190,7 @@ namespace chess_engine
     /*!
      * \brief Convert chess rank to board array row.
      *
-     * \note Rank 8 is row 7, ..., rank 1 is row 0.
+     * \note Rank '8' is row 0, ..., rank '1' is row 7.
      *
      * \param rank    Chess rank ['1', '8'].
      *
@@ -201,7 +201,7 @@ namespace chess_engine
     /*!
      * \brief Convert chess file to board array column.
      *
-     * \note File a is column 0, ..., file h is column 7.
+     * \note File 'a' is column 0, ..., file 'h' is column 7.
      *
      * \param file    Chess file ['a', 'h'].
      *
@@ -211,6 +211,8 @@ namespace chess_engine
 
     /*!
      * \brief Convert chess square coordinates to board array row and column.
+     *
+     * \note Rank '8' is row 0, while file 'a' is column 0.
      *
      * \param [in] pos    Board position (file,rank).
      * \param [out] row   Board row [0, 7].
@@ -223,6 +225,8 @@ namespace chess_engine
     /*!
      * \brief Convert board array column to chess file.
      *
+     * \note Column 0 is file 'a', ..., column 7 is file 'h'.
+     *
      * \param col  Board column [0, 7].
      *
      * \reture Chess file ['a', 'h'] or NoFile.
@@ -232,7 +236,7 @@ namespace chess_engine
     /*!
      * \brief Convert board array row to chess rank.
      *
-     * \note Rank 8 is row 7, ..., rank 1 is row 0.
+     * \note Row 0 is rank '8', ..., row 7 is rank '1'.
      *
      * \param row   Board row [0, 7].
      *
@@ -241,42 +245,86 @@ namespace chess_engine
     static ChessRank toRank(int row);
 
     /*!
-     * \brief Get the next file after the given file.
-     *
-     * \param file  Current chess board file.
-     *
-     * \returns Returns the next file. If no more files, then returns NoFile.
-     */
-    static ChessFile nextFile(int file);
-
-    /*!
-     * \brief Get the next rank after the given rank.
-     *
-     * \param rank  Current chess board rank.
-     *
-     * \returns Returns the next rank. If no more ranks, then returns NoRank.
-     */
-    static ChessRank nextRank(int rank);
-
-    /*!
      * \brief Shift file by the given offset.
      *
-     * \param file    Given chess board file.
+     * Negative offset shifts left on the board  (e.g. 'e',-2 ==> 'c').
+     * Positive offset shifts right on the board (e.g. 'e',+2 ==> 'g').
+     *
+     * \param file    Chess file ['a', 'h'].
      * \param offset  Plus/minus offset from file.
      *
-     * \returns Returns the shifted file. If off the board, then returns NoFile.
+     * \returns Returns the shifted file. If off the board, returns NoFile.
      */
     static ChessFile shiftFile(int file, int offset);
     
     /*!
      * \brief Shift rank by the given offset.
      *
-     * \param rank    Given chess board rank.
+     * Negative offset shifts down on the board (e.g. '4',-3 ==> '1').
+     * Positive offset shifts up on the board   (e.g. '4',+3 ==> '7').
+     *
+     * \param rank    Chess rank ['1', '8'].
      * \param offset  Plus/minus offset from rank.
      *
-     * \returns Returns the shifted rank. If off the board, then returns NoRank.
+     * \returns Returns the shifted rank. If off the board, returns NoRank.
      */
     static ChessRank shiftRank(int rank, int offset);
+
+    /*!
+     * \brief Get the next file after the given file.
+     *
+     * On the board, the next file is to the right.
+     *
+     * \param file    Chess file ['a', 'h'].
+     *
+     * \returns Returns the next file. If off board, then returns NoFile.
+     */
+    static ChessFile nextFile(int file)
+    {
+      return shiftFile(file, 1);
+    }
+
+    /*!
+     * \brief Get the next rank after the given rank.
+     *
+     * On the board, the next rank is upward.
+     *
+     * \param rank    Chess rank ['1', '8'].
+     *
+     * \returns Returns the next rank. If off board, then returns NoRank.
+     */
+    static ChessRank nextRank(int rank)
+    {
+      return shiftRank(rank, 1);
+    }
+
+    /*!
+     * \brief Get the previous file after the given file.
+     *
+     * On the board, the previous file is to the left.
+     *
+     * \param file    Chess file ['a', 'h'].
+     *
+     * \returns Returns the previous file. If off board, then returns NoFile.
+     */
+    static ChessFile prevFile(int file)
+    {
+      return shiftFile(file, -1);
+    }
+
+    /*!
+     * \brief Get the previous rank after the given rank.
+     *
+     * On the board, the previous rank is downward.
+     *
+     * \param rank    Chess rank ['1', '8'].
+     *
+     * \returns Returns the previous rank. If off board, then returns NoRank.
+     */
+    static ChessRank prevRank(int rank)
+    {
+      return shiftRank(rank, -1);
+    }
 
     /*!
      * \brief Test if position lies on a standard chess board.
@@ -311,17 +359,18 @@ namespace chess_engine
      * \brief Find all of the major pieces's candidate move positions.
      *
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the major pieces.
+     * empty accept for the major piece. The board is the standard 8x8 board.
+     *
      *
      * Since major pieces's movements are invertible, the list of positions
      * serve both as a previous source and future destination positions. The
      * list radiates outward from the current position.
      *
-     * \param ePiece      Major chess piece type.
-     * \param pos         The major pieces's current position.
-     * \param positions   List (vector) of candidate positions. Any candidate
-     *                    position is appended to the end of the list. The
-     *                    list is not cleared.
+     * \param         ePiece      Major chess piece type.
+     * \param         pos         The major pieces's current position.
+     * \param[in,out] positions   List (vector) of candidate positions.
+     *                            Any candidate position is appended to the end
+     *                            of the list. The list is not cleared.
      */
     static void findMajorPieceMoves(const ChessPiece ePiece,
                                     const ChessPos   &pos,
@@ -330,17 +379,19 @@ namespace chess_engine
     /*!
      * \brief Find all of the king's candidate move positions.
      *
+     * The board is the standard 8x8 board.
+     *
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the king.
+     * empty accept for the king. The board is the standard 8x8 board.
      *
      * Since the king's movements are invertible, the list of positions serve
      * both as a previous source and future destination positions. The list
      * radiates outward from the current position.
      *
-     * \param pos         The king's current position.
-     * \param positions   List (vector) of candidate positions. Any candidate
-     *                    position is appended to the end of the list. The
-     *                    list is not cleared.
+     * \param         pos         The king's current position.
+     * \param[in,out] positions   List (vector) of candidate positions.
+     *                            Any candidate position is appended to the end
+     *                            of the list. The list is not cleared.
      */
     static void findKingMoves(const ChessPos &pos, list_of_pos &positions);
 
@@ -348,16 +399,16 @@ namespace chess_engine
      * \brief Find all of the queens's candidate move positions.
      *
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the queens.
+     * empty accept for the queens. The board is the standard 8x8 board.
      *
      * Since the queens's movements are invertible, the list of positions serve
      * both as a previous source and future destination positions. The list
      * radiates outward from the current position.
      *
-     * \param pos         The queens's current position.
-     * \param positions   List (vector) of candidate positions. Any candidate
-     *                    position is appended to the end of the list. The
-     *                    list is not cleared.
+     * \param         pos         The queen's current position.
+     * \param[in,out] positions   List (vector) of candidate positions.
+     *                            Any candidate position is appended to the end
+     *                            of the list. The list is not cleared.
      */
     static void findQueenMoves(const ChessPos &pos, list_of_pos &positions);
 
@@ -365,16 +416,16 @@ namespace chess_engine
      * \brief Find all of the bishop's candidate move positions.
      *
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the bishop.
+     * empty accept for the bishop. The board is the standard 8x8 board.
      *
      * Since the bishop's movements are invertible, the list of positions serve
      * both as a previous source and future destination positions. The list
      * radiates outward from the current position.
      *
-     * \param pos         The bishop's current position.
-     * \param positions   List (vector) of candidate positions. Any candidate
-     *                    position is appended to the end of the list. The
-     *                    list is not cleared.
+     * \param         pos         The bishop's current position.
+     * \param[in,out] positions   List (vector) of candidate positions.
+     *                            Any candidate position is appended to the end
+     *                            of the list. The list is not cleared.
      */
     static void findBishopMoves(const ChessPos &pos, list_of_pos &positions);
 
@@ -382,16 +433,16 @@ namespace chess_engine
      * \brief Find all of the knight's candidate move positions.
      *
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the knight.
+     * empty accept for the knight. The board is the standard 8x8 board.
      *
      * Since the knight's movements are invertible, the list of positions serve
      * both as a previous source and future destination positions. The list
      * radiates outward from the current position.
      *
-     * \param pos         The knight's current position.
-     * \param positions   List (vector) of candidate positions. Any candidate
-     *                    position is appended to the end of the list. The
-     *                    list is not cleared.
+     * \param         pos         The knight's current position.
+     * \param[in,out] positions   List (vector) of candidate positions.
+     *                            Any candidate position is appended to the end
+     *                            of the list. The list is not cleared.
      */
     static void findKnightMoves(const ChessPos &pos, list_of_pos &positions);
 
@@ -399,16 +450,16 @@ namespace chess_engine
      * \brief Find all of the rook's candidate move positions.
      *
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the rook.
+     * empty accept for the rook. The board is the standard 8x8 board.
      *
      * Since the rook's movements are invertible, the list of positions serve
      * both as a previous source and future destination positions. The list
      * radiates outward from the current position.
      *
-     * \param pos         The rook's current position.
-     * \param positions   List (vector) of candidate positions. Any candidate
-     *                    position is appended to the end of the list. The
-     *                    list is not cleared.
+     * \param         pos         The rook's current position.
+     * \param[in,out] positions   List (vector) of candidate positions.
+     *                            Any candidate position is appended to the end
+     *                            of the list. The list is not cleared.
      */
     static void findRookMoves(const ChessPos &pos, list_of_pos &positions);
 
@@ -418,18 +469,18 @@ namespace chess_engine
      * How did the pawn get here?
      *
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the pawn.
+     * empty accept for the pawn. The board is the standard 8x8 board.
      *
      * Pawns can only move forward and that direction is determine by its color.
      * A pawn's first move can be 1 or 2 squares forward. A capture moves
      * diagonally. The capture move, and when appropriate, the first 2 square
      * move are added to the list.
      *
-     * \param eColor      The color of the pawn.
-     * \param pos         The pawn's current position.
-     * \param positions   List (vector) of candidate positions. Any candidate
-     *                    position is appended to the end of the list. The
-     *                    list is not cleared.
+     * \param         eColor      The color of the pawn.
+     * \param         pos         The pawns's current position.
+     * \param[in,out] positions   List (vector) of candidate positions.
+     *                            Any candidate position is appended to the end
+     *                            of the list. The list is not cleared.
      */
     static void findPawnSrcMoves(const ChessColor eColor,
                                  const ChessPos   &pos,
@@ -441,22 +492,38 @@ namespace chess_engine
      * Where can the pawn move?
      *
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the pawn.
+     * empty accept for the pawn. The board is the standard 8x8 board.
      *
      * Pawns can only move forward and that direction is determine by its color.
      * A pawn's first move can be 1 or 2 squares forward. A capture moves
      * diagonally. The capture move, and when appropriate, the first 2 square
      * move are added to the list.
      *
-     * \param eColor      The color of the pawn.
-     * \param pos         The pawn's current position.
-     * \param positions   List (vector) of candidate positions. Any candidate
-     *                    position is appended to the end of the list. The
-     *                    list is not cleared.
+     * \param         eColor      The color of the pawn.
+     * \param         pos         The pawns's current position.
+     * \param[in,out] positions   List (vector) of candidate positions.
+     *                            Any candidate position is appended to the end
+     *                            of the list. The list is not cleared.
      */
     static void findPawnDstMoves(const ChessColor eColor,
                                  const ChessPos   &pos,
                                  list_of_pos      &positions);
+
+    /*!
+     * \brief Filter list of positions on position criteria.
+     *
+     * A filter's file(rank) is NoFile(NoRank) is equivalent to a wildcard that
+     * matches of files(ranks). Otherise the file(rank) must match exactly.
+     *
+     * \note The positions and filtered lists cannot reference the same object.
+     *
+     * \param       filter      Position filter.
+     * \param[in]   positions   List (vector) of positions.
+     * \param[out]  filtered    List (vector) of filtered positions.
+     */
+    static void filterPositions(const ChessPos    &filter,
+                                const list_of_pos &positions,
+                                list_of_pos       &filtered);
 
   protected:
     ChessSquare m_board[NumOfRanks][NumOfFiles];  ///< board matrix

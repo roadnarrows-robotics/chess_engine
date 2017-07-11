@@ -252,6 +252,22 @@ static int execGetParser(const ExtArgVec &argv)
 }
 
 /*!
+ * \brief Execute 'run' command.
+ *
+ * \param argv  Command line arguments.
+ *
+ * \return OK(0) on success, negative value on failure.
+ */
+static int execRunFile(const ExtArgVec &argv)
+{
+  string  filename = argv[1].s();
+
+  cout << "Running " << filename << endl;
+
+  return OK;
+}
+
+/*!
  * \brief Execute 'trace' command.
  *
  * \param argv  Command line arguments.
@@ -374,6 +390,15 @@ CmdExec Commands[] =
       NULL
     },
     execGetParser
+  },
+
+  { { "run",
+      "run <filename:file>",
+      "Run commands from a file. TBD",
+      "Run AN parser commands from a file.\n"
+      "  <filename>  Name of file holding the commands."
+    },
+    execRunFile
   },
 
   { { "trace",

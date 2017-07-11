@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows LLC
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -202,7 +202,7 @@ bool ChessBoard::setMoveSrcPos(ChessMove &move)
 
 int ChessBoard::toRow(int rank)
 {
-  //fprintf(stderr, "toRow(rank=%c) = %d\n",
+  //fprintf(stderr, "DBG: toRow(rank=%c) = %d\n",
   //    rank, NumOfRanks - (rank - (int)ChessRank1) - 1);
   return NumOfRanks - (rank - (int)ChessRank1) - 1;
 }
@@ -243,7 +243,7 @@ ChessRank ChessBoard::toRank(int row)
 {
   if( (row >= 0) && (row < NumOfRanks) )
   {
-    //fprintf(stderr, "toRank(row=%d) = %c\n",
+    //fprintf(stderr, "DBG: toRank(row=%d) = %c\n",
     //    row, (ChessRank)((int)ChessRank1 + NumOfRanks - row - 1));
     return (ChessRank)((int)ChessRank1 + NumOfRanks - row - 1);
   }
@@ -253,24 +253,20 @@ ChessRank ChessBoard::toRank(int row)
   }
 }
 
-ChessFile ChessBoard::nextFile(int file)
-{
-  return  toFile(toCol(file) + 1);
-}
-
-ChessRank ChessBoard::nextRank(int rank)
-{
-  return  toRank(toRow(rank) + 1);
-}
-
 ChessFile ChessBoard::shiftFile(int file, int offset)
 {
-  return toFile(toCol(file) + offset);
+  int shift = file + offset;
+
+  return (shift >= ChessFileA) && (shift <= ChessFileH)?
+                                                (ChessFile)shift: NoFile;
 }
 
 ChessRank ChessBoard::shiftRank(int rank, int offset)
 {
-  return toRank(toRow(rank) - offset);
+  int shift = rank + offset;
+
+  return (shift >= ChessRank1) && (shift <= ChessRank8)?
+                                                (ChessRank)shift: NoRank;
 }
 
 bool ChessBoard::isOnChessBoard(const ChessPos &pos)
@@ -321,8 +317,8 @@ void ChessBoard::findKingMoves(const ChessPos &pos, list_of_pos &positions)
 {
   ChessPos  p;
   size_t    n = 8;
-  int       fileOffset[n] = {0, 1, 1,  1,  0, -1, -1, -1};
-  int       rankOffset[n] = {1, 1, 0, -1, -1, -1,  0,  1};
+  int       fileOffset[n] = {0, 1, 1,  1,   0,  -1, -1, -1};
+  int       rankOffset[n] = {1, 1, 0, -1,  -1,  -1,  0,  1};
   size_t    i;
 
   // clockwise from 12 o'clock
@@ -345,51 +341,43 @@ void ChessBoard::findQueenMoves(const ChessPos &pos, list_of_pos &positions)
 
 void ChessBoard::findBishopMoves(const ChessPos &pos, list_of_pos &positions)
 {
-  ChessPos  p;
+  int       row0, col0;
   int       row, col;
+  ChessPos  p;
+
+  row0 = toRow(pos.m_rank);
+  col0 = toCol(pos.m_file);
 
   // upper right ray
-  for(col = toCol(pos.m_file)+1; col < NumOfFiles; ++col)
+  for(col=col0+1, row=row0-1; col<NumOfFiles && row>=0; ++col, --row)
   {
     p.m_file = toFile(col);
-    for(row = toRow(pos.m_rank)+1; row < NumOfRanks; ++row)
-    {
-      p.m_rank = toRank(row);
-      positions.push_back(p);
-    }
+    p.m_rank = toRank(row);
+    positions.push_back(p);
   }
 
   // lower right ray
-  for(col = toCol(pos.m_file)-1; col >= 0; --col)
+  for(col=col0+1, row=row0+1; col<NumOfFiles && row<NumOfRanks; ++col, ++row)
   {
     p.m_file = toFile(col);
-    for(row = toRow(pos.m_rank)+1; row < NumOfRanks; ++row)
-    {
-      p.m_rank = toRank(row);
-      positions.push_back(p);
-    }
+    p.m_rank = toRank(row);
+    positions.push_back(p);
   }
 
   // lower left ray
-  for(col = toCol(pos.m_file)-1; col >= 0; --col)
+  for(col=col0-1, row=row0+1; col>=0 && row<NumOfRanks; --col, ++row)
   {
     p.m_file = toFile(col);
-    for(row = toRow(pos.m_rank)-1; row >= 0; --row)
-    {
-      p.m_rank = toRank(row);
-      positions.push_back(p);
-    }
+    p.m_rank = toRank(row);
+    positions.push_back(p);
   }
 
   // upper left ray
-  for(col = toCol(pos.m_file)+1; col < NumOfFiles; ++col)
+  for(col=col0-1, row=row0-1; col>=0 && row>=0; --col, --row)
   {
     p.m_file = toFile(col);
-    for(row = toRow(pos.m_rank)-1; row >= 0; --row)
-    {
-      p.m_rank = toRank(row);
-      positions.push_back(p);
-    }
+    p.m_rank = toRank(row);
+    positions.push_back(p);
   }
 }
 
@@ -397,11 +385,11 @@ void ChessBoard::findKnightMoves(const ChessPos &pos, list_of_pos &positions)
 {
   ChessPos  p;
   size_t    n = 8;
-  int       fileOffset[n] = {-1, 1, 2,  2,  1, -1, -2, -2};
-  int       rankOffset[n] = { 2, 2, 1, -1, -2, -2, -1,  1};
+  int       fileOffset[n] = {-1,  1,  2,  2,  1, -1, -2, -2};
+  int       rankOffset[n] = { 2,  2,  1, -1, -2, -2, -1,  1};
   size_t    i;
 
-  // clockwise from 12 o'clock
+  // clockwise from 12 o'clock ells
   for(i = 0; i < n; ++i)
   {
     p.m_file = shiftFile(pos.m_file, fileOffset[i]);
@@ -415,40 +403,40 @@ void ChessBoard::findKnightMoves(const ChessPos &pos, list_of_pos &positions)
 
 void ChessBoard::findRookMoves(const ChessPos &pos, list_of_pos &positions)
 {
-  ChessPos  p;
+  int       row0, col0;
   int       row, col;
+  ChessPos  p;
+
+  row0 = toRow(pos.m_rank);
+  col0 = toCol(pos.m_file);
 
   // up ray
-  col       = toCol(pos.m_file);
-  p.m_file  = pos.m_file;
-  for(row = toRow(pos.m_rank)+1; row < NumOfRanks; ++row)
+  p.m_file = pos.m_file;
+  for(row = row0-1; row >= 0; --row)
   {
     p.m_rank = toRank(row);
     positions.push_back(p);
   }
 
   // right ray
-  row       = toRow(pos.m_rank);
-  p.m_rank  = pos.m_rank;
-  for(col = toCol(pos.m_file)+1; col < NumOfFiles; ++col)
+  p.m_rank = pos.m_rank;
+  for(col = col0+1; col < NumOfFiles; ++col)
   {
     p.m_file = toFile(col);
     positions.push_back(p);
   }
 
   // down ray
-  col       = toCol(pos.m_file);
-  p.m_file  = pos.m_file;
-  for(row = toRow(pos.m_rank)-1; row >= 0; --row)
+  p.m_file = pos.m_file;
+  for(row = row0+1; row < NumOfRanks; ++row)
   {
     p.m_rank = toRank(row);
     positions.push_back(p);
   }
 
   // left ray
-  row       = toRow(pos.m_rank);
-  p.m_rank  = pos.m_rank;
-  for(col = toCol(pos.m_file)-1; col >= 0; --col)
+  p.m_rank = pos.m_rank;
+  for(col = col0-1; col >= 0; --col)
   {
     p.m_file = toFile(col);
     positions.push_back(p);
@@ -459,39 +447,41 @@ void ChessBoard::findPawnSrcMoves(const ChessColor eColor,
                                   const ChessPos   &pos,
                                   list_of_pos      &positions)
 {
+  int       fileOffset[]  = {-1,  0,  1,  0};
+  int       rankOffsetW[] = {-1, -1, -1, -2};
+  int       rankOffsetB[] = { 1,  1,  1,  2};
+  size_t    n, i;
   ChessPos  p;
-  size_t    n = 3;
-  int       fileOffset[n] = {-1, 0, 1};
-  int       rankOffset = eColor == White? -1: 1;
-  size_t    i;
 
-  p.m_rank = shiftRank(pos.m_rank, rankOffset);
-
-  for(i = 0; i < n; ++i)
+  // white
+  if( (eColor == White) || (eColor == NoColor) )
   {
-    p.m_file = shiftFile(pos.m_file, fileOffset[i]);
-    if( isOnChessBoard(p) )
+    n = pos.m_rank == ChessRank4? 4: 3;
+
+    for(i = 0; i < n; ++i)
     {
-      positions.push_back(p);
+      p.m_file = shiftFile(pos.m_file, fileOffset[i]);
+      p.m_rank = shiftRank(pos.m_rank, rankOffsetW[i]);
+      if( isOnChessBoard(p) )
+      {
+        positions.push_back(p);
+      }
     }
   }
 
-  if( (eColor == White) && (pos.m_rank == ChessRank4) )
+  // black
+  if( (eColor == Black) || (eColor == NoColor) )
   {
-    p.m_file = pos.m_file;
-    p.m_rank = shiftRank(pos.m_rank, -2);
-    if( isOnChessBoard(p) )
+    n = pos.m_rank == ChessRank5? 4: 3;
+
+    for(i = 0; i < n; ++i)
     {
-      positions.push_back(p);
-    }
-  }
-  else if( (eColor == Black) && (pos.m_rank == ChessRank5) )
-  {
-    p.m_file = pos.m_file;
-    p.m_rank = shiftRank(pos.m_rank, 2);
-    if( isOnChessBoard(p) )
-    {
-      positions.push_back(p);
+      p.m_file = shiftFile(pos.m_file, fileOffset[i]);
+      p.m_rank = shiftRank(pos.m_rank, rankOffsetB[i]);
+      if( isOnChessBoard(p) )
+      {
+        positions.push_back(p);
+      }
     }
   }
 }
@@ -533,6 +523,20 @@ void ChessBoard::findPawnDstMoves(const ChessColor eColor,
     if( isOnChessBoard(p) )
     {
       positions.push_back(p);
+    }
+  }
+}
+
+void ChessBoard::filterPositions(const ChessPos    &filter,
+                                 const list_of_pos &positions,
+                                 list_of_pos       &filtered)
+{
+  for(size_t i = 0; i < positions.size(); ++i)
+  {
+    if( ((filter.m_file == NoFile) || (filter.m_file == positions[i].m_file)) &&
+        ((filter.m_rank == NoRank) || (filter.m_rank == positions[i].m_rank)) )
+    {
+      filtered.push_back(positions[i]);
     }
   }
 }

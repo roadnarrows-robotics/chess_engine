@@ -349,8 +349,8 @@ namespace chess_engine
     /*!
      * \brief Post-process parsed AN.
      *
-     * The rules of chess are applied to set additional fields and to
-     * cross-check verification.
+     * The rules of chess are applied to the syntactically parsed AN string
+     * to set additional fields and for verification.
      *
      * \param[in,out] decomp  Parsed AN decomposition.
      *
@@ -412,7 +412,7 @@ namespace chess_engine
     int postprocPromotion(ChessANDecomp &decomp);
 
     /*!
-     * \brief Post-process pawn simple move.
+     * \brief Post-process pawn basic move.
      *
      * AN: h4 f4f5 f4e5 ...
      *
@@ -428,6 +428,22 @@ namespace chess_engine
      * \return Returns CE_OK on success, negative error code on failure.
      */
     int postprocPawn(ChessANDecomp &decomp);
+
+    /*!
+     * \brief Post-process major piece move.
+     *
+     * AN: Rh4 Bxa1 Qf4f7 Kcxd2 N3xd2 ...
+     *
+     * Determine:
+     * - unspecified rank or file if possible
+     *
+     * Verify move.
+     *
+     * \param[in,out] decomp  Parsed AN decomposition.
+     * 
+     * \return Returns CE_OK on success, negative error code on failure.
+     */
+    int postprocMajorPiece(ChessANDecomp &decomp);
 
     /*!
      * \brief Clear parse errors.
