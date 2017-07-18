@@ -61,7 +61,8 @@ target_link_libraries(chess_parser
 #  ${catkin_LIBRARIES}
 #)
 
-#install(TARGETS 
-#  ${TOOL_LIST}
-#  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-#)
+install(
+  PROGRAMS 
+    chess_cli
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
