@@ -6,7 +6,7 @@
 //
 // Node:      rqt_chess
 //
-// File:      mainwindow.cpp
+// File:      rqtchesswin.cpp
 //
 /*! \file
  *
@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  * 
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -24,35 +24,57 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "rqt_chess/mainwindow.h"
+#include <QMessageBox>
 
-#include "ui_mainwindow.h"
+#include "rqt_chess/rqtchesswin.h"
+#include "ui_rqtchesswin.h"
 
-MainWindow::MainWindow(QWidget *parent) :
+#ifndef Q_MOC_RUN
+#include "rqt_chess/qnode.h"
+#endif // Q_MOC_RUN
+
+RqtChessWin::RqtChessWin(QNode *node, QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    m_node(node),
+    ui(new Ui::RqtChessWin),
+    m_chessScene(new ChessScene())
+
 {
   ui->setupUi(this);
 
   this->setWindowTitle("rqt_chess");
 	setWindowIcon(QIcon(":/images/icon.png"));
 
-  m_chessScene = new ChessScene();
   m_chessScene->setSceneRect(0, 0, 500, 396);
   ui->playArea->setScene(m_chessScene);
 
   createConnections();
+
+  if( !m_node->on_init() )
+  {
+    showNoMasterMessage();
+  }
 }
 
-MainWindow::~MainWindow()
+RqtChessWin::~RqtChessWin()
 {
   delete ui;
 }
 
-void MainWindow::createConnections()
+void RqtChessWin::createConnections()
 {
+  QObject::connect(m_node, SIGNAL(rosShutdown()), this, SLOT(close()));
+
   QObject::connect(ui->newGame, SIGNAL(clicked()),
                      m_chessScene, SLOT(newGame()));
+}
+
+void RqtChessWin::showNoMasterMessage()
+{
+  QMessageBox msgBox;
+  msgBox.setText("Couldn't find the ros master.");
+  msgBox.exec();
+  close();
 }
 
 

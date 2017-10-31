@@ -1,80 +1,83 @@
-////////////////////////////////////////////////////////////////////////////////
-//
-// Package:   RoadNarrows Robotics ROS Chess Engine Package
-//
-// Link:      https://github.com/roadnarrows-robotics/chess_engine
-//
-// Node:      rqt_chess
-//
-// File:      qnode.h
-//
-/*! \file
+/*!
+ * qnode.h
  *
- * \brief Ros communication central!
+ * \file
+ *
+ * \brief Example qt programs, generated from code similar to that used by the
+ * roscreate-qt-pkg script and styled on roscpp_tutorials.
+ *
+ * \par Maintainer Status:
+ * maintained
+ *
+ * \par Maintainer:
+ * Daniel Stonier <d.stonier@gmail.com>
+ *
+ * \author Daniel Stonier
+ *
+ * \par License:
+ * BSD
+ *
+ * \par URL:
+ * - http://wiki.ros.org/qt_tutorials
+ * - http://docs.ros.org/hydro/api/qt_tutorials/html/index.html
  */
-////////////////////////////////////////////////////////////////////////////////
 
 /*****************************************************************************
 ** Ifdefs
 *****************************************************************************/
 
-#ifndef QNODE_HPP_
-#define QNODE_HPP_
+#ifndef NODE_HPP_
+#define NODE_HPP_
 
 /*****************************************************************************
 ** Includes
 *****************************************************************************/
 
+#ifndef Q_MOC_RUN
 #include <ros/ros.h>
+#endif
+
 #include <string>
 #include <QThread>
 #include <QStringListModel>
-
-
-/*****************************************************************************
-** Namespaces
-*****************************************************************************/
-
-namespace rqt_chess {
 
 /*****************************************************************************
 ** Class
 *****************************************************************************/
 
-class QNode : public QThread {
-    Q_OBJECT
+class QNode : public QThread
+{
+  Q_OBJECT
+
 public:
-	QNode(int argc, char** argv );
-	virtual ~QNode();
-	bool init();
-	bool init(const std::string &master_url, const std::string &host_url);
-	void run();
+  QNode(int argc, char** argv, const std::string &name);
 
-	/*********************
-	** Logging
-	**********************/
-	enum LogLevel {
-	         Debug,
-	         Info,
-	         Warn,
-	         Error,
-	         Fatal
-	 };
+  virtual ~QNode();
 
-	QStringListModel* loggingModel() { return &logging_model; }
-	void log( const LogLevel &level, const std::string &msg);
+  bool on_init();
+
+  bool on_init(const std::string &master_url, const std::string &host_url);
+
+  void shutdown();
+
+  virtual void run() = 0;
+
+  QStringListModel* loggingModel() { return &logging; }
+
+  const std::string& nodeName() { return node_name; }
 
 Q_SIGNALS:
-	void loggingUpdated();
-    void rosShutdown();
+  void loggingUpdated();
 
-private:
-	int init_argc;
-	char** init_argv;
-	ros::Publisher chatter_publisher;
-    QStringListModel logging_model;
+  void rosShutdown();
+
+protected:
+  virtual void ros_comms_init() = 0;
+
+  int init_argc;
+  char** init_argv;
+  QStringListModel logging;
+  const std::string node_name;
 };
 
-}  // namespace rqt_chess
-
-#endif /* rqt_chess_QNODE_HPP_ */
+#endif /* NODE_HPP_ */

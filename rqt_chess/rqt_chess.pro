@@ -11,27 +11,33 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = rqt_chess
 TEMPLATE = app
 
+DEFINES += QT_DEPRECATED_WARNINGS
+
 SOURCES += \
   src/main.cpp \
-  src/mainwindow.cpp \
+  src/rqtchess.cpp \
   src/chessscene.cpp
 
 #  src/qnode.cpp
 
 HEADERS += \
-  include/rqt_chess/mainwindow.h \
+  include/rqt_chess/rqtchess.h \
   include/rqt_chess/chessscene.h
 
 #  include/qnode.h
 
-FORMS    += ui/mainwindow.ui
+FORMS += ui/rqtchess.ui
 
 RESOURCES += resources/images.qrc
 
-INCLUDEPATH += include ../include
+INCLUDEPATH += include ../include /opt/ros/kinetic/include
 
 LIBS += \
-  -L/prj/ros/indigo/devel/lib \
   -L/prj/ros/kinetic/devel/lib \
   -L../../../devel/lib \
-  -lchessengine -lboost_regex
+  -lchessengine
+  -lroscpp
+  -lroslib
+  -lrosconsole
+  -lboost_regex
+  -lboost_system

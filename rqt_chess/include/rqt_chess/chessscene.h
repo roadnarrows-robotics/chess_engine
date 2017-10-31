@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  * 
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -51,10 +51,10 @@ public slots:
   void newGame();
 
 protected:
-  chess_engine::Game      m_game;
+  chess_engine::ChessGame m_game;
   PiecePixMap             m_pixmapPiece;
-  chess_engine::BoardElem m_pieceSrc;
-  chess_engine::BoardElem m_pieceDst;
+  //chess_engine::BoardElem m_pieceSrc;
+  //chess_engine::BoardElem m_pieceDst;
 
   void mousePressEvent(QGraphicsSceneMouseEvent *mouseEvent);
 

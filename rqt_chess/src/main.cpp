@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  * 
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -24,15 +24,18 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "rqt_chess/mainwindow.h"
-
 #include <QApplication>
+
+#include "rqt_chess/rqtchesswin.h"
+#include "rqt_chess/rosqthread.h"
 
 int main(int argc, char *argv[])
 {
-  QApplication a(argc, argv);
-  MainWindow w;
-  w.show();
+  QApplication  app(argc, argv);
+  RosQThread    qros(argc, argv);
+  RqtChessWin   win(&qros);
 
-  return a.exec();
+  win.show();
+
+  return app.exec();
 }

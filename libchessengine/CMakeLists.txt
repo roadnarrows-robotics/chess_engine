@@ -6,6 +6,8 @@ project(chessengine)
 
 set(CE_ROOT ..)
 
+set (CMAKE_CXX_STANDARD 11)
+
 find_package(catkin 
   REQUIRED COMPONENTS 
   roscpp 

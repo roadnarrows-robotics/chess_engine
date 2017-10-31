@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013-2016  RoadNarrows
+ * (C) 2013-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -302,9 +302,9 @@ namespace chess_engine
   class ChessEngineGnu : public ChessEngine
   {
   public:
-    static const int    MaxLineSize = 80;       ///< maximum line length
-    static const float  DepthDifficulty = 2.0;  ///< depth/difficulty ratio
-    static const int    DepthDft = 2;           ///< default search depth
+    static const int    MaxLineSize = 80;     ///< maximum line length
+    static const float  DepthDifficulty;      ///< depth/difficulty ratio
+    static const int    DepthDft = 2;         ///< default search depth
 
     /*!
      * \brief Structure to hold intermediate parsed backend engine values.

@@ -6,7 +6,7 @@
 //
 // Node:      rqt_chess
 //
-// File:      mainwindow.h
+// File:      rqtchesswin.h
 //
 /*! \file
  *
@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -24,32 +24,37 @@
  */
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _MAIN_WINDOW_H
-#define _MAIN_WINDOW_H
+#ifndef _RQT_CHESS_H
+#define _RQT_CHESS_H
 
 #include <QMainWindow>
 
 #include "chess_engine/ceChess.h"
 
+#include "rqt_chess/qnode.h"
 #include "rqt_chess/chessscene.h"
 
 namespace Ui
 {
-  class MainWindow;
+  class RqtChessWin;
 }
 
-class MainWindow : public QMainWindow
+class RqtChessWin : public QMainWindow
 {
   Q_OBJECT
 
 public:
-  explicit MainWindow(QWidget *parent = 0);
+  explicit RqtChessWin(QNode *node, QWidget *parent = 0);
 
-  ~MainWindow();
+  ~RqtChessWin();
+
+protected:
+   void showNoMasterMessage();
 
 private:
-  Ui::MainWindow *ui;
-  ChessScene     *m_chessScene;
+  Ui::RqtChessWin *ui;
+  QNode           *m_node;
+  ChessScene      *m_chessScene;
 
   void createConnections();
 };
@@ -109,4 +114,4 @@ private:
 }  // namespace rqt_chess
 #endif // OLD ROS QT
 
-#endif // _MAIN_WINDOW_H
+#endif // _RQT_CHESS_H

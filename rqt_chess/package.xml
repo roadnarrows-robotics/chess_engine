@@ -2,7 +2,9 @@
 <package>
   <name>rqt_chess</name>
   <version>1.0.0</version>
-  <description>Provides graphical interface to chess engine chess_server ROS node.</description>
+  <description>
+    Provides graphical interface to chess engine chess_server ROS node.
+  </description>
 
   <maintainer email="robin.knight@roadnarrows.com">Robin Knight</maintainer>
   <license>MIT</license>

@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  * 
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -47,8 +47,8 @@ namespace rqt_chess
 
 using namespace rqt_chess;
 
-ChessScene::ChessScene() :
-  m_pieceSrc(EmptyElem), m_pieceDst(EmptyElem)
+ChessScene::ChessScene()
+    //: m_pieceSrc(EmptyElem), m_pieceDst(EmptyElem)
 {
   QPixmap               img;
   QGraphicsPixmapItem  *pItem;
@@ -79,6 +79,7 @@ void ChessScene::mouseMoveEvent(QGraphicsSceneMouseEvent *mouseEvent)
 
 void ChessScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
 {
+#if 0
   if( mouseEvent->button() == Qt::LeftButton )
   {
     QPointF pt = mouseEvent->scenePos(); //.toPoint();
@@ -101,6 +102,7 @@ void ChessScene::mouseReleaseEvent(QGraphicsSceneMouseEvent *mouseEvent)
       fprintf(stderr, "no sq\n");
     }
   }
+#endif
 }
 
 void ChessScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
@@ -109,6 +111,7 @@ void ChessScene::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 
 void ChessScene::loadPieces()
 {
+#if 0
   int           file, rank;
   BoardElem    *pElem;
 
@@ -156,10 +159,12 @@ void ChessScene::loadPieces()
       m_pixmapPiece[strId] = pItem;
     }
   }
+#endif
 }
 
 void ChessScene::setupBoard()
 {
+#if 0
   int           file, rank;
   string        strId;
   BoardElem    *pElem;
@@ -194,6 +199,7 @@ void ChessScene::setupBoard()
       pItem->setPos(x, y);
     }
   }
+#endif
 }
 
 string ChessScene::toPieceId(ChessFile file,   ChessRank rank,
