@@ -68,6 +68,9 @@ namespace chess_engine
   // Class Chess
   //----------------------------------------------------------------------------
 
+  /*!
+   * \brief The Game of Chess class.
+   */
   class Chess
   {
   public:
@@ -186,7 +189,7 @@ namespace chess_engine
      *
      * \return Difficulty level [1.0, 10.0] with 1 being the easiest.
      */
-    virtual int getGameDifficulty() const
+    virtual float getGameDifficulty() const
     {
       return m_engine.getGameDifficulty();
     }
@@ -244,6 +247,20 @@ namespace chess_engine
     }
 
     /*!
+     * \brief Test if current player is in check.
+     *
+     * \return Returns check modifier.
+     */
+    ChessCheckMod isInCheck() const;
+
+    /*!
+     * Get the last move result.
+     *
+     * \return Returns reason code.
+     */
+    ChessResult getLastMoveResult() const;
+
+    /*!
      * \brief Get the number of plies (half-moves) played.
      *
      * \return Number of plies.
@@ -280,7 +297,7 @@ namespace chess_engine
      *
      * \return Reference to history.
      */
-    const ChessGame::ChessHistory &getGameHistory()
+    const ChessGame::ChessHistory &getGameHistory() const
     {
       return m_game.getGameHistory();
     }
@@ -331,7 +348,8 @@ namespace chess_engine
      * \return Final result value.
      */
     ChessResult finalizeResult(const ChessResult eCurResult);
-  };
+
+  }; // class Chess
 
 } // namespace chess_engine
 

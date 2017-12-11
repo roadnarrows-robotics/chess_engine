@@ -65,17 +65,17 @@
 
 #include <boost/algorithm/string.hpp>    
 
-#include <ros/console.h>
-
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceUtils.h"
 
 using namespace std;
 using namespace chess_engine;
 
+
 // ----------------------------------------------------------------------------
 // ChessPos Structure
 // ----------------------------------------------------------------------------
+
 ChessPos::ChessPos()
 {
   m_file = NoFile;
@@ -88,10 +88,24 @@ ChessPos::ChessPos(const ChessPos &src)
   m_rank = src.m_rank;
 }
 
-ChessPos::ChessPos(const int &file, const int &rank)
+ChessPos::ChessPos(const int file, const int rank)
 {
-  m_file = (ChessFile)file;
-  m_rank = (ChessRank)rank;
+  m_file = isValidFile(file)? (ChessFile)file: NoFile;
+  m_rank = isValidRank(rank)? (ChessRank)rank: NoRank;
+}
+
+ChessPos::ChessPos(const string &filerank)
+{
+  if( filerank.size() == 2 )
+  {
+    m_file = isValidFile(filerank[0])? (ChessFile)filerank[0]: NoFile;
+    m_rank = isValidRank(filerank[1])? (ChessRank)filerank[1]: NoRank;
+  }
+  else
+  {
+    m_file = NoFile;
+    m_rank = NoRank;
+  }
 }
 
 ChessPos ChessPos::operator=(const ChessPos &rhs)
@@ -116,21 +130,21 @@ bool ChessPos::isOnChessBoard() const
   return (col >= 0) && (col < NumOfFiles) && (row >= 0) && (col < NumOfRanks);
 }
 
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// ChessPos Friends
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-std::ostream &chess_engine::operator<<(std::ostream &os, const ChessPos &pos)
+namespace chess_engine
 {
-  os << (char)pos.m_file << (char)pos.m_rank;
+  std::ostream &operator<<(std::ostream &os, const ChessPos &pos)
+  {
+    os << (char)pos.m_file << (char)pos.m_rank;
 
-  return os;
+    return os;
+  }
 }
 
 
 // ----------------------------------------------------------------------------
 // ChessFqPiece Class
 // ----------------------------------------------------------------------------
+
 ChessFqPiece::ChessFqPiece()
 {
   clear();
@@ -172,11 +186,6 @@ void ChessFqPiece::clear()
   m_strPieceId.clear();
 }
 
-
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Static Member Functions
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
 string ChessFqPiece::makePieceId(int file, int rank,
                                  ChessColor eColor,
                                  ChessPiece ePiece)
@@ -217,22 +226,19 @@ string ChessFqPiece::makePieceId(const ChessPos &pos,
   return ss.str();
 }
 
-
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// ChessFqPiece Friends
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
- 
-std::ostream &chess_engine::operator<<(std::ostream       &os,
-                                       const ChessFqPiece &fqPiece)
+namespace chess_engine
 {
-  std::string space(" ");
+  std::ostream &operator<<(std::ostream &os, const ChessFqPiece &fqPiece)
+  {
+    std::string space(" ");
 
-  os  << "{ "
+    os  << "{ "
       << nameOfColor(fqPiece.m_ePieceColor) << space
       << nameOfPiece(fqPiece.m_ePieceType) << space
       << "\"" << fqPiece.m_strPieceId << "\""
       << " }";
 
-  return os;
+    return os;
+  }
 }
 

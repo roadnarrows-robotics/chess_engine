@@ -60,7 +60,10 @@
 #include <vector>
 #include <map>
 
-#include <ros/console.h>
+#include "boost/assign.hpp"
+
+#include "rnr/color.h"
+#include "rnr/appkit/LogStream.h"
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceError.h"
@@ -69,22 +72,131 @@
 #include "chess_engine/ceBoard.h"
 
 using namespace std;
+using namespace boost::assign;
 using namespace chess_engine;
 
-/*!
- * \brief ANSI colors.
- */
-#define ANSI_COLOR_PRE        "\033["     ///< control sequence introducer
-#define ANSI_COLOR_RESET      "\033[0m"   ///< reset to terminal defaults
-#define ANSI_COLOR_BLACK_CYAN "0;30;46m"  ///< black on cyan
-#define ANSI_COLOR_BLACK_GRAY "0;30;47m"  ///< black on gray
 
-static const string ColorWhiteSq(ANSI_COLOR_PRE ANSI_COLOR_BLACK_GRAY);
-static const string ColorBlackSq(ANSI_COLOR_PRE ANSI_COLOR_BLACK_CYAN);
+// -----------------------------------------------------------------------------
+// Private
+// -----------------------------------------------------------------------------
 
-static const string    strReset = ANSI_COLOR_RESET;
+namespace chess_engine
+{
+  static const string ColorWhiteSq(ANSI_COLOR(ANSI_SGR_TEXT_NORMAL,
+                                              ANSI_SGR_FG_COLOR_BLACK,
+                                              ANSI_SGR_BG_COLOR_CYAN));
+  static const string ColorBlackSq(ANSI_COLOR(ANSI_SGR_TEXT_NORMAL,
+                                              ANSI_SGR_FG_COLOR_BLACK,
+                                              ANSI_SGR_BG_COLOR_WHITE));
+  static const string strReset(ANSI_COLOR_RESET);
 
-static ChessSquare ChessNoSquare;   ///< "no square" square
+  static ChessSquare  OffBoardSquare;  ///< sacrificial off-board empty square
+
+  /*!
+   * \brief Convenient structure to hold two integers.
+   */
+  struct twoints
+  {
+    twoints()
+    {
+      x = 0;
+      y = 0;
+    }
+
+    twoints(int a, int b)
+    {
+      x = a;
+      y = b;
+    }
+
+    int x;
+    int y;
+  };  // struct twoints
+
+  /*!
+   * \brief Chess board direction deltas.
+   */
+  static const map<ChessBoardDir, twoints> DirDeltas = map_list_of
+    (DirNone,       twoints(0, 0))
+    (DirUp,         twoints(0, 1))
+    (DirUpperLeft,  twoints(-1, 1))
+    (DirLeft,       twoints(-1, 0))
+    (DirLowerLeft,  twoints(-1, -1))
+    (DirDown,       twoints(0, -1))
+    (DirLowerRight, twoints(1, -1))
+    (DirRight,      twoints(1, 0))
+    (DirUpperRight, twoints(1, 1))
+  ;
+
+  /*!
+   * \brief King allowed movement directions.
+   */
+  ChessBoardDir KingDirs[] =
+  {
+    DirUp,   DirUpperLeft,  DirLeft,  DirLowerLeft,
+    DirDown, DirLowerRight, DirRight, DirUpperRight,
+    DirNone
+  };
+
+  /*!
+   * \brief Queen allowed movement directions.
+   */
+  ChessBoardDir *QueenDirs = KingDirs;
+
+  /*!
+   * \brief Bishop allowed movement directions.
+   */
+  ChessBoardDir BishopDirs[] =
+  {
+    DirUpperLeft,
+    DirLowerLeft,
+    DirLowerRight,
+    DirUpperRight,
+    DirNone
+  };
+
+  vector<twoints> KnightMoveDeltas = list_of
+    (twoints(-1,  2)) (twoints( 1,  2))
+    (twoints( 2,  1)) (twoints( 2, -1))
+    (twoints( 1, -2)) (twoints(-1, -2))
+    (twoints(-2, -1)) (twoints(-2,  1))
+  ;
+
+  /*!
+   * \brief Rook allowed movement directions.
+   */
+  ChessBoardDir RookDirs[] =
+  {
+    DirUp, DirLeft, DirDown, DirRight, DirNone
+  };
+
+  /*!
+   * \brief White pawn allowed movement directions.
+   */
+  ChessBoardDir WhitePawnDirs[] =
+  {
+    DirUp, DirUpperLeft, DirUpperRight, DirNone
+  };
+
+  /*!
+   * \brief Black pawn allowed movement directions.
+   */
+  ChessBoardDir BlackPawnDirs[] =
+  {
+    DirDown, DirLowerLeft, DirLowerRight, DirNone
+  };
+
+  /*!
+   * \brief White pawn source movement directions.
+   */
+  ChessBoardDir *WhitePawnSrcDirs = BlackPawnDirs;
+
+  /*!
+   * \brief Black pawn source movement directions.
+   */
+  ChessBoardDir *BlackPawnSrcDirs = WhitePawnDirs;
+
+} // namespace chess_engine
 
 
 // -----------------------------------------------------------------------------
@@ -147,7 +259,16 @@ ChessSquare &ChessBoard::at(const int file, const int rank)
 
 const ChessSquare &ChessBoard::at(const ChessPos &pos) const
 {
-  return at(pos);
+  int   row, col;
+
+  if( toRowCol(pos, row, col) == CE_OK )
+  {
+    return m_board[row][col];
+  }
+  else
+  {
+    return NoSquare;
+  }
 }
 
 ChessSquare &ChessBoard::at(const ChessPos &pos)
@@ -160,44 +281,14 @@ ChessSquare &ChessBoard::at(const ChessPos &pos)
   }
   else
   {
-    return ChessNoSquare;
+    OffBoardSquare = NoSquare;
+    return OffBoardSquare;
   }
-}
-
-bool ChessBoard::setMoveSrcPos(ChessMove &move)
-{
-  list_of_pos   positions;
-  ChessPos     &src = move.m_posSrc;
-  size_t        i;
-
-  if( move.m_ePieceMoved == Pawn )
-  {
-    findPawnSrcMoves(move.m_ePlayer, move.m_posDst, positions);
-  }
-  else
-  {
-    findMajorPieceMoves(move.m_ePieceMoved, move.m_posDst, positions);
-  }
-
-  for(i = 0; i < positions.size(); ++i)
-  {
-    ChessSquare &sq = at(positions[i]);
-
-    if( (move.m_ePieceMoved == sq.getPieceType()) &&
-        ((src.m_file == NoFile) || (src.m_file == positions[i].m_file)) &&
-        ((src.m_rank == NoRank) || (src.m_rank == positions[i].m_rank)) )
-    {
-      src = positions[i];
-      return true;
-    }
-  }
-
-  return false;
 }
 
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// Static Member Functions
+// Board Positioning Member Functions
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 int ChessBoard::toRow(int rank)
@@ -286,251 +377,851 @@ ChessColor ChessBoard::getSquareColor(int file, int rank)
   return ChessSquare::colorOfSquare(file, rank);
 }
 
-void ChessBoard::findMajorPieceMoves(const ChessPiece ePiece,
+
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// Find Board Positions Member Functions
+// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+bool ChessBoard::findMoveSrcPos(ChessMove &move)
+{
+  list_of_pos   positions;
+  ChessPos     &src = move.m_posSrc;
+  size_t        i;
+
+  //cerr << "DBG: " << __func__ << " move_in " << move << endl;
+
+  switch( move.m_ePieceMoved )
+  {
+    case King:
+      return findKingMoveSrcPos(move);
+    case Queen:
+      return findQueenMoveSrcPos(move);
+    case Bishop:
+      return findBishopMoveSrcPos(move);
+    case Knight:
+      return findKnightMoveSrcPos(move);
+    case Rook:
+      return findRookMoveSrcPos(move);
+    case Pawn:
+      return findPawnMoveSrcPos(move);
+    default:
+      return false;
+  }
+}
+
+bool ChessBoard::findKingMoveSrcPos(ChessMove &move)
+{
+  list_of_pos positions;    // all possible source positions
+  list_of_pos candidates;   // working candidates with piece
+  size_t      i;            // working index
+
+  //
+  // Move type.
+  //
+  switch( move.m_eCastling )
+  {
+    case NoCastling:
+      rangeOfKing(move.m_posDst, positions);
+      break;
+    case KingSide:
+    case QueenSide:
+      if( move.m_ePlayer == White )
+      {
+        positions.push_back(CastlingPosWhiteKSrc);
+      }
+      else if( move.m_ePlayer == Black )
+      {
+        positions.push_back(CastlingPosBlackKSrc);
+      }
+      break;
+    default:
+      break;
+  }
+
+  //
+  // Find all kings.
+  //
+  for(i = 0; i < positions.size(); ++i)
+  {
+    // board square
+    ChessSquare &sq = at(positions[i]);
+    
+    if( (sq.getPieceColor() == move.m_ePlayer) &&
+        (sq.getPieceType()  == move.m_ePieceMoved) )
+    {
+      candidates.push_back(positions[i]);
+    }
+  }
+
+  return testAndSetMoveSrc(move, candidates);
+}
+
+bool ChessBoard::findQueenMoveSrcPos(ChessMove &move)
+{
+  list_of_pos positions;      // source positions in one direction
+  list_of_pos candidates;     // working candidates with piece
+  size_t      i, j;           // working indices
+
+  //
+  // For each possible direction of movement, get the list of the board source
+  // positions.
+  //
+  for(i = 0; QueenDirs[i] != DirNone; ++i)
+  {
+    positions.clear();
+
+    findPositions(move.m_posDst, QueenDirs[i], EndOfBoard, positions);
+
+    //
+    // Then only add if the piece is found.
+    //
+    for(j = 0; j < positions.size(); ++j)
+    {
+      // board square
+      ChessSquare &sq = at(positions[j]);
+    
+      if( !sq.isEmpty() )
+      {
+        // found a source candidate
+        if( (sq.getPieceColor() == move.m_ePlayer) &&
+            (sq.getPieceType()  == move.m_ePieceMoved) )
+        {
+          candidates.push_back(positions[j]);
+        }
+
+        // move is now blocked in this direction
+        break;
+      }
+    }
+  }
+
+  return testAndSetMoveSrc(move, candidates);
+}
+
+bool ChessBoard::findBishopMoveSrcPos(ChessMove &move)
+{
+  list_of_pos positions;      // source positions in one direction
+  list_of_pos candidates;     // working candidates with piece
+  size_t      i, j;           // working indices
+
+  //
+  // For each possible direction of movement, get the list of the board source
+  // positions.
+  //
+  for(i = 0; BishopDirs[i] != DirNone; ++i)
+  {
+    positions.clear();
+
+    findPositions(move.m_posDst, BishopDirs[i], EndOfBoard, positions);
+
+    //
+    // Then only add if the piece is found.
+    //
+    for(j = 0; j < positions.size(); ++j)
+    {
+      // board square
+      ChessSquare &sq = at(positions[j]);
+    
+      if( !sq.isEmpty() )
+      {
+        // found a source candidate
+        if( (sq.getPieceColor() == move.m_ePlayer) &&
+            (sq.getPieceType()  == move.m_ePieceMoved) )
+        {
+          candidates.push_back(positions[j]);
+        }
+
+        // move is now blocked in this direction
+        break;
+      }
+    }
+  }
+
+  return testAndSetMoveSrc(move, candidates);
+}
+
+bool ChessBoard::findKnightMoveSrcPos(ChessMove &move)
+{
+  list_of_pos positions;    // all possible source positions
+  list_of_pos candidates;   // working candidates
+  size_t      i;            // working index
+
+  // find all of possible source positions given the destination position
+  rangeOfKnight(move.m_posDst, positions);
+
+  // find the moved piece source position
+  for(i = 0; i < positions.size(); ++i)
+  {
+    // board square
+    ChessSquare &sq = at(positions[i]);
+    
+    if( (sq.getPieceColor() == move.m_ePlayer) &&
+        (sq.getPieceType()  == move.m_ePieceMoved) )
+    {
+      candidates.push_back(positions[i]);
+    }
+  }
+
+  return testAndSetMoveSrc(move, candidates);
+}
+
+bool ChessBoard::findRookMoveSrcPos(ChessMove &move)
+{
+  list_of_pos positions;      // source positions in one direction
+  list_of_pos candidates;     // working candidates with piece
+  size_t      i, j;           // working indices
+
+  //
+  // For each possible direction of movement, get the list of the board source
+  // positions.
+  //
+  for(i = 0; RookDirs[i] != DirNone; ++i)
+  {
+    positions.clear();
+
+    findPositions(move.m_posDst, RookDirs[i], EndOfBoard, positions);
+
+    //
+    // Then only add if the piece is found.
+    //
+    for(j = 0; j < positions.size(); ++j)
+    {
+      // board square
+      ChessSquare &sq = at(positions[j]);
+    
+      if( !sq.isEmpty() )
+      {
+        // found a source candidate
+        if( (sq.getPieceColor() == move.m_ePlayer) &&
+            (sq.getPieceType()  == move.m_ePieceMoved) )
+        {
+          candidates.push_back(positions[j]);
+        }
+
+        // move is now blocked in this direction
+        break;
+      }
+    }
+  }
+
+  return testAndSetMoveSrc(move, candidates);
+}
+
+bool ChessBoard::findPawnMoveSrcPos(ChessMove &move)
+{
+  list_of_pos positions;    // source positions in one direction
+  list_of_pos candidates;   // working candidates with piece
+  size_t      i;            // working index
+
+  // find all of candidate source positions given the destination position
+  rangeOfPawnSrc(move.m_ePlayer, move.m_posDst, positions);
+
+  // not a capture move
+  if( move.m_ePieceCaptured == NoPiece )
+  {
+    // find the moved piece source position
+    for(i = 0; i < positions.size(); ++i)
+    {
+      // board square
+      ChessSquare &sq = at(positions[i]);
+    
+      // found pawn in column 
+      if( (sq.getPos().m_file == move.m_posDst.m_file) && !sq.isEmpty() &&
+          (sq.getPieceColor() == move.m_ePlayer) &&
+          (sq.getPieceType()  == move.m_ePieceMoved) )
+      {
+        candidates.push_back(positions[i]);
+        break; // move is now blocked in this direction
+      }
+    }
+  }
+
+  // a capture move
+  else
+  {
+    // find the moved piece source position
+    for(i = 0; i < positions.size(); ++i)
+    {
+      // board square
+      ChessSquare &sq = at(positions[i]);
+    
+      // found pawn along diagonal 
+      if( (sq.getPos().m_file != move.m_posDst.m_file) && !sq.isEmpty() &&
+          (sq.getPieceColor() == move.m_ePlayer) &&
+          (sq.getPieceType()  == move.m_ePieceMoved) )
+      {
+        candidates.push_back(positions[i]);
+      }
+    }
+  }
+
+  return testAndSetMoveSrc(move, candidates);
+}
+
+bool ChessBoard::testAndSetMoveSrc(ChessMove &move, list_of_pos &candidates)
+{
+  list_of_pos filtered;
+
+  //cerr << "DBG: " << __func__ << " candidates:";
+  //for(size_t i = 0; i < candidates.size(); ++i)
+  //{
+  //  cerr << " " << candidates[i];
+  //}
+  //cerr << endl;
+
+  // filter based on (partial) source that may be specified in move
+  filterPositions(move.m_posSrc, candidates, filtered);
+  
+  // no source position found
+  if( filtered.size() == 0 )
+  {
+    LOGERROR_STREAM("Could not find the move's source position." << endl  
+        << "  Moved piece: " << nameOfPiece(move.m_ePieceMoved) << endl
+        << "  Destination: " << move.m_posDst);
+    return false;
+  }
+
+  // multiple source positions found
+  else if( filtered.size() > 1 )
+  {
+    LOGERROR_STREAM("Ambiguous move's multiple source positions." << endl  
+        << "  Moved piece: " << nameOfPiece(move.m_ePieceMoved) << endl
+        << "  Destination: " << move.m_posDst << endl
+        << "  Sources:     ");
+    for(size_t i = 0; i < filtered.size(); ++i)
+    {
+      LOGERROR_STREAM("    " << filtered[i]);
+    }
+    return false;
+  }
+
+  // all good
+  else
+  {
+    move.m_posSrc = filtered[0];
+    //cerr << "DBG: " << __func__ << " move_out " << move << endl;
+    return true;
+  }
+}
+
+size_t ChessBoard::findAvailMovesInGame(const ChessPiece ePiece,
+                                        const ChessColor eColor,
+                                        const ChessPos   &pos,
+                                        list_of_pos      &positions)
+{
+  switch( ePiece )
+  {
+    case King:
+      return findAvailKingMovesInGame(eColor, pos, positions);
+    case Queen:
+      return findAvailQueenMovesInGame(eColor, pos, positions);
+    case Bishop:
+      return findAvailBishopMovesInGame(eColor, pos, positions);
+    case Knight:
+      return findAvailKnightMovesInGame(eColor, pos, positions);
+    case Rook:
+      return findAvailRookMovesInGame(eColor, pos, positions);
+    case Pawn:
+      return findAvailPawnMovesInGame(eColor, pos, positions);
+    default:
+      return 0;
+  }
+}
+
+size_t ChessBoard::findAvailKingMovesInGame(const ChessColor eColor,
+                                            const ChessPos   &pos,
+                                            list_of_pos      &positions)
+{
+  size_t      n = positions.size(); // current number of positions in list
+  list_of_pos candidates;           // working candidates
+  size_t      i;                    // working index
+
+  // find all of king's candidate board moves
+  rangeOfKing(pos, candidates);
+
+  //
+  // Then only add if availble, given the current board state. 
+  //
+  for(i = 0; i < candidates.size(); ++i)
+  {
+    // board square
+    ChessSquare &sq = at(candidates[i]);
+    
+    // square is empty
+    if( sq.isEmpty() )
+    {
+      positions.push_back(candidates[i]);
+    }
+
+    // square is occupied by an opponent's piece
+    else if( sq.getPieceColor() != eColor )
+    {
+      positions.push_back(candidates[i]);
+    }
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::findAvailQueenMovesInGame(const ChessColor eColor,
+                                             const ChessPos   &pos,
+                                             list_of_pos      &positions)
+{
+  size_t      n = positions.size(); // current number of positions in list
+  list_of_pos candidates;           // working candidates
+  size_t      i, j;                 // working indices
+
+  //
+  // For each possible direction of movement, get the list of the board
+  // candidate positions.
+  //
+  for(i = 0; QueenDirs[i] != DirNone; ++i)
+  {
+    candidates.clear();
+
+    findPositions(pos, QueenDirs[i], EndOfBoard, candidates);
+
+    //
+    // Then only add if availble, given the current board state. 
+    //
+    for(j = 0; j < candidates.size(); ++j)
+    {
+      // board square
+      ChessSquare &sq = at(candidates[j]);
+    
+      // square is empty
+      if( sq.isEmpty() )
+      {
+        positions.push_back(candidates[j]);
+      }
+
+      // square is occupied by this player's piece
+      else if( sq.getPieceColor() == eColor )
+      {
+        break;
+      }
+
+      // square is occupied by an opponent's piece
+      else
+      {
+        positions.push_back(candidates[j]);
+        break;
+      }
+    }
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::findAvailBishopMovesInGame(const ChessColor eColor,
+                                              const ChessPos   &pos,
+                                              list_of_pos      &positions)
+{
+  size_t      n = positions.size(); // current number of positions in list
+  list_of_pos candidates;           // working candidates
+  size_t      i, j;                 // working indices
+
+  //
+  // For each possible direction of movement, get the list of the board
+  // candidate positions.
+  //
+  for(i = 0; BishopDirs[i] != DirNone; ++i)
+  {
+    candidates.clear();
+
+    findPositions(pos, BishopDirs[i], EndOfBoard, candidates);
+
+    //
+    // Then only add if availble, given the current board state. 
+    //
+    for(j = 0; j < candidates.size(); ++j)
+    {
+      // board square
+      ChessSquare &sq = at(candidates[j]);
+    
+      // square is empty
+      if( sq.isEmpty() )
+      {
+        positions.push_back(candidates[j]);
+      }
+
+      // square is occupied by this player's piece
+      else if( sq.getPieceColor() == eColor )
+      {
+        break;
+      }
+
+      // square is occupied by an opponent's piece
+      else
+      {
+        positions.push_back(candidates[j]);
+        break;
+      }
+    }
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::findAvailKnightMovesInGame(const ChessColor eColor,
+                                              const ChessPos   &pos,
+                                              list_of_pos      &positions)
+{
+  size_t      n = positions.size(); // current number of positions in list
+  list_of_pos candidates;           // working candidates
+  size_t      i;                    // working index
+
+  // Find all of knight's candidate board moves.
+  rangeOfKnight(pos, candidates);
+
+  //
+  // Then only add if availble, given the current board state. 
+  //
+  for(i = 0; i < candidates.size(); ++i)
+  {
+    // board square
+    ChessSquare &sq = at(candidates[i]);
+    
+    // square is empty
+    if( sq.isEmpty() )
+    {
+      positions.push_back(candidates[i]);
+    }
+
+    // square is occupied by an opponent's piece
+    else if( sq.getPieceColor() != eColor )
+    {
+      positions.push_back(candidates[i]);
+    }
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::findAvailRookMovesInGame(const ChessColor eColor,
+                                            const ChessPos   &pos,
+                                            list_of_pos      &positions)
+{
+  size_t      n = positions.size(); // current number of positions in list
+  list_of_pos candidates;           // working candidates
+  size_t      i, j;                 // working indices
+
+  //
+  // For each possible direction of movement, get the list of the board
+  // candidate positions.
+  //
+  for(i = 0; RookDirs[i] != DirNone; ++i)
+  {
+    candidates.clear();
+
+    findPositions(pos, RookDirs[i], EndOfBoard, candidates);
+
+    //
+    // Then only add if availble, given the current board state. 
+    //
+    for(j = 0; j < candidates.size(); ++j)
+    {
+      // board square
+      ChessSquare &sq = at(candidates[j]);
+    
+      // square is empty
+      if( sq.isEmpty() )
+      {
+        positions.push_back(candidates[j]);
+      }
+
+      // square is occupied by this player's piece
+      else if( sq.getPieceColor() == eColor )
+      {
+        break;
+      }
+
+      // square is occupied by an opponent's piece
+      else
+      {
+        positions.push_back(candidates[j]);
+        break;
+      }
+    }
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::findAvailPawnMovesInGame(const ChessColor eColor,
+                                            const ChessPos   &pos,
+                                            list_of_pos      &positions)
+{
+  size_t      n = positions.size(); // current number of positions in list
+  list_of_pos candidates;           // working candidates
+  size_t      i;                    // working index
+  bool        isBlocked = false;    // pawn is [not] blocked
+
+  // Find all of king's candidate board moves.
+  rangeOfPawnDst(eColor, pos, candidates);
+
+  //
+  // Then only add if availble, given the current board state. 
+  //
+  for(i = 0; i < candidates.size(); ++i)
+  {
+    // board square
+    ChessSquare &sq = at(candidates[i]);
+    
+    // diagonal capture move
+    if( sq.getPos().m_file != pos.m_file )
+    {
+      // square is occupied by an opponent's piece - capture move available
+      if( sq.getPieceColor() != eColor )
+      {
+        positions.push_back(candidates[i]);
+      }
+    }
+
+    // non-capture move
+    else
+    {
+      // square is empty and forward is not blocked
+      if( sq.isEmpty() && !isBlocked )
+      {
+        positions.push_back(candidates[i]);
+      }
+      else
+      {
+        isBlocked = true;
+      }
+    }
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::rangeOfMajorPiece(const ChessPiece ePiece,
                                      const ChessPos   &pos,
                                      list_of_pos      &positions)
 {
   switch( ePiece )
   {
     case King:
-      findKingMoves(pos, positions);
-      break;
+      return rangeOfKing(pos, positions);
     case Queen:
-      findQueenMoves(pos, positions);
-      break;
+      return rangeOfQueen(pos, positions);
     case Bishop:
-      findBishopMoves(pos, positions);
-      break;
+      return rangeOfBishop(pos, positions);
     case Knight:
-      findKnightMoves(pos, positions);
-      break;
+      return rangeOfKnight(pos, positions);
     case Rook:
-      findRookMoves(pos, positions);
-      break;
+      return rangeOfRook(pos, positions);
     case Pawn:
     default:
-      break;
+      return 0;
   }
 }
 
-void ChessBoard::findKingMoves(const ChessPos &pos, list_of_pos &positions)
+size_t ChessBoard::rangeOfKing(const ChessPos &pos, list_of_pos &positions)
 {
-  ChessPos  p;
-  size_t    n = 8;
-  int       fileOffset[n] = {0, 1, 1,  1,   0,  -1, -1, -1};
-  int       rankOffset[n] = {1, 1, 0, -1,  -1,  -1,  0,  1};
-  size_t    i;
+  size_t        n = positions.size();
 
-  // clockwise from 12 o'clock
-  for(i = 0; i < n; ++i)
+  for(size_t i = 0; KingDirs[i] != DirNone; ++i)
   {
-    p.m_file = shiftFile(pos.m_file, fileOffset[i]);
-    p.m_rank = shiftRank(pos.m_rank, rankOffset[i]);
+    findPositions(pos, KingDirs[i], 1, positions);
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::rangeOfQueen(const ChessPos &pos, list_of_pos &positions)
+{
+  size_t        n = positions.size();
+
+  // a queen is the unholy marriage between a rook and his bishop
+  for(size_t i = 0; QueenDirs[i] != DirNone; ++i)
+  {
+    findPositions(pos, QueenDirs[i], EndOfBoard, positions);
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::rangeOfBishop(const ChessPos &pos, list_of_pos &positions)
+{
+  size_t  n = positions.size();
+
+  for(size_t i = 0; BishopDirs[i] != DirNone; ++i)
+  {
+    findPositions(pos, BishopDirs[i], EndOfBoard, positions);
+  }
+
+  return positions.size() - n;
+}
+
+size_t ChessBoard::rangeOfKnight(const ChessPos &pos, list_of_pos &positions)
+{
+  size_t  n = positions.size();
+
+  ChessPos  p;
+
+  for(size_t i = 0; i < KnightMoveDeltas.size(); ++i)
+  {
+    const twoints &delta = KnightMoveDeltas[i];
+
+    p.m_file = shiftFile(pos.m_file, delta.x);
+    p.m_rank = shiftRank(pos.m_rank, delta.y);
+
     if( isOnChessBoard(p) )
     {
       positions.push_back(p);
     }
   }
+
+  return positions.size() - n;
 }
 
-void ChessBoard::findQueenMoves(const ChessPos &pos, list_of_pos &positions)
+size_t ChessBoard::rangeOfRook(const ChessPos &pos, list_of_pos &positions)
 {
-  findBishopMoves(pos, positions);
-  findRookMoves(pos, positions);
+  size_t  n = positions.size();
+
+  for(size_t i = 0; RookDirs[i] != DirNone; ++i)
+  {
+    findPositions(pos, RookDirs[i], EndOfBoard, positions);
+  }
+
+  return positions.size() - n;
 }
 
-void ChessBoard::findBishopMoves(const ChessPos &pos, list_of_pos &positions)
-{
-  int       row0, col0;
-  int       row, col;
-  ChessPos  p;
-
-  row0 = toRow(pos.m_rank);
-  col0 = toCol(pos.m_file);
-
-  // upper right ray
-  for(col=col0+1, row=row0-1; col<NumOfFiles && row>=0; ++col, --row)
-  {
-    p.m_file = toFile(col);
-    p.m_rank = toRank(row);
-    positions.push_back(p);
-  }
-
-  // lower right ray
-  for(col=col0+1, row=row0+1; col<NumOfFiles && row<NumOfRanks; ++col, ++row)
-  {
-    p.m_file = toFile(col);
-    p.m_rank = toRank(row);
-    positions.push_back(p);
-  }
-
-  // lower left ray
-  for(col=col0-1, row=row0+1; col>=0 && row<NumOfRanks; --col, ++row)
-  {
-    p.m_file = toFile(col);
-    p.m_rank = toRank(row);
-    positions.push_back(p);
-  }
-
-  // upper left ray
-  for(col=col0-1, row=row0-1; col>=0 && row>=0; --col, --row)
-  {
-    p.m_file = toFile(col);
-    p.m_rank = toRank(row);
-    positions.push_back(p);
-  }
-}
-
-void ChessBoard::findKnightMoves(const ChessPos &pos, list_of_pos &positions)
-{
-  ChessPos  p;
-  size_t    n = 8;
-  int       fileOffset[n] = {-1,  1,  2,  2,  1, -1, -2, -2};
-  int       rankOffset[n] = { 2,  2,  1, -1, -2, -2, -1,  1};
-  size_t    i;
-
-  // clockwise from 12 o'clock ells
-  for(i = 0; i < n; ++i)
-  {
-    p.m_file = shiftFile(pos.m_file, fileOffset[i]);
-    p.m_rank = shiftRank(pos.m_rank, rankOffset[i]);
-    if( isOnChessBoard(p) )
-    {
-      positions.push_back(p);
-    }
-  }
-}
-
-void ChessBoard::findRookMoves(const ChessPos &pos, list_of_pos &positions)
-{
-  int       row0, col0;
-  int       row, col;
-  ChessPos  p;
-
-  row0 = toRow(pos.m_rank);
-  col0 = toCol(pos.m_file);
-
-  // up ray
-  p.m_file = pos.m_file;
-  for(row = row0-1; row >= 0; --row)
-  {
-    p.m_rank = toRank(row);
-    positions.push_back(p);
-  }
-
-  // right ray
-  p.m_rank = pos.m_rank;
-  for(col = col0+1; col < NumOfFiles; ++col)
-  {
-    p.m_file = toFile(col);
-    positions.push_back(p);
-  }
-
-  // down ray
-  p.m_file = pos.m_file;
-  for(row = row0+1; row < NumOfRanks; ++row)
-  {
-    p.m_rank = toRank(row);
-    positions.push_back(p);
-  }
-
-  // left ray
-  p.m_rank = pos.m_rank;
-  for(col = col0-1; col >= 0; --col)
-  {
-    p.m_file = toFile(col);
-    positions.push_back(p);
-  }
-}
-
-void ChessBoard::findPawnSrcMoves(const ChessColor eColor,
+size_t ChessBoard::rangeOfPawnSrc(const ChessColor eColor,
                                   const ChessPos   &pos,
                                   list_of_pos      &positions)
 {
-  int       fileOffset[]  = {-1,  0,  1,  0};
-  int       rankOffsetW[] = {-1, -1, -1, -2};
-  int       rankOffsetB[] = { 1,  1,  1,  2};
-  size_t    n, i;
-  ChessPos  p;
+  size_t  n = positions.size();
+  size_t  max;
 
-  // white
+  // white pawn or any pawn
   if( (eColor == White) || (eColor == NoColor) )
   {
-    n = pos.m_rank == ChessRank4? 4: 3;
-
-    for(i = 0; i < n; ++i)
+    for(size_t i = 0; WhitePawnSrcDirs[i] != DirNone; ++i)
     {
-      p.m_file = shiftFile(pos.m_file, fileOffset[i]);
-      p.m_rank = shiftRank(pos.m_rank, rankOffsetW[i]);
-      if( isOnChessBoard(p) )
+      if( WhitePawnSrcDirs[i] == DirDown )
       {
-        positions.push_back(p);
+        max = pos.m_rank == PawnRankWhite2SqDst? 2: 1;
       }
+      else
+      {
+        max = 1;
+      }
+
+      findPositions(pos, WhitePawnSrcDirs[i], max, positions);
     }
   }
 
-  // black
+  // black pawn or any pawn
   if( (eColor == Black) || (eColor == NoColor) )
   {
-    n = pos.m_rank == ChessRank5? 4: 3;
-
-    for(i = 0; i < n; ++i)
+    for(size_t i = 0; BlackPawnSrcDirs[i] != DirNone; ++i)
     {
-      p.m_file = shiftFile(pos.m_file, fileOffset[i]);
-      p.m_rank = shiftRank(pos.m_rank, rankOffsetB[i]);
-      if( isOnChessBoard(p) )
+      if( BlackPawnSrcDirs[i] == DirUp )
       {
-        positions.push_back(p);
+        max = pos.m_rank == PawnRankBlack2SqDst? 2: 1;
       }
+      else
+      {
+        max = 1;
+      }
+
+      findPositions(pos, BlackPawnSrcDirs[i], max, positions);
     }
   }
+
+  return positions.size() - n;
 }
 
-void ChessBoard::findPawnDstMoves(const ChessColor eColor,
+size_t ChessBoard::rangeOfPawnDst(const ChessColor eColor,
                                   const ChessPos   &pos,
                                   list_of_pos      &positions)
 {
-  ChessPos  p;
-  size_t    n = 3;
-  int       fileOffset[n] = {-1, 0, 1};
-  int       rankOffset = eColor == White? 1: -1;
-  size_t    i;
+  size_t  n = positions.size();
+  size_t  max;
 
-  p.m_rank = shiftRank(pos.m_rank, rankOffset);
-
-  for(i = 0; i < n; ++i)
+  // white pawn or any pawn
+  if( (eColor == White) || (eColor == NoColor) )
+  if( eColor == White )
   {
-    p.m_file = shiftFile(pos.m_file, fileOffset[i]);
-    if( isOnChessBoard(p) )
+    for(size_t i = 0; WhitePawnDirs[i] != DirNone; ++i)
     {
-      positions.push_back(p);
+      if( WhitePawnDirs[i] == DirUp )
+      {
+        max = pos.m_rank == PawnRankWhite2SqSrc? 2: 1;
+      }
+      else
+      {
+        max = 1;
+      }
+
+      findPositions(pos, WhitePawnDirs[i], max, positions);
     }
   }
 
-  if( (eColor == White) && (pos.m_rank == ChessRank2) )
+  // black pawn or any pawn
+  if( (eColor == Black) || (eColor == NoColor) )
   {
-    p.m_file = pos.m_file;
-    p.m_rank = shiftRank(pos.m_rank, 2);
-    if( isOnChessBoard(p) )
+    for(size_t i = 0; BlackPawnDirs[i] != DirNone; ++i)
     {
-      positions.push_back(p);
+      if( BlackPawnDirs[i] == DirDown )
+      {
+        max = pos.m_rank == PawnRankBlack2SqSrc? 2: 1;
+      }
+      else
+      {
+        max = 1;
+      }
+
+      findPositions(pos, BlackPawnDirs[i], max, positions);
     }
   }
-  else if( (eColor == Black) && (pos.m_rank == ChessRank7) )
-  {
-    p.m_file = pos.m_file;
-    p.m_rank = shiftRank(pos.m_rank, -2);
-    if( isOnChessBoard(p) )
-    {
-      positions.push_back(p);
-    }
-  }
+
+  return positions.size() - n;
 }
 
-void ChessBoard::filterPositions(const ChessPos    &filter,
-                                 const list_of_pos &positions,
-                                 list_of_pos       &filtered)
+size_t ChessBoard::findPositions(const ChessPos      &pos,
+                                 const ChessBoardDir dir,
+                                 const size_t        max,
+                                 list_of_pos         &positions)
 {
+  // no or unknown direction
+  if( (dir <= DirNone) || (dir >= DirNumOf) )
+  {
+    return 0;
+  }
+
+  twoints delta = DirDeltas.at(dir);  // direction defined as two deltas
+  size_t  n     = 0;
+
+  // starting candidate position
+  ChessPos  p(shiftFile(pos.m_file, delta.x), shiftRank(pos.m_rank, delta.y));
+
+  //
+  // Add candidates while position is on the board and less than maximum 
+  // number of positions.
+  //
+  while( isOnChessBoard(p) && (n < max) )
+  {
+    positions.push_back(p);
+
+    p.m_file = shiftFile(p.m_file, delta.x);
+    p.m_rank = shiftRank(p.m_rank, delta.y);
+
+    ++n;
+  }
+
+  return n;
+}
+
+size_t ChessBoard::filterPositions(const ChessPos    &filter,
+                                   const list_of_pos &positions,
+                                   list_of_pos       &filtered)
+{
+  size_t  n = filtered.size();
+
   for(size_t i = 0; i < positions.size(); ++i)
   {
     if( ((filter.m_file == NoFile) || (filter.m_file == positions[i].m_file)) &&
@@ -539,6 +1230,8 @@ void ChessBoard::filterPositions(const ChessPos    &filter,
       filtered.push_back(positions[i]);
     }
   }
+
+  return filtered.size() - n;
 }
 
 
@@ -577,9 +1270,9 @@ void ChessBoard::setupBoard(ChessColor eColor)
   row  = toRow(rank);
 
   //
-  // Pieces from left to right.
+  // Major pieces from left to right.
   //
-  for(file = ChessFileA; file = nextFile(file); file != NoFile)
+  for(file = ChessFileA; file != NoFile; file = nextFile(file))
   {
     col = toCol(file);
 
@@ -629,7 +1322,7 @@ void ChessBoard::setupBoard(ChessColor eColor)
   //
   // Left to right files.
   //
-  for(file = ChessFileA; file = nextFile(file); file != NoFile)
+  for(file = ChessFileA; file != NoFile; file = nextFile(file))
   {
     col   = toCol(file);
     strId = ChessFqPiece::makePieceId(file, rank, eColor, ePiece);
@@ -660,8 +1353,8 @@ namespace chess_engine
   ostream &ographic(ostream &os, const ChessBoard &board)
   {
     int         row, col;     // board matrix row,column
-    ChessFile   file;;        // chess board file
-    ChessRank   rank;;        // chess board rank
+    ChessFile   file;         // chess board file
+    ChessRank   rank;         // chess board rank
     ChessColor  eSquareColor; // color of square (white or black)
     ChessPiece  ePieceType;   // type of piece
     ChessColor  ePieceColor;  // color of piece (white or black)
@@ -671,6 +1364,21 @@ namespace chess_engine
     {
       rank = board.toRank(row);
   
+#ifdef LARGE_BOARD
+      os << "  ";
+      for(col = 0; col < NumOfFiles; ++col)
+      {
+        file = board.toFile(col);
+
+        eSquareColor = board.at(file, rank).getColor();
+
+        os << (eSquareColor == White? ColorWhiteSq: ColorBlackSq);
+        os << "   ";
+        os << strReset;
+      }
+      os << endl;
+#endif // LARGE_BOARD
+
       os << (char)rank << ' ';
   
       for(col = 0; col < NumOfFiles; ++col)
@@ -684,15 +1392,10 @@ namespace chess_engine
         ePieceColor   = sq.getPieceColor();
         strFigurine   = figurineOfPiece(ePieceColor, ePieceType);
   
-        if( eSquareColor == White )
-        {
-          os << ColorWhiteSq;
-        }
-        else
-        {
-          os << ColorBlackSq;
-        }
-  
+        os << (eSquareColor == White? ColorWhiteSq: ColorBlackSq);
+#ifdef LARGE_BOARD
+        os << " ";
+#endif // LARGE_BOARD
         os << strFigurine << " ";
         os << strReset;
       }
@@ -705,7 +1408,10 @@ namespace chess_engine
     for(col = 0; col < NumOfFiles; ++col)
     {
       file = board.toFile(col);
-      os << (char)file << ' ';
+#ifdef LARGE_BOARD
+      os << " ";
+#endif // LARGE_BOARD
+      os << (char)file << " ";
     }
   
     os << endl;
@@ -716,25 +1422,27 @@ namespace chess_engine
   ostream &oascii(ostream &os, const ChessBoard &board)
   {
     int         row, col;       // board matrix row,column
-    ChessFile   file;;        // chess board file
-    ChessRank   rank;;        // chess board rank
+    ChessFile   file;           // chess board file
+    ChessRank   rank;           // chess board rank
     ChessColor  eSquareColor;   // color of square (white or black)
     ChessPiece  ePieceType;     // type of piece
     ChessColor  ePieceColor;    // color of piece (white or black)
     string      strPiece;       // piece one-character name
-    streamsize  w = os.width(); // save default width
   
     for(row = 0; row < NumOfRanks; ++row)
     {
       rank = board.toRank(row);
   
       // row border
-      os.width(NumOfFiles * 4 + 1);
-      os.fill('.');
-      os << '.';
-      os.width(w);
-      os << endl;
-  
+      os << "  ";
+      for(col = 0; col < NumOfFiles; ++col)
+      {
+        os << "- - ";
+      }
+      os << "-" << endl;
+
+      os << (char)rank << ' ';
+
       for(col = 0; col < NumOfFiles; ++col)
       {
         file = board.toFile(col);
@@ -759,21 +1467,31 @@ namespace chess_engine
           strPiece = (char)tolower(ePieceType);
         }
   
-        os << "|";
+        os << ":";
         os << " " << strPiece << " ";
       }
   
-      os << "|";
+      os << ":";
       os << endl;
     }
   
-    os.width(NumOfFiles * 4 + 1);
-    os.fill('-');
-    os << '-' << endl;
-    os.width(w);
+    // bottom row border
+    os << "  ";
+    for(col = 0; col < NumOfFiles; ++col)
+    {
+      os << "- - ";
+    }
+    os << "-" << endl;
   
+    // file labels
+    os << "  ";
+    for(col = 0; col < NumOfFiles; ++col)
+    {
+      file = board.toFile(col);
+      os << "  " << (char)file << " ";
+    }
     os << endl;
-  
+
     return os;
   }
 } // namespace chess_engine

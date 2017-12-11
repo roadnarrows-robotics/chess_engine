@@ -69,11 +69,12 @@
 
 #include <string>
 #include <vector>
+#include <ostream>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 
-#include <ros/console.h>
+#include "rnr/appkit/LogStream.h"
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceError.h"
@@ -92,7 +93,7 @@ using namespace chess_engine;
 // GNU Chess Tracing Macros
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-#undef GC_TRACE_ENABLE   ///< tracing on/off switch
+#define GC_TRACE_ENABLE   ///< tracing on/off switch
 
 #ifdef GC_TRACE_ENABLE
 
@@ -168,7 +169,7 @@ static FILE *FpGcTrace = NULL;        ///< tracing output file pointer
   { \
     if( !(expr) ) \
     { \
-      ROS_ERROR(fmt, ##__VA_ARGS__); \
+      LOGERROR(fmt, ##__VA_ARGS__); \
       unlock(); \
       return (ecode) < 0? (ecode): -(ecode); \
     } \
@@ -185,8 +186,8 @@ static boost::regex reNull("(^$)");
 /*! any response */
 static boost::regex reAny("(.*)");
 
-/*! pre-response: 'timelime...' (for version >= 6) */
-static boost::regex reTimeLimit("(^timelimit.*)");
+/*! pre-response: 'TimeLimit...' (for versions >= 6) */
+static boost::regex reTimeLimit("(^[tT]ime[lL]imit.*)");
 
 /*! 'version' response: 'gnu chess VERSION' */
 static boost::regex reVersion("^gnu chess (.*)");
@@ -230,7 +231,8 @@ static boost::regex reWhiteBlackMove2("\\s*([0-9]+)\\.\\s+"
 static boost::regex reCastling("\\s*(\\S+)\\s+([KQkq]*)\\s*");
 
 /*! bad move response: 'invalid move: SAN' or 'illegal move: SAN' */
-static boost::regex reInvalidMove("^(invalid move:|illegal move:)\\s+(.*)");
+static boost::regex reInvalidMove("^([iI]nvalid [mM]ove:|"
+                                  "[iI]llegal [mM]ove:)\\s+(.*)");
 
 /*! unsupported command response: 'command 'CMD' is currently not supported.' */
 static boost::regex reNotSupported("^command '(.*)' "
@@ -267,7 +269,7 @@ static inline void timer_mark(struct timeval *pTvMark)
 {
   if( gettimeofday(pTvMark, NULL) != 0 )
   {
-    ROS_ERROR("gettimeofday() %s(errno=%d)", strerror(errno), errno);
+    LOGERROR("gettimeofday() %s(errno=%d)", strerror(errno), errno);
     timerclear(pTvMark);
   }
 }
@@ -319,6 +321,40 @@ static void abort_handler(int sig)
 
 
 // -----------------------------------------------------------------------------
+// Class BeParsedVars
+// -----------------------------------------------------------------------------
+
+void BeParsedVars::clear()
+{
+  m_nMoveNum = 0;
+  m_strAN.clear();
+  m_strSAN.clear();
+  m_eEoGResult = NoResult;
+  m_eEoGWinner = NoColor;
+}
+
+namespace chess_engine
+{
+  ostream &operator<<(ostream &os, const BeParsedVars &obj)
+  {
+    os << "{" << endl;
+    os << "  m_nMoveNum:   " << obj.m_nMoveNum << endl;
+    os << "  m_strAN:      " << obj.m_strAN << endl;
+    os << "  m_strSAN:     " << obj.m_strSAN << endl;
+    os << "  m_eEoGResult: "
+      << nameOfResult(obj.m_eEoGResult) << "(" << (char)obj.m_eEoGResult << ")"
+      << endl;
+    os << "  m_eEoGWinner: "
+      << nameOfColor(obj.m_eEoGWinner) << "(" << (char)obj.m_eEoGWinner << ")"
+      << endl;
+    os << "}";
+
+    return os;
+  }
+}
+
+
+// -----------------------------------------------------------------------------
 // Class ChessEngine
 // -----------------------------------------------------------------------------
 
@@ -342,7 +378,7 @@ ChessEngine::~ChessEngine()
 
 int ChessEngine::setGameDifficulty(float fDifficulty)
 {
-  // normalize
+  // cap
   if( fDifficulty < 1.0 )
   {
     fDifficulty = 1.0;
@@ -363,7 +399,7 @@ int ChessEngine::startNewGame()
   {
     m_bIsPlaying  = true;
     m_eColorTurn  = White;
-    m_nMoveNum    = 0;
+    m_nMoveNum    = 1;
     m_eEoGReason  = Ok;
     m_eWinner     = NoColor;
 
@@ -457,7 +493,7 @@ int ChessEngineGnu::openConnection()
   // make chess server node to chess engine backend pipe
   if( pipe(m_pipeToChess) == -1 )
   {
-    ROS_ERROR("Failed to create pipe to %s. %s(errno=%d)",
+    LOGERROR("Failed to create pipe to %s. %s(errno=%d)",
         m_strEngineName.c_str(), strerror(errno), errno);
     return -CE_ECODE_SYS;
    }
@@ -465,7 +501,7 @@ int ChessEngineGnu::openConnection()
   // make chess engine backend to chess server node pipe
   if ( pipe(m_pipeFromChess) == -1 )
   {
-    ROS_ERROR("Failed to create pipe from %s. %s(errno=%d)",
+    LOGERROR("Failed to create pipe from %s. %s(errno=%d)",
         m_strEngineName.c_str(), strerror(errno), errno);
     return -CE_ECODE_SYS;
   }
@@ -476,7 +512,7 @@ int ChessEngineGnu::openConnection()
   // fork failed
   if( m_pidChild == -1 )
   {
-    ROS_ERROR("Could not fork. %s(errno=%d)", strerror(errno), errno);
+    LOGERROR("Could not fork. %s(errno=%d)", strerror(errno), errno);
     return -CE_ECODE_SYS;
   }
 
@@ -511,7 +547,7 @@ int ChessEngineGnu::openConnection()
   //
   else
   {
-    ROS_INFO("Forked-exec'ed %s, child pid=%u.",
+    LOGDIAG1("Forked-exec'ed %s, child pid=%u.",
         m_strEngineName.c_str(), m_pidChild);
 
     // close unused pipe ends 
@@ -520,7 +556,7 @@ int ChessEngineGnu::openConnection()
 
     if( fcntl(m_pipeFromChess[0], F_SETFL, O_NONBLOCK) < 0 )
     {
-      ROS_ERROR("fcntl(%d,F_SETFL,O_NONBLOCK) %s(errno=%d)",
+      LOGERROR("fcntl(%d,F_SETFL,O_NONBLOCK) %s(errno=%d)",
           m_pipeFromChess[0], strerror(errno), errno);
       return -CE_ECODE_SYS;
     }
@@ -638,7 +674,7 @@ int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
                                               "Move out-of-turn.");
 
   // clear old parsed variables
-  clearParseVars();
+  m_parsed.clear();
 
   // send move command
   rc = cmdMove(strAN);
@@ -650,10 +686,10 @@ int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
       "Response: Move %d != expected move %d.",
       m_parsed.m_nMoveNum, m_nMoveNum);
 
-  // the move in, out should match, but try to continue
+  // the move in, out should match, but try to continue if not the case
   if( m_parsed.m_strAN != strAN )
   {
-    ROS_WARN("Response to move: '%s' != '%s'.",
+    LOGWARN("Response to move: '%s' != '%s'.",
         m_parsed.m_strAN.c_str(), strAN.c_str());
   }
 
@@ -662,7 +698,7 @@ int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
 
   ENGINE_TRY(rc == CE_OK, CE_ECODE_CHESS_FATAL, "Show game command failed.");
 
-  // copy SAN
+  // copy SAN (from cmdShowGame) to AN
   strAN = m_parsed.m_strSAN;
 
   // alternate turns
@@ -676,9 +712,10 @@ int ChessEngineGnu::makePlayersMove(const ChessColor ePlayer, string &strAN)
   return CE_OK;
 }
 
-int ChessEngineGnu::computeEnginesMove(ChessColor &eMoveColor, string &strSAN)
+int ChessEngineGnu::computeEnginesMove(string &strAN)
 {
-  int     rc;
+  ChessColor  eMoveColor;
+  int         rc;
 
   lock();
 
@@ -698,7 +735,7 @@ int ChessEngineGnu::computeEnginesMove(ChessColor &eMoveColor, string &strSAN)
   }
 
   // clear old parsed variables
-  clearParseVars();
+  m_parsed.clear();
 
   // wait for move response from engine
   rc = rspEnginesMove(eMoveColor);
@@ -716,7 +753,7 @@ int ChessEngineGnu::computeEnginesMove(ChessColor &eMoveColor, string &strSAN)
   ENGINE_TRY(rc == CE_OK, CE_ECODE_CHESS_FATAL, "Show game command failed.");
 
   // copy SAN
-  strSAN = m_parsed.m_strSAN;
+  strAN = m_parsed.m_strSAN;
 
   // alternate turns
   alternateTurns(eMoveColor);
@@ -839,7 +876,7 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, unsigned int msec)
           return -CE_ECODE_SYS;
         default:            // non-recoverable error
           buf[nBytes] = 0;
-          ROS_ERROR("select(%d,...) %s(errno=%d)", fd, strerror(errno), errno);
+          LOGERROR("select(%d,...) %s(errno=%d)", fd, strerror(errno), errno);
           GC_TRACE("readline() %s\n", buf);
           return -CE_ECODE_SYS;
       }
@@ -848,7 +885,7 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, unsigned int msec)
     // timeout occurred
     else if( nFd == 0 )
     {
-      ROS_DEBUG("select() on read timed out.");
+      LOGDIAG2("select() on read timed out.");
       bDone = true;
     }
 
@@ -859,7 +896,7 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, unsigned int msec)
       {
         case '\n':    // received a response line
           buf[nBytes] = 0;
-          //ROS_DEBUG("readline() %zd bytes response line.", nBytes);
+          //LOGDIAG2("readline() %zd bytes response line.", nBytes);
           GC_TRACE("readline() %s\n", buf);
           return (int)nBytes;
         case '\r':    // received a carriage return, but ignore
@@ -881,7 +918,7 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, unsigned int msec)
           break;
         default:            // non-recoverable error
           buf[nBytes] = 0;
-          ROS_ERROR("select(%d,...) %s(errno=%d)", fd, strerror(errno), errno);
+          LOGERROR("select(%d,...) %s(errno=%d)", fd, strerror(errno), errno);
           GC_TRACE("readline() %s\n", buf);
           return -CE_ECODE_SYS;
       }
@@ -890,12 +927,12 @@ int ChessEngineGnu::readline(char buf[], size_t sizeBuf, unsigned int msec)
     // got a select but no bytes 
     else if( n == 0 )
     {
-      ROS_DEBUG("select() ok, but read()=0.");
+      LOGDIAG2("select() ok, but read()=0.");
       bDone = true;
     }
   }
 
-  ROS_DEBUG("readline(): %zd bytes partial response line.", nBytes);
+  LOGDIAG2("readline(): %zd bytes partial response line.", nBytes);
   
   buf[nBytes] = 0;
   GC_TRACE("readline() %s\n", buf);
@@ -919,13 +956,13 @@ void ChessEngineGnu::flushInput()
 {
   char    buf[256];
 
-  GC_TRACE(">> flushInput() Begin\n", buf);
+  GC_TRACE("flushInput() Begin\n");
   m_strLastLine.clear();
   while( readline(buf, sizeof(buf)) > 0 )
   {
     //GC_TRACE("%s\n", buf);
   }
-  GC_TRACE(">> flushInput() End\n");
+  GC_TRACE("flushInput() End\n");
 }
 
 
@@ -959,7 +996,7 @@ void ChessEngineGnu::configure()
   // version ?
   else
   {
-    ROS_WARN("GNU Chess %s unsupported. Assuming version 6.x protocol.",
+    LOGWARN("GNU Chess %s unsupported. Assuming version 6.x protocol.",
         m_strEngineVersion.c_str());
     m_bHasTimeLimits  = true;
     m_bHasRandom      = false;
@@ -1108,10 +1145,11 @@ int ChessEngineGnu::cmdMove(const string &strAN)
 
   writeline(strAN.c_str());
 
-  if( rspFirstLine(reNumMovePlayer, matches) == 2 )
+  if( rspFirstLine(reNumMovePlayer, matches, 100, false) == 2 )
   {
     m_parsed.m_nMoveNum = atoi(matches[0].c_str());
     m_parsed.m_strAN    = matches[1];
+
     return CE_OK;
   }
   else if( match(m_strLastLine, reInvalidMove, matches) > 0 )
@@ -1161,7 +1199,7 @@ int ChessEngineGnu::cmdShowGame(int nMoveNum, ChessColor eColor)
 
   if( n != nMoveNum )
   {
-    ROS_ERROR("Response to 'show game': last move %d != expected move %d.",
+    LOGERROR("Response to 'show game': last move %d != expected move %d.",
         n, nMoveNum);
     return -CE_ECODE_CHESS_RSP;
   }
@@ -1176,7 +1214,7 @@ int ChessEngineGnu::cmdShowGame(int nMoveNum, ChessColor eColor)
   }
   else
   {
-    ROS_ERROR("Response to 'show game': Bad move line."); 
+    LOGERROR("Response to 'show game': Bad move line."); 
     return -CE_ECODE_CHESS_RSP;
   }
 
@@ -1359,15 +1397,6 @@ int ChessEngineGnu::match(const string   &str,
   GC_TRACE("  %zu matches\n", matches.size());
 
   return (int)matches.size();
-}
-
-void ChessEngineGnu::clearParseVars()
-{
-  m_parsed.m_nMoveNum = 0;
-  m_parsed.m_strAN.clear();
-  m_parsed.m_strSAN.clear();
-  m_parsed.m_eEoGResult = NoResult;
-  m_parsed.m_eEoGWinner = NoColor;
 }
 
 void ChessEngineGnu::setupSignals()

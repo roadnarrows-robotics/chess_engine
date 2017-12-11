@@ -136,6 +136,7 @@ namespace chess_engine
     (Draw,          "draw")
     (Resign,        "resign")
     (Disqualified,  "disqualified")
+    (Aborted,       "aborted")
     (NoGame,        "nogame")
     (GameFatal,     "gamefatal")
   ;
@@ -155,17 +156,25 @@ namespace chess_engine
     (SAN,       "Standard Algebra Notation")
   ;
 
+  /*! name of chess castle moves */
+  static const map<int, string> NamePlayerType = map_list_of
+    (PlayerTypeAnon,    "anonymous")
+    (PlayerTypeHuman,   "human")
+    (PlayerTypeRobot,   "robot")
+    (PlayerTypeSwAgent, "sw_agent")
+  ;
+  
   // name map iterator type
   typedef std::map<int, std::string>::const_iterator name_iter;
 
-  const string nameOfColor(ChessColor color)
+  const string nameOfColor(const ChessColor color)
   {
     name_iter iter = NameColors.find(color);
 
     return iter != NameColors.end()? iter->second: NameColors.at(NoColor);
   }
   
-  const string nameOfPiece(ChessPiece piece)
+  const string nameOfPiece(const ChessPiece piece)
   {
     name_iter iter = NamePieces.find(piece);
 
@@ -177,6 +186,11 @@ namespace chess_engine
     static const string strUnknown = "\U00002047"; // "??"
 
     name_iter iter;
+
+    if( piece == NoPiece )
+    {
+      return FigurineWhitePieces.find(NoPiece)->second;
+    }
 
     switch( color )
     {
@@ -191,7 +205,7 @@ namespace chess_engine
     }
   }
   
-  const string nameOfCastling(ChessCastling side)
+  const string nameOfCastling(const ChessCastling side)
   {
     name_iter iter = NameCastling.find(side);
 
@@ -199,14 +213,14 @@ namespace chess_engine
                                         NameCastling.at(NoCastling);
   }
   
-  const string nameOfResult(ChessResult result)
+  const string nameOfResult(const ChessResult result)
   {
     name_iter iter = NameResults.find(result);
 
     return iter != NameResults.end()? iter->second: NameResults.at(NoResult);
   }
 
-  const string nameOfCheckMod(ChessCheckMod checkmod)
+  const string nameOfCheckMod(const ChessCheckMod checkmod)
   {
     name_iter iter = NameCheckMod.find(checkmod);
 
@@ -214,11 +228,19 @@ namespace chess_engine
                                        NameCheckMod.at(NoCheckMod);
   }
 
-  const string nameOfAlgebra(ChessAlgebra algebra)
+  const string nameOfAlgebra(const ChessAlgebra algebra)
   {
     name_iter iter = NameAlgebra.find(algebra);
 
     return iter != NameAlgebra.end()? iter->second: NameAlgebra.at(UnknownAN);
+  }
+
+  const string nameOfPlayerType(const ChessPlayerType type)
+  {
+    name_iter iter = NamePlayerType.find(type);
+
+    return iter != NamePlayerType.end()?  iter->second:
+                                          NamePlayerType.at(PlayerTypeUndef);
   }
 
   ChessResult rcToMoveResult(int rc)
@@ -243,8 +265,9 @@ namespace chess_engine
         return NoGame;
       case CE_ECODE_NO_EXEC:
       case CE_ECODE_TIMEDOUT:
-      case CE_ECODE_INTR:
         return NoResult;
+      case CE_ECODE_INTR:
+        return Aborted;
       default:                          // fatal game errors
         return GameFatal;
     }

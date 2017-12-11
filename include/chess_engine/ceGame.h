@@ -64,6 +64,7 @@
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceSquare.h"
 #include "chess_engine/ceBoard.h"
+#include "chess_engine/cePlayer.h"
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceError.h"
 #include "chess_engine/ceUtils.h"
@@ -89,7 +90,6 @@ namespace chess_engine
     typedef std::vector<ChessFqPiece> ChessBoneYard;    ///< captured pieces
     typedef std::vector<ChessMove>    ChessHistory;     ///< game history
     typedef std::map<ChessColor, int> ChessPromotion;   ///< promotions/player
-    typedef std::map<ChessColor, std::string> ChessPlayer; ///< player names
 
     /*!
      * \brief Default constructor.
@@ -278,7 +278,7 @@ namespace chess_engine
      *
      * \return Reference to bone yard.
      */
-    const ChessBoneYard &getBoneYard(const ChessColor ePlayer)
+    const ChessBoneYard &getBoneYard(const ChessColor ePlayer) const
     {
       return ePlayer == White? m_boneyardWhite: m_boneyardBlack;
     }
@@ -288,7 +288,7 @@ namespace chess_engine
      *
      * \return Reference to history.
      */
-    const ChessHistory &getGameHistory()
+    const ChessHistory &getGameHistory() const
     {
       return m_history;
     }
@@ -300,7 +300,7 @@ namespace chess_engine
      *
      * \return Reference to history move.
      */
-    const ChessMove &getHistoryAt(int nPlyNum);
+    const ChessMove &getHistoryAt(int nPlyNum) const;
 
     /*!
      * \brief Set unicode graphic state.
@@ -312,6 +312,8 @@ namespace chess_engine
       m_bGraphic = on_off;
       m_board.setGraphicState(on_off);
     }
+
+    ChessPlayer &anon();
 
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

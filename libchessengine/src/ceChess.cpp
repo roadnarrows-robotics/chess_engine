@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -63,7 +63,7 @@
 #include <string>
 #include <vector>
 
-#include <ros/console.h>
+#include "rnr/appkit/LogStream.h"
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceError.h"
@@ -148,63 +148,72 @@ int Chess::makeAMove(const ChessColor ePlayer,
 {
   static  string strFunc("Chess::makeAMove");
 
-  int     nMoveNum;
-  string  strSAN(strAN);
   int     rc;
 
   // start fresh
   move.clear();
 
-  // Move number. Get this value before making a move.
-  nMoveNum = m_engine.getMoveNumInPlay();
-
-  // Make player's move. On success strSAN is updated.
-  rc = m_engine.makePlayersMove(ePlayer, strSAN);
-
-  // Fill in critical move fields.
-  move.m_nMoveNum = nMoveNum;
+  // fill in move attempt fields
+  move.m_nMoveNum = m_engine.getMoveNumInPlay();
   move.m_ePlayer  = ePlayer;
-  move.m_strAN    = strSAN;
+  move.m_strAN    = strAN;
   move.m_eResult  = Ok;
 
-  // Failed backend move.
-  if( rc != CE_OK )
+  //
+  // Pre-screen move.
+  //
+
+  //
+  // Make the player's move.
+  //
+  if( (rc = m_engine.makePlayersMove(ePlayer, move.m_strAN)) != CE_OK )
   {
-    ROS_ERROR_STREAM(strFunc
+    LOGERROR_STREAM(strFunc
           << ": makePlayersMove(" << nameOfColor(ePlayer) << ", "
-          << strAN << ", SAN): "
-          << strerror(rc)
+          << strAN << "): "
+          << strecode(rc)
           << ".");
   }
 
-  // Parse SAN and fill in appropriate move fields.
-  else if( (rc = m_parser.parse(strSAN, move)) != CE_OK )
+  //
+  // Parse AN and fill in appropriate move fields.
+  //
+  else if( (rc = m_parser.parse(move.m_strAN, move)) != CE_OK )
   {
-    ROS_ERROR_STREAM(strFunc
-          << ": parse(" << strSAN
+    LOGERROR_STREAM(strFunc
+          << ": parse(" << strAN
           << ", move): "
           << m_parser.getErrorStr()
           << ".");
   }
 
+  //
   // Qualify move against current game state, setting additional fields.
+  //
   else if( (rc = m_game.qualifyMove(move)) != CE_OK )
   {
-    ROS_ERROR_STREAM(strFunc << ": qualifyMove(move): " << strerror(rc) << ".");
+    LOGERROR_STREAM(strFunc << ": qualifyMove(move): " << strecode(rc) << ".");
   }
 
+  //
   // Now execute the move on the mirrored game state.
-  if( (rc = m_game.execMove(move)) != CE_OK )
+  //
+  else if( (rc = m_game.execMove(move)) != CE_OK )
   {
-    ROS_ERROR_STREAM(strFunc << ": execMove(move): " << strerror(rc) << ".");
+    LOGERROR_STREAM(strFunc << ": execMove(move): " << strecode(rc) << ".");
   }
 
+  //
+  // On error, convert return code to move result.
+  //
   if( rc != CE_OK )
   {
     move.m_eResult = rcToMoveResult(rc);
   }
 
+  //
   // Finalize move/game result.
+  //
   move.m_eResult = finalizeResult(move.m_eResult);
 
   return rc;
@@ -214,62 +223,75 @@ int Chess::computeEnginesMove(ChessMove &move)
 {
   static  string strFunc("Chess::getEnginesMove");
 
-  int         nMoveNum;
-  ChessColor  eMoveColor;
-  string      strSAN;
+  string      strAN;
   int         rc;
 
   // start fresh
   move.clear();
 
-  // Move number. Get this value before making a move.
-  nMoveNum = m_engine.getMoveNumInPlay();
-
-  // Compute engine's move.
-  rc = m_engine.computeEnginesMove(eMoveColor, strSAN);
-
-  // Fill in critical move fields.
-  move.m_nMoveNum = nMoveNum;
-  move.m_ePlayer  = eMoveColor;
-  move.m_strAN    = strSAN;
+  // fill in move attempt fields
+  move.m_nMoveNum = m_engine.getMoveNumInPlay();
+  move.m_ePlayer  = m_engine.whoseTurn();
   move.m_eResult  = Ok;
 
-  if( rc != CE_OK )
+  //
+  // Compute engine's move.
+  //
+  if( (rc = m_engine.computeEnginesMove(strAN)) == CE_OK )
   {
-    ROS_ERROR_STREAM(strFunc
-          << ": getEnginesMove(color, SAN): "
-          << strerror(rc)
+    move.m_strAN = strAN;
+  }
+  else
+  {
+    LOGERROR_STREAM(strFunc
+          << ": getEnginesMove(): "
+          << strecode(rc)
           << ".");
   }
 
-  // Parse SAN and fill in appropriate move fields.
-  else if( (rc = m_parser.parse(strSAN, move)) != CE_OK )
+  if( rc == CE_OK )
   {
-    ROS_ERROR_STREAM(strFunc
-          << ": parse(" << strSAN
+    //
+    // Parse AN and fill in appropriate move fields.
+    //
+    if( (rc = m_parser.parse(strAN, move)) != CE_OK )
+    {
+      LOGERROR_STREAM(strFunc
+          << ": parse(" << strAN
           << ", move): "
           << m_parser.getErrorStr()
           << ".");
+    }
+
+    //
+    // Qualify move against current game state, setting additional fields.
+    //
+    else if( (rc = m_game.qualifyMove(move)) != CE_OK )
+    {
+      LOGERROR_STREAM(strFunc << ": qualifyMove(move): "
+          << strecode(rc) << ".");
+    }
+
+    //
+    // Now execute the move on the mirrored game state.
+    //
+    else if( (rc = m_game.execMove(move)) != CE_OK )
+    {
+      LOGERROR_STREAM(strFunc << ": execMove(move): " << strecode(rc) << ".");
+    }
   }
 
-  // Qualify move against current game state, setting additional fields.
-  else if( (rc = m_game.qualifyMove(move)) != CE_OK )
-  {
-    ROS_ERROR_STREAM(strFunc << ": qualifyMove(move): " << strerror(rc) << ".");
-  }
-
-  // Now execute the move on the mirrored game state.
-  else if( (rc = m_game.execMove(move)) != CE_OK )
-  {
-    ROS_ERROR_STREAM(strFunc << ": execMove(move): " << strerror(rc) << ".");
-  }
-
+  //
+  // On error, convert return code to move result.
+  //
   if( rc != CE_OK )
   {
     move.m_eResult = rcToMoveResult(rc);
   }
 
+  //
   // Finalize move/game result.
+  //
   move.m_eResult = finalizeResult(move.m_eResult);
 
   return rc;
@@ -277,16 +299,16 @@ int Chess::computeEnginesMove(ChessMove &move)
 
 ChessResult Chess::finalizeResult(const ChessResult eCurResult)
 {
-  ChessResult eEoGResult;
-  ChessColor  eEoGWinner;
-  ChessResult eFinalResult;
+  ChessResult eEoGResult;   // end-of-game result, if any
+  ChessColor  eEoGWinner;   // end-of-game winner, if any
+  ChessResult eFinalResult; // final result
 
   // get any engine's end of game declaration 
   m_engine.getEnginesEoGDecl(eEoGResult, eEoGWinner);
 
-  eFinalResult = eCurResult;
-
-  // End of game, maybe.
+  //
+  // Finalize result, given the current result and any end-of-game result.
+  //
   switch( eEoGResult )
   {
     case Checkmate:
@@ -294,14 +316,14 @@ ChessResult Chess::finalizeResult(const ChessResult eCurResult)
     case Resign:
     case Disqualified:
       endCurrentGame(eEoGResult, eEoGWinner);
-      if( eFinalResult == Ok )
+      if( eCurResult == Ok )
       {
-        eFinalResult = eEoGResult; // override
+        eFinalResult = eEoGResult; // overrides current
       }
       break;
     case GameFatal:
       endCurrentGame(eEoGResult, NoColor);
-      eFinalResult = eEoGResult;  // override
+      eFinalResult = eEoGResult;  // overrides current
       break;
     default:
       switch( eCurResult )
@@ -312,8 +334,37 @@ ChessResult Chess::finalizeResult(const ChessResult eCurResult)
         default:
           break;
       }
+      eFinalResult = eCurResult;  // keep current
       break;
   }
 
   return eFinalResult;
+}
+
+ChessCheckMod Chess::isInCheck() const
+{
+  const ChessGame::ChessHistory &history = m_game.getGameHistory();
+
+  if( history.size() == 0 )
+  {
+    return NoCheckMod;
+  }
+  else
+  {
+    return history.back().m_eCheck;
+  }
+}
+
+ChessResult Chess::getLastMoveResult() const
+{
+  const ChessGame::ChessHistory &history = m_game.getGameHistory();
+
+  if( history.size() == 0 )
+  {
+    return NoResult;
+  }
+  else
+  {
+    return history.back().m_eResult;
+  }
 }

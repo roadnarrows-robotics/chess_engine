@@ -70,8 +70,6 @@
 #include <string>
 #include <map>
 
-#include <ros/console.h>
-
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceError.h"
 #include "chess_engine/ceUtils.h"
@@ -1786,7 +1784,7 @@ int ChessANParser::postprocPawn(ChessANDecomp &decomp)
   // assign piece color
   color = decomp.m_ePlayer != NoColor? decomp.m_ePlayer: decomp.m_eColorMoved;
 
-  ChessBoard::findPawnSrcMoves(NoColor, dst, positions);
+  ChessBoard::rangeOfPawnSrc(NoColor, dst, positions);
 
 #ifdef AN_DBG
   cerr << "DBG: From '" << dst << "' there are " << positions.size()
@@ -1994,7 +1992,7 @@ int ChessANParser::postprocMajorPiece(ChessANDecomp &decomp)
   color = decomp.m_ePlayer != NoColor? decomp.m_ePlayer: decomp.m_eColorMoved;
 
 
-  ChessBoard::findMajorPieceMoves(decomp.m_ePieceMoved, dst, positions);
+  ChessBoard::rangeOfMajorPiece(decomp.m_ePieceMoved, dst, positions);
   ChessBoard::filterPositions(src, positions, filtered);
 
 #ifdef AN_DBG

@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2013-2016  RoadNarrows
+ * (C) 2013-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -61,7 +61,8 @@
 #include <map>
 #include <sstream>
 
-#include <ros/console.h>
+#include "rnr/appkit/LogStream.h"
+#include "rnr/appkit/Time.h"
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceMove.h"
@@ -71,12 +72,18 @@
 using namespace std;
 using namespace chess_engine;
 
+static ChessPlayer anonplayer;
 
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+// -----------------------------------------------------------------------------
 // Chess game class.
-// . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+// -----------------------------------------------------------------------------
 
 ChessGame::ChessGame()
+  : m_anonWhite(AnonWhitePlayerId, "White", PlayerTypeAnon),
+    m_anonBlack(AnonBlackPlayerId, "Black", PlayerTypeAnon),
+    m_playerWhite(m_anonWhite),
+    m_playerBlack(m_anonBlack)
 {
   m_bIsPlaying  = false;
   m_ePlayState  = NoGame;
@@ -95,8 +102,16 @@ ChessGame::~ChessGame()
 {
 }
 
-int ChessGame::startNewGame(const string &strWhite, const string &strBlack)
+int ChessGame::startNewGame(ChessPlayer &white = anon(),
+                            ChessPlayer &black = anon())
 {
+  m_playerWhite = white;
+  m_playerBlack = black;
+
+  Time  t;
+
+  t.markNow();
+
   setupGame();
 
   m_bIsPlaying  = true;
@@ -108,6 +123,8 @@ int ChessGame::startNewGame(const string &strWhite, const string &strBlack)
   m_playerName[Black]     = strBlack.empty()? "Dunkel":  strBlack;
   m_numPromotions[White]  = 0;
   m_numPromotions[Black]  = 0;
+
+  return CE_OK;
 }
 
 int ChessGame::endCurrentGame(ChessResult eReason, ChessColor eWinner)
@@ -115,6 +132,8 @@ int ChessGame::endCurrentGame(ChessResult eReason, ChessColor eWinner)
   m_bIsPlaying  = false;
   m_ePlayState  = eReason;
   m_eWinner     = eWinner;
+
+  return CE_OK;
 }
 
 int ChessGame::qualifyMove(ChessMove &move)
@@ -161,7 +180,7 @@ int ChessGame::qualifyMove(ChessMove &move)
   // Check an out-of-turn condition.
   if( move.m_ePlayer != m_eTurnToMove )
   {
-    ROS_ERROR_STREAM("Player "
+    LOGERROR_STREAM("Player "
         << nameOfColor(move.m_ePlayer)
         << "out of turn.");
     rc = -CE_ECODE_CHESS_SYNC;
@@ -170,19 +189,19 @@ int ChessGame::qualifyMove(ChessMove &move)
   // qualify source and destination of the move
   else if( (rc = qualifyMovePositions(move)) != CE_OK )
   {
-    ROS_DEBUG("%d = qualifyMovePositions() failed.", rc);
+    LOGDIAG2("%d = qualifyMovePositions() failed.", rc);
   }
 
   // verify piece moved
   else if( (rc = qualifyMovePiece(move)) != CE_OK )
   {
-    ROS_DEBUG("%d = qualifyMovePiece() failed.", rc);
+    LOGDIAG2("%d = qualifyMovePiece() failed.", rc);
   }
 
   // verify any capture
   else if( (rc = qualifyMoveCapture(move)) != CE_OK )
   {
-    ROS_DEBUG("%d = qualifyMoveCapture() failed.", rc);
+    LOGDIAG2("%d = qualifyMoveCapture() failed.", rc);
   }
 
   // good
@@ -207,7 +226,7 @@ int ChessGame::qualifyMovePositions(ChessMove &move)
   // fully qualify source position
   if( move.m_eCastling == NoCastling )
   {
-    m_board.setMoveSrcPos(move);
+    m_board.findMoveSrcPos(move);
   }
 
   // fully qualify castling source and destination positions
@@ -222,7 +241,7 @@ int ChessGame::qualifyMovePositions(ChessMove &move)
   //
   if( !ChessBoard::isOnChessBoard(move.m_posDst) )
   {
-    ROS_ERROR_STREAM("Bad destination square "
+    LOGERROR_STREAM("Bad destination square "
                     << move.m_posDst
                     << ".");
     rc = -CE_ECODE_CHESS_FATAL;
@@ -233,7 +252,7 @@ int ChessGame::qualifyMovePositions(ChessMove &move)
   //
   else if( !ChessBoard::isOnChessBoard(move.m_posSrc) )
   {
-    ROS_ERROR_STREAM("Bad source square "
+    LOGERROR_STREAM("Bad source square "
                     << move.m_posSrc
                     << ".");
     rc = -CE_ECODE_CHESS_FATAL;
@@ -267,7 +286,7 @@ int ChessGame::qualifyMovePiece(ChessMove &move)
   //
   if( move.m_ePieceMoved == NoPiece )
   {
-    ROS_ERROR_STREAM("No piece found on source square "
+    LOGERROR_STREAM("No piece found on source square "
                     << move.m_posSrc
                     << ".");
     rc = -CE_ECODE_CHESS_SYNC;
@@ -278,7 +297,7 @@ int ChessGame::qualifyMovePiece(ChessMove &move)
   //
   else if( move.m_ePieceMoved != ePieceSrc )
   {
-    ROS_ERROR_STREAM("Piece "
+    LOGERROR_STREAM("Piece "
                   << nameOfPiece(move.m_ePieceMoved)
                   << " != "
                   << nameOfPiece(ePieceSrc)
@@ -311,7 +330,7 @@ int ChessGame::qualifyMoveCapture(ChessMove &move)
     // but destination square is not empty
     if( m_board.at(move.m_posDst).getPieceType() != NoPiece )
     {
-      ROS_ERROR_STREAM(
+      LOGERROR_STREAM(
         "Not a capture move, but piece found on destination square "
         << move.m_posDst << ".");
       return -CE_ECODE_CHESS_SYNC;
@@ -340,7 +359,7 @@ int ChessGame::qualifyMoveCapture(ChessMove &move)
   //
   if( !ChessBoard::isOnChessBoard(posCapture) )
   {
-    ROS_ERROR_STREAM("Bad capture square " << posCapture << ".");
+    LOGERROR_STREAM("Bad capture square " << posCapture << ".");
     return -CE_ECODE_CHESS_FATAL;
   }
   
@@ -358,7 +377,7 @@ int ChessGame::qualifyMoveCapture(ChessMove &move)
   //
   if( move.m_ePieceCaptured == NoPiece )
   {
-    ROS_ERROR_STREAM("No piece found on capture square " << posCapture << ".");
+    LOGERROR_STREAM("No piece found on capture square " << posCapture << ".");
     rc = -CE_ECODE_CHESS_SYNC;
   }
 
@@ -367,7 +386,7 @@ int ChessGame::qualifyMoveCapture(ChessMove &move)
   //
   else if( move.m_ePieceCaptured != ePieceCaptured )
   {
-    ROS_ERROR_STREAM("Piece "
+    LOGERROR_STREAM("Piece "
                   << nameOfPiece(move.m_ePieceCaptured)
                   << " != "
                   << nameOfPiece(ePieceCaptured)
@@ -518,7 +537,7 @@ ChessSquare &ChessGame::getBoardSquare(const ChessPos &pos)
   return m_board.at(pos);
 }
 
-const ChessMove &ChessGame::getHistoryAt(int nPlyNum)
+const ChessMove &ChessGame::getHistoryAt(int nPlyNum) const
 {
   static const ChessMove  NoMove;
 

@@ -66,7 +66,9 @@
 #include "rnr/opts.h"
 #include "rnr/pkg.h"
 
+#include "rnr/appkit/CmdExtArg.h"
 #include "rnr/appkit/CommandLine.h"
+#include "rnr/appkit/CmdAddOns.h"
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceUtils.h"
@@ -93,7 +95,7 @@ using namespace chess_engine;
 #define APP_EC_ARGS     2   ///< command-line options/arguments error exit code
 #define APP_EC_EXEC     4   ///< execution exit code
 
-static char    *Argv0;              ///< the command
+static char    *Argv0;      ///< the command
 
 /*!
  * \brief Package information.
@@ -102,7 +104,7 @@ static PkgInfo_T PkgInfo =
 {
   "chess_parser",
   "1.0.0",
-  "2016.07.01 10:50:36",
+  "2017.11.06 10:11:09",
   "2017",
   "chess_parser-1.0.0",
   "Robin Knight (robin.knight@roadnarrows.com)",
@@ -149,8 +151,6 @@ static OptsInfo_T OptsInfo[] =
 const string    CliName("ChessParser");     ///< CLI name 
 const string    CliPrompt("AN> ");          ///< CLI prompt
 CommandLine     Cli(CliName, CliPrompt);    ///< the CLI
-bool            CliQuit = false;            ///< do [not] quit
-map<int, int>   UidToIndexMap;              ///< uid to index map
 
 /*!
  * \{
@@ -167,7 +167,7 @@ map<int, int>   UidToIndexMap;              ///< uid to index map
 
 #define PCMDWARN(_cmd, _warn) \
     cout << CliName << ": '" << _cmd << "': " << _warn << endl
-/*
+/*!
  * \}
  */
 
@@ -183,23 +183,6 @@ ChessANParser Parser;
 // CommandLine Commands Definitions
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-// forward declarations
-static int execHelp(const ExtArgVec &argv);
-
-/*!
- * \brief Execute 'quit' command.
- *
- * \param argv  Command line arguments.
- *
- * \return OK(0) on success, negative value on failure.
- */
-static int execQuit(const ExtArgVec &argv)
-{
-  CliQuit = true;
-
-  return OK;
-}
-
 /*!
  * \brief Execute 'set' command.
  *
@@ -207,7 +190,7 @@ static int execQuit(const ExtArgVec &argv)
  *
  * \return OK(0) on success, negative value on failure.
  */
-static int execSetParser(const ExtArgVec &argv)
+static int execSetParser(const CmdExtArgVec &argv)
 {
   if( argv[1].s() == "bnf" )
   {
@@ -233,7 +216,7 @@ static int execSetParser(const ExtArgVec &argv)
  *
  * \return OK(0) on success, negative value on failure.
  */
-static int execGetParser(const ExtArgVec &argv)
+static int execGetParser(const CmdExtArgVec &argv)
 {
   switch( Parser.getParserMethod() )
   {
@@ -258,7 +241,7 @@ static int execGetParser(const ExtArgVec &argv)
  *
  * \return OK(0) on success, negative value on failure.
  */
-static int execRunFile(const ExtArgVec &argv)
+static int execRunFile(const CmdExtArgVec &argv)
 {
   string  filename = argv[1].s();
 
@@ -274,7 +257,7 @@ static int execRunFile(const ExtArgVec &argv)
  *
  * \return OK(0) on success, negative value on failure.
  */
-static int execTrace(const ExtArgVec &argv)
+static int execTrace(const CmdExtArgVec &argv)
 {
   // toggle
   bool trace = Parser.getTracing()? false: true;
@@ -293,7 +276,7 @@ static int execTrace(const ExtArgVec &argv)
  *
  * \return OK(0) on success, negative value on failure.
  */
-static int execParse(const ExtArgVec &argv)
+static int execParse(const CmdExtArgVec &argv)
 {
   ChessANDecomp decomp;
   ChessMove     move;
@@ -341,7 +324,7 @@ static int execParse(const ExtArgVec &argv)
 /*!
  * \brief Command description and exectuion structure.
  */
-struct CmdExec
+struct AppCmds
 {
   CmdDesc       m_desc;     ///< command description and syntax specification
   CmdExec2Func  m_fnExec;   ///< command execution function
@@ -350,27 +333,8 @@ struct CmdExec
 /*!
  * \brief The command descriptions.
  */
-CmdExec Commands[] =
+AppCmds Commands[] =
 {
-  { { "help",
-      "help [{--usage | -u}] [<cmd:word>]",
-      "Print this help.",
-      "Print command help. If the --usage option is specified, then only the "
-      "command(s) usages are printed. If the <cmd> is specified, then only "
-      "help for that command is printed. Otherwise all command help is "
-      "printed."
-    },
-    execHelp
-  },
-
-  { { "quit",
-      "quit",
-      "Quit example application.",
-      NULL
-    },
-    execQuit
-  },
-  
   { { "set",
       "set {bnf | regex}",
       "Set the chess engine's Algebraic Notation (AN) parser.",
@@ -386,8 +350,7 @@ CmdExec Commands[] =
   
   { { "get",
       "get",
-      "Get the active chess engine's Algebraic Notation (AN) parser.",
-      NULL
+      "Get the active chess engine's Algebraic Notation (AN) parser."
     },
     execGetParser
   },
@@ -403,8 +366,7 @@ CmdExec Commands[] =
 
   { { "trace",
       "trace",
-      "Toggle parser tracing.",
-      NULL
+      "Toggle parser tracing."
     },
     execTrace
   },
@@ -424,110 +386,6 @@ CmdExec Commands[] =
  */
 const size_t NumOfCmds = arraysize(Commands);
 
-/*!
- * \brief Find command by name.
- *
- * \param strName Command to find.
- *
- * \return On succes, returns index to Commands[], otherwise -1 is returned.
- */
-static int findCommand(const std::string &strName)
-{
-  for(int i = 0; i < NumOfCmds; ++i)
-  {
-    if( strName == Commands[i].m_desc.m_sName )
-    {
-      return i;
-    }
-  }
-  return -1;
-}
-
-/*!
- * \brief Execute 'help' command.
- *
- * help [{usage | long}] [<cmd>]
- *
- * \param argv  Command line arguments.
- *
- * \return OK(0) on success, negative value on failure.
- */
-static int execHelp(const ExtArgVec &argv)
-{
-  static const char *cmdname = "help";
-
-  size_t  argc = argv.size();
-  int     iCmd;
-  size_t  i;
-
-  // optional defaults
-  bool    bLongHelp = true;
-  string  strCmdName;
-
-  //
-  // Process Input arguments.
-  //
-  for(i = 1; i < argv.size(); ++i)
-  {
-    if( i == 1 )
-    {
-      if( (argv[i] == "--usage") || (argv[i] == "-u") )
-      {
-        bLongHelp = false;
-      }
-      else
-      {
-        strCmdName = argv[i].s();
-      }
-    }
-    else if( i == 2 )
-    {
-      strCmdName = argv[i].s();
-    }
-  }
-
-  //
-  // Print help for all commands.
-  //
-  if( strCmdName.empty() )
-  {
-    for(i = 0; i < NumOfCmds; ++i)
-    {
-      if( Cli.hasCmd(Commands[i].m_desc.m_sName) )
-      {
-        help(cout, Commands[i].m_desc, bLongHelp);
-        if( bLongHelp )
-        {
-          cout << "---" << endl << endl;
-        }
-        else
-        {
-          //cout << endl;
-        }
-      }
-    }
-    cout << "  " << Cli.numOfCmds() << " commands" << endl;
-    return OK;
-  }
-
-  //
-  // Print help for a solitary command.
-  //
-  else if( ((iCmd = findCommand(strCmdName)) >= 0) && Cli.hasCmd(strCmdName) )
-  {
-    help(cout, Commands[iCmd].m_desc, bLongHelp);
-    return OK;
-  }
-
-  //
-  // No help.
-  //
-  else
-  {
-    PCMDERROR(cmdname, "No help for command '" << strCmdName << "'.");
-    return RC_ERROR;
-  }
-}
 
 //------------------------------------------------------------------------------
 // Main Functions
@@ -565,26 +423,37 @@ static int loadCommands(CommandLine &cli)
   int   nUid;
   int   rc;
 
+  //
+  // Add command to command-line interface.
+  //
   for(size_t i = 0; i < NumOfCmds; ++i)
   {
-    nUid = cli.addCommand(Commands[i].m_desc.m_sSyntax);
+    nUid = cli.addCommand(Commands[i].m_desc, Commands[i].m_fnExec);
 
-    if( nUid == CommandLine::NoUid )
+    if( nUid == NoUid )
     {
-      PERROR("Failed to add command '" << Commands[i].m_desc.m_sName << "'.");
+      PERROR("Failed to add command '" << Commands[i].m_desc.name << "'.");
       return RC_ERROR;
     }
-
-    UidToIndexMap[nUid] = i;
   }
 
+  //
+  // Add built-in command to interface.
+  //
+  addons::addHelpCommand(cli);
+  addons::addQuitCommand(cli);
+
+  //
+  // Compile command-line interface.
+  //
   if( (rc = cli.compile()) != OK )
   {
     PERROR("Compile failed.");
-  }
 
-  // see the results of the compile
-  //cli.backtrace(cerr, true);
+    // backtrace problem
+    cerr << "(backtrace)" << endl;
+    cli.backtrace(cerr, true);
+  }
 
   return rc;
 }
@@ -598,15 +467,15 @@ static int loadCommands(CommandLine &cli)
  */
 static int run(CommandLine &cli)
 {
-  ExtArgVec argv;     // vector of string input arguments
-  int       rc;       // return code
+  CmdExtArgVec  argv;     // vector of string input arguments
+  int           rc;       // return code
 
   // state
   MoveNum     = 1;
   PlayersTurn = White;
   cli.pushPrompt("white> ");
 
-  while( !CliQuit )
+  while( cli.ok() )
   {
     rc = cli.readCommand(argv);
 
@@ -617,7 +486,7 @@ static int run(CommandLine &cli)
 
       if( argv.size() > 0 ) 
       {
-        rc = Commands[UidToIndexMap[argv[0].uid()]].m_fnExec(argv);
+        rc = cli.execute(argv);
 
         if( rc == OK )
         {

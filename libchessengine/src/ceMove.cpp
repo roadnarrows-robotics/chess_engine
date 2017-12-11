@@ -148,10 +148,10 @@ void ChessMove::getEnPassantCapturedPawnPos(const ChessColor ePlayer,
   switch( ePlayer )
   {
     case White:
-      posCapture.m_rank = ChessRank5;
+      posCapture.m_rank = PawnRankWhiteEPCap;
       break;
     case Black:
-      posCapture.m_rank = ChessRank4;
+      posCapture.m_rank = PawnRankBlackEPCap;
       break;
     default:
       posCapture.m_rank = NoRank;
@@ -163,35 +163,45 @@ void ChessMove::getCastlingKingMove(const ChessColor    ePlayer,
                                     ChessPos            &posSrc,
                                     ChessPos            &posDst)
 {
-  switch( eCastling )
-  {
-    case KingSide:
-      posSrc.m_file = ChessFileE;
-      posDst.m_file = ChessFileG;
-      break;
-    case QueenSide:
-      posSrc.m_file = ChessFileE;
-      posDst.m_file = ChessFileC;
-      break;
-    default:
-      posSrc.m_file = NoFile;
-      posDst.m_file = NoFile;
-      break;
-  }
-
   switch( ePlayer )
   {
     case White:
-      posSrc.m_rank = ChessRank1;
-      posDst.m_rank = ChessRank1;
+      switch( eCastling )
+      {
+        case KingSide:
+          posSrc = CastlingPosWhiteKSrc;
+          posDst = KSidePosWhiteKDst;
+          break;
+        case QueenSide:
+          posSrc = CastlingPosWhiteKSrc;
+          posDst = QSidePosWhiteKDst;
+          break;
+        default:
+          posSrc = NoPos;
+          posDst = NoPos;
+          break;
+      }
       break;
     case Black:
-      posSrc.m_rank = ChessRank8;
-      posDst.m_rank = ChessRank8;
+      switch( eCastling )
+      {
+        case KingSide:
+          posSrc = CastlingPosBlackKSrc;
+          posDst = KSidePosBlackKDst;
+          break;
+        case QueenSide:
+          posSrc = CastlingPosBlackKSrc;
+          posDst = QSidePosBlackKDst;
+          break;
+        default:
+          posSrc = NoPos;
+          posDst = NoPos;
+          break;
+      }
       break;
     default:
-      posSrc.m_rank = NoRank;
-      posDst.m_rank = NoRank;
+      posSrc = NoPos;
+      posDst = NoPos;
       break;
   }
 }
@@ -201,35 +211,45 @@ void ChessMove::getCastlingRookMove(const ChessColor    ePlayer,
                                     ChessPos            &posSrc,
                                     ChessPos            &posDst)
 {
-  switch( eCastling )
-  {
-    case KingSide:
-      posSrc.m_file = ChessFileH;
-      posDst.m_file = ChessFileF;
-      break;
-    case QueenSide:
-      posSrc.m_file = ChessFileA;
-      posDst.m_file = ChessFileD;
-      break;
-    default:
-      posSrc.m_file = NoFile;
-      posDst.m_file = NoFile;
-      break;
-  }
-
   switch( ePlayer )
   {
     case White:
-      posSrc.m_rank = ChessRank1;
-      posDst.m_rank = ChessRank1;
+      switch( eCastling )
+      {
+        case KingSide:
+          posSrc = KSidePosWhiteRSrc;
+          posDst = KSidePosWhiteRDst;
+          break;
+        case QueenSide:
+          posSrc = QSidePosWhiteRSrc;
+          posDst = QSidePosWhiteRDst;
+          break;
+        default:
+          posSrc = NoPos;
+          posDst = NoPos;
+          break;
+      }
       break;
     case Black:
-      posSrc.m_rank = ChessRank8;
-      posDst.m_rank = ChessRank8;
+      switch( eCastling )
+      {
+        case KingSide:
+          posSrc = KSidePosBlackRSrc;
+          posDst = KSidePosBlackRDst;
+          break;
+        case QueenSide:
+          posSrc = QSidePosBlackRSrc;
+          posDst = QSidePosBlackRDst;
+          break;
+        default:
+          posSrc = NoPos;
+          posDst = NoPos;
+          break;
+      }
       break;
     default:
-      posSrc.m_rank = NoRank;
-      posDst.m_rank = NoRank;
+      posSrc = NoPos;
+      posDst = NoPos;
       break;
   }
 }
@@ -307,7 +327,7 @@ std::ostream &chess_engine::operator<<(std::ostream &os,
         << nameOfResult(move.m_eResult)
         << "(" << (char)move.m_eResult << ")"
         << std::endl
-    << "}" << std::endl
+    << "}";
   ;
 
   return os;

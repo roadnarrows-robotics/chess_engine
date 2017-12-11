@@ -4,7 +4,9 @@ project(chess_tools)
 
 set(CE_ROOT ..)
 
-set(TOOL_LIST chess_parser) # chess_cli)
+set(CMAKE_CXX_STANDARD 11)
+
+set(TOOL_LIST chess_parser chess_cli)
 
 find_package(catkin 
   REQUIRED COMPONENTS 
@@ -17,9 +19,7 @@ find_package(catkin
 find_package(Boost REQUIRED COMPONENTS system)
 
 set(rnr-sdk_DIR /usr/local/lib/cmake/rnr)
-find_package(rnr-sdk
-  REQUIRED
-)
+find_package(rnr-sdk REQUIRED)
 
 catkin_package(
   DEPENDS Boost
@@ -30,6 +30,8 @@ catkin_package(
 if(READLINE_FOUND)
   add_definitions(-DUSE_READLINE)
 endif()
+
+add_definitions(-DLOG -DLOGMOD="chess_tools")
 
 include_directories(
   include 
@@ -51,18 +53,20 @@ target_link_libraries(chess_parser
   ${READLINE_LIBRARIES}
 )
 
-#add_executable(chess_cli
-#  src/chess_cli.cpp
-#  src/readline_wrapper.cpp
-#)
+add_executable(chess_cli
+  src/chess_cli.cpp
+)
 
-#target_link_libraries(chess_cli
-#  chessengine
-#  ${catkin_LIBRARIES}
-#)
+target_link_libraries(chess_cli
+  chessengine
+  ${rnr-sdk_LIBRARIES}
+  ${catkin_LIBRARIES}
+  ${READLINE_LIBRARIES}
+)
 
 install(
   PROGRAMS 
     chess_cli
+    chess_parser
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

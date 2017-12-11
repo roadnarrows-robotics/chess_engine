@@ -6,7 +6,7 @@ project(chessengine)
 
 set(CE_ROOT ..)
 
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
 
 find_package(catkin 
   REQUIRED COMPONENTS 
@@ -15,14 +15,20 @@ find_package(catkin
 
 find_package(Boost REQUIRED COMPONENTS system)
 
+set(rnr-sdk_DIR /usr/local/lib/cmake/rnr)
+find_package(rnr-sdk REQUIRED)
+
 catkin_package(
   DEPENDS Boost
   INCLUDE_DIRS ${CE_ROOT}/include
   LIBRARIES ${PROJECT_NAME}
 )
 
+add_definitions(-DLOG -DLOGMOD="libchessengine" -DLOGMOD_COLOR=LOG_COLOR_BLUE)
+
 include_directories(
   ${CE_ROOT}/include
+  ${rnr-sdk_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
 )
@@ -36,8 +42,14 @@ add_library(${PROJECT_NAME}
   src/ceGame.cpp
   src/ceMove.cpp
   src/ceParser.cpp
+  src/cePlayer.cpp
   src/ceSquare.cpp
   src/ceUtils.cpp
+)
+
+target_link_libraries(${PROJECT_NAME}
+  ${rnr-sdk_LIBRARIES}
+  ${catkin_LIBRARIES}
 )
 
 # does not seem to work.

@@ -15,7 +15,7 @@
  * \author Robin Knight (robin.knight@roadnarrows.com)
  *
  * \par Copyright:
- * (C) 2016  RoadNarrows
+ * (C) 2016-2017  RoadNarrows
  * (http://www.roadnarrows.com)
  * \n All Rights Reserved
  *
@@ -59,8 +59,6 @@
 #include <string>
 #include <vector>
 #include <map>
-
-#include <ros/console.h>
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceBoard.h"
@@ -112,7 +110,7 @@ void ChessSquare::setPos(const ChessPos &pos)
   m_eColor = colorOfSquare(m_pos);
 }
 
-ChessPos ChessSquare::getPos() const
+const ChessPos &ChessSquare::getPos() const
 {
   return m_pos;
 }
@@ -210,3 +208,6 @@ ChessColor ChessSquare::colorOfSquare(int file, int rank)
     return NoColor;
   }
 }
+
+//const ChessSquare NoSquare;   ///< "no square" square
+

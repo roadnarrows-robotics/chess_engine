@@ -78,6 +78,30 @@ namespace chess_engine
   }
 
   /*!
+   * \brief Check if chess file is a valid file on the standard 8x8 board.
+   *
+   * \param file  Chess file to check.
+   *
+   * \return Returns true or false.
+   */
+  inline bool isValidFile(const int file)
+  {
+    return (file >= ChessFileA) && (file <= ChessFileH);
+  }
+
+  /*!
+   * \brief Check if chess rank is a valid rank on the standard 8x8 board.
+   *
+   * \param rank  Chess rank to check.
+   *
+   * \return Returns true or false.
+   */
+  inline bool isValidRank(const int rank)
+  {
+    return (rank >= ChessRank1) && (rank <= ChessRank8);
+  }
+
+  /*!
    * \brief Calculate difference in file column positions.
    *
    * \param file1 Chess file minuend.
@@ -110,7 +134,7 @@ namespace chess_engine
    *
    * \return String.
    */
-  extern const std::string nameOfColor(ChessColor color);
+  extern const std::string nameOfColor(const ChessColor color);
 
   /*!
    * \brief Get the name of the chess piece.
@@ -119,7 +143,7 @@ namespace chess_engine
    *
    * \return String.
    */
-  extern const std::string nameOfPiece(ChessPiece piece);
+  extern const std::string nameOfPiece(const ChessPiece piece);
 
   /*!
    * \brief Get the chess figurine unicode string.
@@ -138,7 +162,7 @@ namespace chess_engine
    *
    * \return String.
    */
-  extern const std::string nameOfCastling(ChessCastling side);
+  extern const std::string nameOfCastling(const ChessCastling side);
 
   /*!
    * \brief Get the name of the chess play/game action result.
@@ -147,7 +171,7 @@ namespace chess_engine
    *
    * \return String.
    */
-  extern const std::string nameOfResult(ChessResult result);
+  extern const std::string nameOfResult(const ChessResult result);
 
   /*!
    * \brief Get the name of check modifier.
@@ -156,7 +180,7 @@ namespace chess_engine
    *
    * \return String.
    */
-  extern const std::string nameOfCheckMod(ChessCheckMod checkmod);
+  extern const std::string nameOfCheckMod(const ChessCheckMod checkmod);
 
   /*!
    * \brief Get the name of the chess algebra notation.
@@ -165,8 +189,17 @@ namespace chess_engine
    *
    * \return String.
    */
-  extern const std::string nameOfAlgebra(ChessAlgebra algebra);
+  extern const std::string nameOfAlgebra(const ChessAlgebra algebra);
   
+  /*!
+   * \brief Get the name of the type of player.
+   *
+   * \param type  Player type enumeration.
+   *
+   * \return String.
+   */
+  extern const std::string nameOfPlayerType(const ChessPlayerType type);
+
   /*!
    * \brief Get boolean's value string equivalent.
    *
@@ -174,7 +207,7 @@ namespace chess_engine
    *
    * \return String.
    */
-  inline std::string nameOfBool(bool v)
+  inline std::string nameOfBool(const bool v)
   {
     return v? "true": "false";
   }

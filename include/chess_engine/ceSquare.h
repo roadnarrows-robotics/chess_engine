@@ -129,7 +129,7 @@ namespace chess_engine
      *
      * \return Square's position.
      */
-    ChessPos getPos() const;
+    const ChessPos &getPos() const;
 
     /*!
      * \brief Get this chess square's color.
@@ -258,8 +258,10 @@ namespace chess_engine
     ChessPos      m_pos;          ///< square location on board (file, rank)
     ChessColor    m_eColor;       ///< square color [NoColor, White, Black]
     ChessFqPiece  m_fqPiece;      ///< fully qualified chess piece, if any
-  };
+  }; // class ChessSquare
 
+  const ChessSquare NoSquare;     ///< "no square" square
+  
 } // chess_engine
 
 #endif // _CE_SQUARE_H

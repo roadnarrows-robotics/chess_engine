@@ -56,11 +56,16 @@
 #ifndef _CE_TYPES_H
 #define _CE_TYPES_H
 
+#include <stddef.h>
+
 #include <iostream>
 #include <vector>
 
 namespace chess_engine
 {
+  // --------------------------------------------------------------------------
+  // Enumerated Types and Values
+  // --------------------------------------------------------------------------
 
   const char ChessValNone  = '0';   ///< common 'no value' value
   const char ChessValUndef = '?';   ///< common undefined/unknown value
@@ -103,6 +108,132 @@ namespace chess_engine
   const int NumOfRanks = 8; ///< number of standard chess board ranks
 
   /*!
+   * \brief Chess player, piece, and move color.
+   */
+  enum ChessColor
+  {
+    NoColor     = ChessValNone, ///< no color
+    White       = 'w',          ///< white
+    Black       = 'b',          ///< black
+    UndefColor  = ChessValUndef ///< undefined/unknown color
+  };
+
+  /*!
+   * \brief Chess piece type.
+   */
+  enum ChessPiece
+  {
+    NoPiece     = ChessValNone, ///< no piece
+    King        = 'K',          ///< king
+    Queen       = 'Q',          ///< queen
+    Rook        = 'R',          ///< rook or castle
+    Bishop      = 'B',          ///< bishop
+    Knight      = 'N',          ///< knight
+    Pawn        = 'P',          ///< pawn
+    UndefPiece  = ChessValUndef ///< undefined/unknown piece
+  };
+
+  /*!
+   * \brief Chess castling.
+   */
+  enum ChessCastling
+  {
+    NoCastling  = ChessValNone, ///< no castling
+    KingSide    = 'K',          ///< king side castling
+    QueenSide   = 'Q'           ///< queen side castling
+  };
+
+  /*! list of castling options available */
+  typedef std::vector<ChessCastling> list_of_castling;
+
+  /*!
+   * \brief Chess move modifier.
+   */
+  enum ChessCheckMod
+  {
+    NoCheckMod      = ChessValNone, ///< no check modifier
+    ModCheck        = '+',          ///< check
+    ModDoubleCheck  = '2',          ///< double check
+    ModCheckmate    = '#'           ///< checkmate
+  };
+
+  /*!
+   * \brief Chess action result.
+   */
+  enum ChessResult
+  {
+    NoResult      = ChessValNone, ///< no result
+    Ok            = 'y',          ///< good move
+    BadMove       = 'n',          ///< invalid move attempt
+    OutOfTurn     = '?',          ///< out-of-turn move attempt
+    Busy          = 'b',          ///< busy making a move
+    InPlay        = '>',          ///< game currently in play
+    Checkmate     = '#',          ///< checkmate
+    Draw          = 'd',          ///< game is a draw
+    Resign        = 'r',          ///< player or engine resigned
+    Disqualified  = 'k',          ///< player is disqualified
+    Aborted       = '~',          ///< game aborted
+    NoGame        = '$',          ///< no active game
+    GameFatal     = '!'           ///< current game has unrecoverable errors
+  };
+
+  /*!
+   * \brief Chess Algebra Notations.
+   */
+  enum ChessAlgebra
+  {
+    UnknownAN = 0,      ///< unknown algebra notation
+    CAN       = 1,      ///< coordinate algebra notation
+    SAN       = 2       ///< standard algebra notation
+  };
+
+  /*!
+   * \brief Chess board direction.
+   */
+  enum ChessBoardDir
+  {
+    DirNone       = 0,    ///< no direction; delta file,rank = (0, 0)
+    DirUp         = 1,    ///< up;           delta file,rank = (0, 1)
+    DirUpperLeft  = 2,    ///< upper left;   delta file,rank = (-1, 1)
+    DirLeft       = 3,    ///< left;         delta file,rank = (-1, 0)
+    DirLowerLeft  = 4,    ///< lower left;   delta file,rank = (-1, -1)
+    DirDown       = 5,    ///< down;         delta file,rank = (0, -1)
+    DirLowerRight = 6,    ///< lower right;  delta file,rank = (1, -1)
+    DirRight      = 7,    ///< right;        delta file,rank = (1, 0)
+    DirUpperRight = 8,    ///< upper right;  delta file,rank = (1, 1)
+
+    DirNumOf              ///< number of board directions   
+  };
+
+  const size_t EndOfBoard = 8; ///< til the end of the board
+
+  /*!
+   * \brief Chess player id type and reserved values.
+   */
+  typedef size_t      ChessPlayerId;  ///< player id
+
+  const ChessPlayerId NoPlayerId        = 0; ///< "no player id" id
+  const ChessPlayerId AnonPlayerId      = 1; ///< anonymous player id
+  const ChessPlayerId AnonWhitePlayerId = 2; ///< anonymous white player id
+  const ChessPlayerId AnonBlackPlayerId = 3; ///< anonomous black player id
+
+  /*!
+   * \brief Chess player types.
+   */
+  enum ChessPlayerType
+  {
+    PlayerTypeAnon    = ChessValNone, ///< anonymous, unknown player type
+    PlayerTypeHuman   = 'H',          ///< human player
+    PlayerTypeRobot   = 'R',          ///< autonomous robot player
+    PlayerTypeSwAgent = 'A'           ///< software agent type
+  };
+
+
+  // --------------------------------------------------------------------------
+  // ChessPos Structure
+  // --------------------------------------------------------------------------
+
+  /*!
    * \brief Chess board position. (Definition found in ceCore.cpp.)
    */
   struct ChessPos
@@ -130,7 +261,14 @@ namespace chess_engine
      * \param file    Chess file ['a' - 'h']
      * \param rank    Chess rank ['1' - '8']
      */
-    ChessPos(const int &file, const int &rank);
+    ChessPos(const int file, const int rank);
+
+    /*!
+     * \brief Parse constructor.
+     *
+     * \param filerank  Chess square file-rank string ['a' - 'h']['1' - '8'].
+     */
+    ChessPos(const std::string &filerank);
 
     /*!
      * \brief Assignment operator.
@@ -182,10 +320,6 @@ namespace chess_engine
      * \return Returns true or false.
      */
     bool isOnChessBoard() const;
-
-    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    // Operators
-    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     /*!
      * \brief Equality operator.
@@ -271,54 +405,118 @@ namespace chess_engine
       return (m_rank != b);
     }
 
-    //
-    // Friends
-    //
-
     /*!
      * \brief Output stream insertion operator.
      *
      * \param os    Output stream.
-     * \param pos   Object to insert.
+     * \param pos   Chess position to insert.
      *
      * \return Returns os.
      */
     friend std::ostream &operator<<(std::ostream &os, const ChessPos &pos);
-  };
 
-  const ChessPos NoPos;  ///< no position or move
+  }; // struct ChessPos
 
   /*! list of positions type */
   typedef std::vector<ChessPos> list_of_pos;
 
-  /*!
-   * \brief Chess player, piece, and move color.
-   */
-  enum ChessColor
-  {
-    NoColor     = ChessValNone, ///< no color
-    White       = 'w',          ///< white
-    Black       = 'b',          ///< black
-    UndefColor  = ChessValUndef ///< undefined/unknown color
-  };
+  const ChessPos  NoPos;  ///< no position or move
 
   /*!
-   * \brief Chess piece type.
+   * \brief Start of Game Positions
+   * \{
    */
-  enum ChessPiece
-  {
-    NoPiece     = ChessValNone, ///< no piece
-    King        = 'K',          ///< king
-    Queen       = 'Q',          ///< queen
-    Rook        = 'R',          ///< rook or castle
-    Bishop      = 'B',          ///< bishop
-    Knight      = 'N',          ///< knight
-    Pawn        = 'P',          ///< pawn
-    UndefPiece  = ChessValUndef ///< undefined/unknown piece
-  };
+  // white
+  const ChessPos  SoGPosWhiteQR(ChessFileA, ChessRank1);  ///< queen's rook
+  const ChessPos  SoGPosWhiteQN(ChessFileB, ChessRank1);  ///< queen's knight
+  const ChessPos  SoGPosWhiteQB(ChessFileC, ChessRank1);  ///< queen's bishop
+  const ChessPos  SoGPosWhiteQ( ChessFileD, ChessRank1);  ///< queen
+  const ChessPos  SoGPosWhiteK( ChessFileE, ChessRank1);  ///< king
+  const ChessPos  SoGPosWhiteKB(ChessFileF, ChessRank1);  ///< king's bishop
+  const ChessPos  SoGPosWhiteKN(ChessFileG, ChessRank1);  ///< king's knight
+  const ChessPos  SoGPosWhiteKR(ChessFileH, ChessRank1);  ///< king's rook
+  const ChessRank SoGRankWhiteP = ChessRank2;             ///< pawn's rank
+
+  // black
+  const ChessPos  SoGPosBlackQR(ChessFileA, ChessRank8);  ///< queen's rook
+  const ChessPos  SoGPosBlackQN(ChessFileB, ChessRank8);  ///< queen's knight
+  const ChessPos  SoGPosBlackQB(ChessFileC, ChessRank8);  ///< queen's bishop
+  const ChessPos  SoGPosBlackQ( ChessFileD, ChessRank8);  ///< queen
+  const ChessPos  SoGPosBlackK( ChessFileE, ChessRank8);  ///< king
+  const ChessPos  SoGPosBlackKB(ChessFileF, ChessRank8);  ///< king's bishop
+  const ChessPos  SoGPosBlackKN(ChessFileG, ChessRank8);  ///< king's knight
+  const ChessPos  SoGPosBlackKR(ChessFileH, ChessRank8);  ///< king's rook
+  const ChessRank SoGRankBlackP = ChessRank7;             ///< pawn's rank
+  /*! \} */
 
   /*!
-   * \brief Chess fully qualified piece. (Definition found in ceCore.cpp.)
+   * \brief Castling Positions
+   * \{
+   */
+  // white castling source positions
+  const ChessPos  CastlingPosWhiteKSrc(SoGPosWhiteK); ///< king source position
+  const ChessPos  KSidePosWhiteRSrc(SoGPosWhiteKR);   ///< king's rook source
+  const ChessPos  QSidePosWhiteRSrc(SoGPosWhiteQR);   ///< queen's rook source
+
+  // white king side castling destination positions
+  const ChessPos  KSidePosWhiteKDst(ChessFileG, ChessRank1);  // king dest
+  const ChessPos  KSidePosWhiteRDst(ChessFileF, ChessRank1);  // rook dest
+
+  // white queen side castling destination positions
+  const ChessPos  QSidePosWhiteKDst(ChessFileC, ChessRank1);  // king dest
+  const ChessPos  QSidePosWhiteRDst(ChessFileD, ChessRank1);  // rook dest
+
+  // black
+  const ChessPos  CastlingPosBlackKSrc(SoGPosBlackK); ///< king source position
+  const ChessPos  KSidePosBlackRSrc(SoGPosBlackKR);   ///< king's rook source
+  const ChessPos  QSidePosBlackRSrc(SoGPosBlackQR);   ///< queen's rook source
+
+  // white king side castling destination positions
+  const ChessPos  KSidePosBlackKDst(ChessFileG, ChessRank8);  // king dest
+  const ChessPos  KSidePosBlackRDst(ChessFileF, ChessRank8);  // rook dest
+
+  // white queen side castling destination positions
+  const ChessPos  QSidePosBlackKDst(ChessFileC, ChessRank8);  // king dest
+  const ChessPos  QSidePosBlackRDst(ChessFileD, ChessRank8);  // rook dest
+  /*! \} */
+
+  /*!
+   * \brief Special Pawn Movement Positions
+   * \{
+   */
+  // white pawn initial move
+  const ChessRank PawnRankWhite2SqSrc = ChessRank2; ///< pawn 2 square src rank
+  const ChessRank PawnRankWhite2SqDst = ChessRank4; ///< pawn 2 square dst rank
+
+  // white pawn en passant move
+  const ChessRank PawnRankWhiteEPSrc  = ChessRank5; ///< pawn's e.p src rank
+  const ChessRank PawnRankWhiteEPDst  = ChessRank6; ///< pawn's e.p dst rank
+  const ChessRank PawnRankWhiteEPCap  = ChessRank5; ///< pawn's e.p capture rank
+
+  // white pawn promotion move
+  const ChessRank PawnRankWhitePromo  = ChessRank8; ///< pawn's promotion rank
+
+  // black pawn initial move
+  const ChessRank PawnRankBlack2SqSrc = ChessRank7; ///< pawn 2 square src rank
+  const ChessRank PawnRankBlack2SqDst = ChessRank5; ///< pawn 2 square dst rank
+
+  // black pawn en passant move
+  const ChessRank PawnRankBlackEPSrc  = ChessRank4; ///< pawn's e.p src rank
+  const ChessRank PawnRankBlackEPDst  = ChessRank3; ///< pawn's e.p dst rank
+  const ChessRank PawnRankBlackEPCap  = ChessRank4; ///< pawn's e.p capture rank
+
+  // black pawn promotion move
+  const ChessRank PawnRankBlackPromo  = ChessRank1; ///< pawn's promotion rank
+
+  /*! \} */
+
+
+  // --------------------------------------------------------------------------
+  // ChessFqPeice Class
+  // --------------------------------------------------------------------------
+
+  /*!
+   * \brief Chess fully qualified piece. (Implementation found in ceCore.cpp.)
    *
    * A fully-qualified piece specifies its color, type, and its game unique
    * identifier.
@@ -443,89 +641,19 @@ namespace chess_engine
                                   ChessPiece      ePiece,
                                   int             nInstance);
 
-    // Friends
-    friend std::ostream &operator<<(std::ostream &os,
+    /*!
+     * \brief ChessFqPiece output stream operator.
+     *
+     * \param os      Output stream.
+     * \param fqPiece Fully qualified chess piece to insert.
+     *
+     * \return Output stream.
+     */
+    friend std::ostream &operator<<(std::ostream       &os,
                                     const ChessFqPiece &fqPiece);
-  };
 
-  /*!
-   * \brief Chess castling.
-   */
-  enum ChessCastling
-  {
-    NoCastling  = ChessValNone, ///< no castling
-    KingSide    = 'K',          ///< king side castling
-    QueenSide   = 'Q'           ///< queen side castling
-  };
+  }; // class ChessFqPiece
 
-  /*! list of castling options available */
-  typedef std::vector<ChessCastling> list_of_castling;
-
-  /*!
-   * \brief Chess move modifier.
-   */
-  enum ChessCheckMod
-  {
-    NoCheckMod      = ChessValNone, ///< no check modifier
-    ModCheck        = '+',          ///< check
-    ModDoubleCheck  = '2',          ///< double check
-    ModCheckmate    = '#'           ///< checkmate
-  };
-
-  /*!
-   * \brief Chess action result.
-   */
-  enum ChessResult
-  {
-    NoResult      = ChessValNone, ///< no result
-    Ok            = 'y',          ///< good move
-    BadMove       = 'n',          ///< invalid move attempt
-    OutOfTurn     = '?',          ///< out-of-turn move attempt
-    Busy          = 'b',          ///< busy making a move
-    InPlay        = '>',          ///< game currently in play
-    Checkmate     = '#',          ///< checkmate
-    Draw          = 'd',          ///< game is a draw
-    Resign        = 'r',          ///< player or engine resigned
-    Disqualified  = 'k',          ///< player is disqualified
-    NoGame        = '$',          ///< no active game
-    GameFatal     = '!'           ///< current game has unrecoverable errors
-  };
-
-  /*!
-   * \brief Chess Algebra Notations.
-   */
-  enum ChessAlgebra
-  {
-    UnknownAN = 0,      ///< unknown algebra notation
-    CAN       = 1,      ///< coordinate algebra notation
-    SAN       = 2       ///< standard algebra notation
-  };
-
-
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  // Friends
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
-  /*!
-   * \brief ChessPos output stream operator.
-   *
-   * \param os      Output stream.
-   * \param fqPiece Chess position.
-   *
-   * \return Output stream.
-   */
-  extern std::ostream &operator<<(std::ostream &os, const ChessPos &pos);
-
-  /*!
-   * \brief ChessFqPiece output stream operator.
-   *
-   * \param os      Output stream.
-   * \param fqPiece Fully qualified chess piece.
-   *
-   * \return Output stream.
-   */
-  extern std::ostream &operator<<(std::ostream       &os,
-                                  const ChessFqPiece &fqPiece);
 
 } // namespace chess_engine
 

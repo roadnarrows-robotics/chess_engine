@@ -62,6 +62,7 @@
 
 #include <string>
 #include <vector>
+#include <ostream>
 
 #include <boost/regex.hpp>
 
@@ -71,6 +72,54 @@
 
 namespace chess_engine
 {
+  // ---------------------------------------------------------------------------
+  // Class BeParsedVars
+  // ---------------------------------------------------------------------------
+
+  /*!
+   * \brief Helper class to hold intermediate parsed backend engine values.
+   */
+  class BeParsedVars
+  {
+  public:
+    int         m_nMoveNum;     ///< read new move number
+    std::string m_strAN;        ///< read parsed AN
+    std::string m_strSAN;       ///< read parsed SAN
+    ChessResult m_eEoGResult;   ///< read end of game result
+    ChessColor  m_eEoGWinner;   ///< read end of game result winner
+
+    /*!
+     * \brief Default constructor.
+     */
+    BeParsedVars()
+    {
+      clear();
+    }
+
+    /*!
+     * \brief Destructor.
+     */
+    virtual ~BeParsedVars() { }
+
+    /*!
+     * \brief Clear parsed values.
+     */
+    void clear();
+
+    /*!
+     * \brief Output stream insertion operator.
+     *
+     * \param os  Output stream.
+     * \param obj Object to insert.
+     *
+     * \return Reference to output stream.
+     */
+    friend std::ostream &operator<<(std::ostream &os, const BeParsedVars &obj);
+
+  protected:
+  }; // class BeParsedVars
+
+
   // ---------------------------------------------------------------------------
   // Class ChessEngine
   // ---------------------------------------------------------------------------
@@ -150,7 +199,7 @@ namespace chess_engine
      *
      * \return Difficulty level [1.0, 10.0] with 1 being the easiest.
      */
-    virtual int getGameDifficulty() const
+    virtual float getGameDifficulty() const
     {
       return m_fDifficulty;
     }
@@ -188,13 +237,11 @@ namespace chess_engine
     /*!
      * \brief Compute backend chess engine's move.
      *
-     * \param [out] eMoveColor  Color of move.
      * \param [out] strAN       Move in Algebraic Notation.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    virtual int computeEnginesMove(ChessColor  &eMoveColor,
-                                   std::string &strAN) = 0;
+    virtual int computeEnginesMove(std::string &strAN) = 0;
 
     /*!
      * \brief Resign from the game.
@@ -289,7 +336,7 @@ namespace chess_engine
      * \return Next player to move.
      */
     ChessColor alternateTurns(const ChessColor ePlayerThatMoved);
-  };
+  }; // class ChessEngine
 
 
   // ---------------------------------------------------------------------------
@@ -305,18 +352,6 @@ namespace chess_engine
     static const int    MaxLineSize = 80;     ///< maximum line length
     static const float  DepthDifficulty;      ///< depth/difficulty ratio
     static const int    DepthDft = 2;         ///< default search depth
-
-    /*!
-     * \brief Structure to hold intermediate parsed backend engine values.
-     */
-    struct BeParsedVars
-    {
-      int         m_nMoveNum;     ///< read new move number
-      std::string m_strAN;        ///< read parsed AN
-      std::string m_strSAN;       ///< read parsed SAN
-      ChessResult m_eEoGResult;   ///< read end of game result
-      ChessColor  m_eEoGWinner;   ///< read end of game result winner
-    };
 
     /*!
      * \brief Default constructor.
@@ -381,17 +416,16 @@ namespace chess_engine
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    virtual int makePlayersMove(const ChessColor ePlayer, std::string &strAN);
+    virtual int makePlayersMove(const ChessColor  ePlayer, std::string &strAN);
 
     /*!
      * \brief Compute backend chess engine's move.
      *
-     * \param [out] eMoveColor  Color of move.
      * \param [out] strAN       Move in Standard Algebraic Notation.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    virtual int computeEnginesMove(ChessColor &eMoveColor, std::string &strAN);
+    virtual int computeEnginesMove(std::string &strAN);
 
     /*!
      * \brief Get available castling move options.
@@ -737,7 +771,6 @@ namespace chess_engine
     /*!
      * \brief Clear all parse variables.
      */
-    virtual void clearParseVars();
 
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -763,7 +796,7 @@ namespace chess_engine
      * event occurred, respectively.
      */
     int waitForPipe(unsigned int msec);
-  };
+  }; // class ChessEngineGnu 
 
 } // chess_engine
 

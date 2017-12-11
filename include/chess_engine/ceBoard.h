@@ -70,9 +70,9 @@
  */
 namespace chess_engine
 {
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // ---------------------------------------------------------------------------
   // Class ChessBoard
-  // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  // ---------------------------------------------------------------------------
 
   /*!
    * \brief Chess board class.
@@ -137,6 +137,8 @@ namespace chess_engine
     void removePiece(const ChessPos &pos);
 
     /*!
+     * \defgroup doc_at_file_rank
+     * \{
      * \brief Get a reference to the (const) board square.
      *
      * \param file  Chess board file.
@@ -145,12 +147,16 @@ namespace chess_engine
      * \return If in range, returns the reference to the board's square.\n
      * If out-of-range, returns "no square" square
      * (see ChessSquare::isOnChessBoard).
+     * \}
      */
     const ChessSquare &at(const int file, const int rank) const;
 
+    /*! \copydoc doc_at_file_rank */
     ChessSquare &at(const int file, const int rank);
 
     /*!
+     * \defgroup doc_at_pos
+     * \{
      * \brief Get a reference to the (const) board square.
      *
      * \param pos   Chess board position.
@@ -158,13 +164,15 @@ namespace chess_engine
      * \return If in range, returns the reference to the board's square.\n
      * If out-of-range, returns "no square" square
      * (see ChessSquare::isOnChessBoard()).
+     * \}
      */
     const ChessSquare &at(const ChessPos &pos) const;
 
+    /*! \copydoc doc_at_pos */
     ChessSquare &at(const ChessPos &pos);
 
     /*!
-     * \brief Set unicode figurine gaphic state.
+     * \brief Set unicode figurine graphic state.
      *
      * \param on_off    State.
      */
@@ -174,17 +182,18 @@ namespace chess_engine
     }
 
     /*!
-     * \brief Determine moves source position from the the move and board state.
+     * \brief Get unicode figurine graphic state.
      *
-     * \param [in,out] move   Chess move.
-     *
-     * \return Returns true of source position determined, false otherwise.
+     * \return Return true (on) or false (off).
      */
-    bool setMoveSrcPos(ChessMove &move);
-    
+    bool getGraphicState() const
+    {
+      return m_bGraphic;
+    }
+
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-    // Static Member Functions
+    // Board Positioning Member Functions
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
     /*!
@@ -355,119 +364,214 @@ namespace chess_engine
      */
     static ChessColor getSquareColor(int file, int rank);
 
+
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    // Find Board Positions Member Functions
+    // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
     /*!
-     * \brief Find all of the major pieces's candidate move positions.
+     * \brief Determine move source position from the the move and board state.
      *
-     * No board state is taken into account. That is, consider the board as 
-     * empty accept for the major piece. The board is the standard 8x8 board.
+     * \param [in,out] move   Chess move.
      *
-     *
-     * Since major pieces's movements are invertible, the list of positions
-     * serve both as a previous source and future destination positions. The
-     * list radiates outward from the current position.
-     *
-     * \param         ePiece      Major chess piece type.
-     * \param         pos         The major pieces's current position.
-     * \param[in,out] positions   List (vector) of candidate positions.
-     *                            Any candidate position is appended to the end
-     *                            of the list. The list is not cleared.
+     * \return Returns true of source position determined, false otherwise.
      */
-    static void findMajorPieceMoves(const ChessPiece ePiece,
+    bool findMoveSrcPos(ChessMove &move);
+    
+    bool findKingMoveSrcPos(ChessMove &move);
+
+    bool findQueenMoveSrcPos(ChessMove &move);
+
+    bool findBishopMoveSrcPos(ChessMove &move);
+
+    bool findKnightMoveSrcPos(ChessMove &move);
+
+    bool findRookMoveSrcPos(ChessMove &move);
+
+    bool findPawnMoveSrcPos(ChessMove &move);
+
+    /*!
+     * \brief Find all available moves in the game for the given piece.
+     *
+     * \defgroup doc_find_avail_desc
+     * \{
+     * The available moves are determined by the piece, its color and position,
+     * and the current board state. However, no secondary effects, such as
+     * placing the piece's king in check, are taken into account. Nor are any
+     * special moves such as casling are taken into account.
+     * \}
+     *
+     * \param         ePiece      Chess piece type.
+     * \param         eColor      Color of the piece.
+     * \param         pos         The chess piece's position.
+     * \param[in,out] positions   List (vector) of available positions.
+     *                            Any candidate positions are appended to the
+     *                            end of the list. The list is not cleared.
+     *
+     * \return Returns number of available (and appended) positions.
+     */
+    size_t findAvailMovesInGame(const ChessPiece ePiece,
+                                const ChessColor eColor,
+                                const ChessPos   &pos,
+                                list_of_pos      &positions);
+
+    /*!
+     * \brief Find all available moves in the game for a rook.
+     *
+     * \copydoc doc_find_avail_desc
+     *
+     * \defgroup doc_find_avail_param_rc
+     * \{
+     * \param         eColor      Color of the piece.
+     * \param         pos         The chess piece's position.
+     * \param[in,out] positions   List (vector) of available positions.
+     *                            Any candidate positions are appended to the
+     *                            end of the list. The list is not cleared.
+     *
+     * \return Returns number of available (and appended) positions.
+     * \}
+     */
+    size_t findAvailKingMovesInGame(const ChessColor eColor,
                                     const ChessPos   &pos,
                                     list_of_pos      &positions);
 
     /*!
-     * \brief Find all of the king's candidate move positions.
+     * \brief Find all available moves in the game for a queen.
      *
-     * The board is the standard 8x8 board.
+     * \copydoc doc_find_avail_desc
+     * \copydoc doc_find_avail_param_rc
+     */
+    size_t findAvailQueenMovesInGame(const ChessColor eColor,
+                                     const ChessPos   &pos,
+                                     list_of_pos      &positions);
+
+    /*!
+     * \brief Find all available moves in the game for a bishop.
      *
+     * \copydoc doc_find_avail_desc
+     * \copydoc doc_find_avail_param_rc
+     */
+    size_t findAvailBishopMovesInGame(const ChessColor eColor,
+                                      const ChessPos   &pos,
+                                      list_of_pos      &positions);
+
+    /*!
+     * \brief Find all available moves in the game for a knight.
+     *
+     * \copydoc doc_find_avail_desc
+     * \copydoc doc_find_avail_param_rc
+     */
+    size_t findAvailKnightMovesInGame(const ChessColor eColor,
+                                      const ChessPos   &pos,
+                                      list_of_pos      &positions);
+
+    /*!
+     * \brief Find all available moves in the game for a rook.
+     *
+     * \copydoc doc_find_avail_desc
+     * \copydoc doc_find_avail_param_rc
+     */
+    size_t findAvailRookMovesInGame(const ChessColor eColor,
+                                    const ChessPos   &pos,
+                                    list_of_pos      &positions);
+
+    /*!
+     * \brief Find all available moves in the game for a pawn.
+     *
+     * \copydoc doc_find_avail_desc
+     * \copydoc doc_find_avail_param_rc
+     */
+    size_t findAvailPawnMovesInGame(const ChessColor eColor,
+                                    const ChessPos   &pos,
+                                    list_of_pos      &positions);
+
+
+    /*!
+     * \brief Get the full range of candidate move positions of the given major
+     * piece from the specified position.
+     *
+     * \defgroup doc_range_major_desc
+     * \{
      * No board state is taken into account. That is, consider the board as 
-     * empty accept for the king. The board is the standard 8x8 board.
+     * empty accept for the major piece. The board is the standard 8x8 board.
      *
-     * Since the king's movements are invertible, the list of positions serve
-     * both as a previous source and future destination positions. The list
-     * radiates outward from the current position.
+     * Since major pieces's movements are invertible, the list of positions
+     * serve both as a previous source and possible destination positions. The
+     * list radiates outward from the specified position. The specified
+     * position is excluded.
+     * \}
      *
-     * \param         pos         The king's current position.
+     * \param         ePiece      Major chess piece type.
+     * \param         pos         The major pieces's position.
      * \param[in,out] positions   List (vector) of candidate positions.
      *                            Any candidate position is appended to the end
      *                            of the list. The list is not cleared.
      */
-    static void findKingMoves(const ChessPos &pos, list_of_pos &positions);
+    static size_t rangeOfMajorPiece(const ChessPiece ePiece,
+                                    const ChessPos   &pos,
+                                    list_of_pos      &positions);
 
     /*!
-     * \brief Find all of the queens's candidate move positions.
+     * \brief Get the full range of candidate move positions of the king from
+     * the specified position.
      *
-     * No board state is taken into account. That is, consider the board as 
-     * empty accept for the queens. The board is the standard 8x8 board.
-     *
-     * Since the queens's movements are invertible, the list of positions serve
-     * both as a previous source and future destination positions. The list
-     * radiates outward from the current position.
-     *
-     * \param         pos         The queen's current position.
+     * \copydoc doc_range_major_desc
+     * \defgroup doc_range_major_param_rc
+     * \{
+     * \param         pos         The chess piece's position.
      * \param[in,out] positions   List (vector) of candidate positions.
-     *                            Any candidate position is appended to the end
-     *                            of the list. The list is not cleared.
+     *                            Any candidate positions are appended to the
+     *                            end of the list. The list is not cleared.
+     *
+     * \return Returns number of positions appended.
+     * \}
      */
-    static void findQueenMoves(const ChessPos &pos, list_of_pos &positions);
+    static size_t rangeOfKing(const ChessPos &pos, list_of_pos &positions);
 
     /*!
-     * \brief Find all of the bishop's candidate move positions.
+     * \brief Get the full range of candidate move positions of the queen from
+     * the specified position.
      *
-     * No board state is taken into account. That is, consider the board as 
-     * empty accept for the bishop. The board is the standard 8x8 board.
-     *
-     * Since the bishop's movements are invertible, the list of positions serve
-     * both as a previous source and future destination positions. The list
-     * radiates outward from the current position.
-     *
-     * \param         pos         The bishop's current position.
-     * \param[in,out] positions   List (vector) of candidate positions.
-     *                            Any candidate position is appended to the end
-     *                            of the list. The list is not cleared.
+     * \copydoc doc_range_major_desc
+     * \copydoc doc_range_major_param_rc
      */
-    static void findBishopMoves(const ChessPos &pos, list_of_pos &positions);
+    static size_t rangeOfQueen(const ChessPos &pos, list_of_pos &positions);
 
     /*!
-     * \brief Find all of the knight's candidate move positions.
+     * \brief Get the full range of candidate move positions of the bishop from
+     * the specified position.
      *
-     * No board state is taken into account. That is, consider the board as 
-     * empty accept for the knight. The board is the standard 8x8 board.
-     *
-     * Since the knight's movements are invertible, the list of positions serve
-     * both as a previous source and future destination positions. The list
-     * radiates outward from the current position.
-     *
-     * \param         pos         The knight's current position.
-     * \param[in,out] positions   List (vector) of candidate positions.
-     *                            Any candidate position is appended to the end
-     *                            of the list. The list is not cleared.
+     * \copydoc doc_range_major_desc
+     * \copydoc doc_range_major_param_rc
      */
-    static void findKnightMoves(const ChessPos &pos, list_of_pos &positions);
+    static size_t rangeOfBishop(const ChessPos &pos, list_of_pos &positions);
 
     /*!
-     * \brief Find all of the rook's candidate move positions.
+     * \brief Get the full range of candidate move positions of the knight from
+     * the specified position.
      *
-     * No board state is taken into account. That is, consider the board as 
-     * empty accept for the rook. The board is the standard 8x8 board.
-     *
-     * Since the rook's movements are invertible, the list of positions serve
-     * both as a previous source and future destination positions. The list
-     * radiates outward from the current position.
-     *
-     * \param         pos         The rook's current position.
-     * \param[in,out] positions   List (vector) of candidate positions.
-     *                            Any candidate position is appended to the end
-     *                            of the list. The list is not cleared.
+     * \copydoc doc_range_major_desc
+     * \copydoc doc_range_major_param_rc
      */
-    static void findRookMoves(const ChessPos &pos, list_of_pos &positions);
+    static size_t rangeOfKnight(const ChessPos &pos, list_of_pos &positions);
 
     /*!
-     * \brief Find all of the pawn's candidate source move positions.
+     * \brief Get the full range of candidate move positions of the rook from
+     * the specified position.
+     *
+     * \copydoc doc_range_major_desc
+     * \copydoc doc_range_major_param_rc
+     */
+    static size_t rangeOfRook(const ChessPos &pos, list_of_pos &positions);
+
+    /*!
+     * \brief Get the full range of candidate source move positions of the pawn
+     * from the specified position.
      *
      * How did the pawn get here?
      *
+     * \defgroup doc_range_pawn_desc
+     * \{
      * No board state is taken into account. That is, consider the board as 
      * empty accept for the pawn. The board is the standard 8x8 board.
      *
@@ -475,39 +579,55 @@ namespace chess_engine
      * A pawn's first move can be 1 or 2 squares forward. A capture moves
      * diagonally. The capture move, and when appropriate, the first 2 square
      * move are added to the list.
+     * \}
      *
-     * \param         eColor      The color of the pawn.
-     * \param         pos         The pawns's current position.
-     * \param[in,out] positions   List (vector) of candidate positions.
-     *                            Any candidate position is appended to the end
-     *                            of the list. The list is not cleared.
+     * \param         eColor      The color of the pawn. NoColor for any pawn.
+     * \param         pos         The chess piece's position.
+     * \param[in,out] positions   List (vector) of available positions.
+     *                            Any candidate positions are appended to the
+     *                            end of the list. The list is not cleared.
      */
-    static void findPawnSrcMoves(const ChessColor eColor,
-                                 const ChessPos   &pos,
-                                 list_of_pos      &positions);
+    static size_t rangeOfPawnSrc(const ChessColor eColor,
+                                   const ChessPos   &pos,
+                                   list_of_pos      &positions);
 
     /*!
-     * \brief Find all of the pawn's candidate destination move positions.
+     * \brief Get the full range of candidate destination move positions of the
+     * pawn from the specified position.
      *
-     * Where can the pawn move?
+     * Where can the pawn go from here?
      *
-     * No board state is taken into account. That is, consider the board as 
-     * empty accept for the pawn. The board is the standard 8x8 board.
+     * \copydoc doc_range_pawn_desc
      *
-     * Pawns can only move forward and that direction is determine by its color.
-     * A pawn's first move can be 1 or 2 squares forward. A capture moves
-     * diagonally. The capture move, and when appropriate, the first 2 square
-     * move are added to the list.
-     *
-     * \param         eColor      The color of the pawn.
-     * \param         pos         The pawns's current position.
-     * \param[in,out] positions   List (vector) of candidate positions.
-     *                            Any candidate position is appended to the end
-     *                            of the list. The list is not cleared.
+     * \param         eColor      The color of the pawn. NoColor for any pawn.
+     * \param         pos         The chess piece's position.
+     * \param[in,out] positions   List (vector) of available positions.
+     *                            Any candidate positions are appended to the
+     *                            end of the list. The list is not cleared.
      */
-    static void findPawnDstMoves(const ChessColor eColor,
-                                 const ChessPos   &pos,
-                                 list_of_pos      &positions);
+    static size_t rangeOfPawnDst(const ChessColor eColor,
+                                   const ChessPos   &pos,
+                                   list_of_pos      &positions);
+
+    /*!
+     * \brief Find all board positions in the specified direction.
+     *
+     * The search starts one square after the starting position in the given
+     * direction. The board is the standard 8x8 board.
+     *
+     * \param         pos         Starting position which is excluded. 
+     * \param         dir         Board direction.
+     * \param         max         Maximum positions added in that direction.
+     * \param[in,out] positions   List (vector) of board positions.
+     *                            Any added positions are appended to the end
+     *                            of the list. The list is not cleared.
+     *
+     * \return Returns number of positions appended.
+     */
+    static size_t findPositions(const ChessPos      &pos,
+                                const ChessBoardDir dir,
+                                const size_t        max,
+                                list_of_pos         &positions);
 
     /*!
      * \brief Filter list of positions on position criteria.
@@ -520,10 +640,12 @@ namespace chess_engine
      * \param       filter      Position filter.
      * \param[in]   positions   List (vector) of positions.
      * \param[out]  filtered    List (vector) of filtered positions.
+     *
+     * \return The number of filtered positions added.
      */
-    static void filterPositions(const ChessPos    &filter,
-                                const list_of_pos &positions,
-                                list_of_pos       &filtered);
+    static size_t filterPositions(const ChessPos    &filter,
+                                 const list_of_pos &positions,
+                                 list_of_pos       &filtered);
 
   protected:
     ChessSquare m_board[NumOfRanks][NumOfFiles];  ///< board matrix
@@ -541,6 +663,17 @@ namespace chess_engine
      */
     void setupBoard(ChessColor eColor);
   
+    /*!
+     * \brief Test list of candidate source positions and set if valid.
+     *
+     * \param [in,out] move       Chess move.
+     * \param[in]      candidates List (vector) of candidate positions.
+     *
+     * \return Returns true of source position uniquely determined,
+     * false otherwise.
+     */
+    bool testAndSetMoveSrc(ChessMove &move, list_of_pos &candidates);
+
 
     // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     // Friends
@@ -578,7 +711,7 @@ namespace chess_engine
      * \return Output stream.
      */
     friend std::ostream &oascii(std::ostream &os, const ChessBoard &board);
-  };
+  }; // class ChessBoard
 
 } // namespace chess_engine
 

@@ -4,7 +4,7 @@ project(chess_server)
 
 set(CE_ROOT ..)
 
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
 
 find_package(catkin 
   REQUIRED COMPONENTS 
@@ -79,7 +79,7 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
-add_executable(chess_server
+add_executable(${PROJECT_NAME}
   src/chess_as_autoplay.cpp
   src/chess_as_cem.cpp
   src/chess_as_mam.cpp
@@ -89,20 +89,16 @@ add_executable(chess_server
   src/chess_server_main.cpp
 )
 
-target_link_libraries(
-  chess_server 
+target_link_libraries(${PROJECT_NAME} 
   chessengine
   ${catkin_LIBRARIES}
 )
 
-add_dependencies(chess_server chess_server_gencpp)
+add_dependencies(${PROJECT_NAME} chess_server_gencpp)
 
 #install(
 #  PROGRAMS 
-#    scripts/calibrate_arm
-#    scripts/hek_panel
-#    scripts/hek_teleop
-#    scripts/joint_trajectory_demo 
+#    scripts/...
 #  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 #)
 
