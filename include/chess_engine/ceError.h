@@ -71,22 +71,23 @@ namespace chess_engine
    *
    * \{
    */
-  static const int CE_OK                      =  0; ///< not an error, success
+  const int CE_OK                       =  0; ///< not an error, success
 
-  static const int CE_ECODE_GEN               =  1; ///< general error
-  static const int CE_ECODE_SYS               =  2; ///< system (errno) error
-  static const int CE_ECODE_NO_SUPP           =  3; ///< not supported
-  static const int CE_ECODE_TIMEDOUT          =  4; ///< operation timed out
-  static const int CE_ECODE_NO_EXEC           =  5; ///< cannot execute
-  static const int CE_ECODE_BUSY              =  6; ///< resource busy
-  static const int CE_ECODE_INTR              =  7; ///< execution interrupted
-  static const int CE_ECODE_CHESS_NO_GAME     =  8; ///< no active chess game
-  static const int CE_ECODE_CHESS_BAD_MOVE    =  9; ///< invalid chess move
-  static const int CE_ECODE_CHESS_OUT_OF_TURN = 10; ///< out-of-turn chess move
-  static const int CE_ECODE_CHESS_RSP         = 11; ///< unexpected response
-  static const int CE_ECODE_CHESS_PARSE       = 12; ///< parse error
-  static const int CE_ECODE_CHESS_SYNC        = 13; ///< game out-of-sync
-  static const int CE_ECODE_CHESS_FATAL       = 14; ///< game in fatal condition
+  const int CE_ECODE_GEN                =  1; ///< general error
+  const int CE_ECODE_SYS                =  2; ///< system (errno) error
+  const int CE_ECODE_NO_SUPP            =  3; ///< not supported
+  const int CE_ECODE_TIMEDOUT           =  4; ///< operation timed out
+  const int CE_ECODE_NO_EXEC            =  5; ///< cannot execute
+  const int CE_ECODE_BUSY               =  6; ///< resource busy
+  const int CE_ECODE_INTR               =  7; ///< execution interrupted
+  const int CE_ECODE_BAD_VAL            =  8; ///< bad value
+  const int CE_ECODE_CHESS_NO_GAME      =  9; ///< no active chess game
+  const int CE_ECODE_CHESS_BAD_MOVE     = 10; ///< invalid chess move
+  const int CE_ECODE_CHESS_OUT_OF_TURN  = 11; ///< out-of-turn chess move
+  const int CE_ECODE_CHESS_RSP          = 12; ///< unexpected response
+  const int CE_ECODE_CHESS_PARSE        = 13; ///< parse error
+  const int CE_ECODE_CHESS_SYNC         = 14; ///< game out-of-sync
+  const int CE_ECODE_CHESS_FATAL        = 15; ///< game in fatal condition
   /* \} */
 
   /*!

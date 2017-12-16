@@ -86,6 +86,7 @@
 
 // chess engine library
 #include "chess_engine/ceChess.h"
+#include "chess_engine/cePlayer.h"
 #include "chess_engine/ceMove.h"
 #include "chess_engine/ceGame.h"
 
@@ -381,7 +382,9 @@ namespace chess_server
     ros::NodeHandle  &m_nh;         ///< the node handler bound to this instance
 
     // chess
-    chess_engine::Chess m_chess;    ///< the game of chess
+    chess_engine::Chess       m_chess;        ///< the game of chess
+    chess_engine::ChessPlayer m_proxyWhite;   ///< white proxy player
+    chess_engine::ChessPlayer m_proxyBlack;   ///< white proxy player
 
     // ROS services, publishers, subscriptions, and local state
     MapServices   m_services;       ///< chess_server services

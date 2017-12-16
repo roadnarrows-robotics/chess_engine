@@ -71,6 +71,7 @@
 
 #include "rnr/appkit/LogStream.h"
 #include "rnr/appkit/StringTheory.h"
+#include "rnr/appkit/Time.h"
 #include "rnr/appkit/CmdExtArg.h"
 #include "rnr/appkit/CommandLine.h"
 #include "rnr/appkit/CmdAddOns.h"
@@ -261,23 +262,12 @@ static void banner()
 
 
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-// The Game of Chess Data Section
+// The Game of Chess Data Section Layout
 // . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
-// map color -> string data type
-typedef map<ChessColor, string> PlayerInfo;
-
-// player name indices
-enum IPlayer
-{
-  IHUMAN  = 0,
-  IROBOT1 = 1,
-  IROBOT2 = 2,
-  INUMOF  = 3
-};
-
-// Sweet Motown
-string PlayerNames[INUMOF] = {"Diana Ross", "Wilson Pickett", "Marvin Gaye"};
+typedef map<string, ChessPlayer>    PlayerMap;    // name-player map
+typedef map<ChessPlayerId, string>  IdToNameMap;  // id-name map
+typedef map<ChessColor, string>     ColorMap;     // color-string map
 
 // fixed prompt strings
 const string PromptNoGame("nogame> ");
@@ -289,14 +279,73 @@ const string PromptEndOfGame("endofgame> ");
 class GameOfChess
 {
 public:
-  Chess       m_chess;    // the game
-  ChessColor  m_you;      // your color, human
-  ChessColor  m_turn;     // whose turn to move
-  PlayerInfo  m_player;   // player names
-  PlayerInfo  m_prompt;   // cli player prompts
-  ChessResult m_result;   // result of last move or game state
-  bool        m_autoshow; // do [not] auto-display board after each play
-  bool        m_trace;    // debug tracing on or off 
+  Chess         m_chess;      // the game
+  bool          m_canMove;    // you, yes you, can make a move
+  ChessColor    m_turn;       // whose turn is it to move
+  ColorMap      m_players;    // player names
+  ColorMap      m_prompt;     // cli player prompts
+  ChessResult   m_result;     // result of last move or game state
+  bool          m_autoshow;   // do [not] auto-display board after each play
+  bool          m_trace;      // debug tracing on or off 
+
+  PlayerMap     m_pool;       // pool of players
+  IdToNameMap   m_idToName;   // player id to name mapping
+  ChessPlayerId m_idCounter;  // new player id assignment counter
+
+  /*!
+   * \brief Get the player associated with id/name in the pool.
+   *
+   * \param   idname  String value of player's name or integer string of
+   *                  player's identification.
+   *
+   * \return Reference to ChessPlayer. If player's id is NoPlayerId, then the
+   * player wasn't found.
+   */
+  ChessPlayer &getPlayer(const string idname)
+  {
+    PlayerMap::iterator pos;
+
+    // try name first to find the player in the pool
+    if( (pos = m_pool.find(idname)) != m_pool.end() )
+    {
+      return pos->second;
+    }
+
+    long val;
+
+    // convert to long
+    if( str::tolong(idname, val) != OK )
+    {
+      return ChessPlayer::noplayer();
+    }
+    
+    ChessPlayerId id = (ChessPlayerId)val;
+
+    IdToNameMap::iterator idpos;
+
+    // try to find player's id
+    if( (idpos = m_idToName.find(id)) == m_idToName.end() )
+    {
+      return ChessPlayer::noplayer();
+    }
+
+    // now try again to find player in the pool
+    if( (pos = m_pool.find(idpos->second)) != m_pool.end() )
+    {
+      return pos->second;
+    }
+
+    else
+    {
+      return ChessPlayer::noplayer();
+    }
+  }
+
+  void addPlayer(const string name, ChessPlayerType type = PlayerTypeAnon)
+  {
+    m_pool[name] = ChessPlayer(m_idCounter, name, type);
+    m_idToName[m_idCounter++] = name;
+  }
 
   /*!
    * \brief Clear prompt stack.
@@ -332,13 +381,34 @@ public:
    */
   void init(CommandLine &cli)
   {
-    m_you       = NoColor;
+    string name;
+
+    m_canMove   = false;
     m_turn      = NoColor;
     m_result    = NoResult;
     m_autoshow  = false;
     m_trace     = false;
-  
-    cli.pushPrompt(PromptNoGame);
+
+    m_idCounter   = 10;
+
+    //
+    // Anonymous players
+    //
+    addPlayer("white", PlayerTypeAnon);
+    addPlayer("black", PlayerTypeAnon);
+
+    //
+    // Sweet Motown players
+    //
+
+    // Diana Ross
+    addPlayer("ross", PlayerTypeHuman);
+
+    // Wilson Pickett
+    addPlayer("pickett", PlayerTypeHuman);
+
+    // Marvin Gaye
+    addPlayer("gaye", PlayerTypeHuman);
   }
   
   /*!
@@ -348,7 +418,7 @@ public:
    */
   void markNoGame(CommandLine &cli)
   {
-    m_you     = NoColor;
+    m_canMove = false;
     m_turn    = NoColor;
     m_result  = NoResult;
   
@@ -358,32 +428,20 @@ public:
   /*!
    * \brief Mark the game of chess meta-data for 'new game'.
    *
-   * \param cli   Command-line interface.
+   * \param cli           Command-line interface.
+   * \param nameOfWhite   White player's name.
+   * \param nameOfBlack   Black player's name.
    */
-  void markNewGame(CommandLine &cli, ChessColor color)
+  void markNewGame(CommandLine &cli, string nameOfWhite, string nameOfBlack)
   {
-    m_you  = color;
-    m_turn = White;
+    m_canMove = true;
+    m_turn    = White;
   
-    switch( m_you )
-    {
-      case White:
-        m_player[White] = PlayerNames[IHUMAN];
-        m_player[Black] = PlayerNames[IROBOT1];
-        break;
-      case Black:
-        m_player[White] = PlayerNames[IROBOT1];
-        m_player[Black] = PlayerNames[IHUMAN];
-        break;
-      case NoColor:
-      default:
-        m_player[White] = PlayerNames[IROBOT1];
-        m_player[Black] = PlayerNames[IROBOT2];
-        break;
-    }
-  
-    m_prompt[White] = m_player[White] + "(white): ";
-    m_prompt[Black] = m_player[Black] + "(black): ";
+    m_players[White] = nameOfWhite;
+    m_players[Black] = nameOfBlack;
+
+    m_prompt[White] = m_players[White] + "(white): ";
+    m_prompt[Black] = m_players[Black] + "(black): ";
   
     cli.pushPrompt(m_prompt[m_turn]);
   }
@@ -395,12 +453,21 @@ public:
    */
   void markGameEnded(CommandLine &cli)
   {
+    m_canMove = false;
+
     clearPromptStack(cli);
   
     cli.pushPrompt(PromptEndOfGame);
   }
   
-  void markMoveMade(CommandLine &cli, ChessResult &result)
+  /*!
+   * \brief Mark the game of chess meta-data for 'game ended'.
+   *
+   * \param cli     Command-line interface.
+   * \param byUser  Move was [not] made by the user.
+   * \param result  Command-line interface.
+   */
+  void markMoveMade(CommandLine &cli, bool byUser, ChessResult &result)
   {
     m_result = result;
   
@@ -414,7 +481,8 @@ public:
         markGameEnded(cli);
         break;
       case Ok:
-        m_turn = m_chess.whoseTurn();
+        m_canMove = !byUser;
+        m_turn    = m_chess.whoseTurn();
         cli.popPrompt();
         cli.pushPrompt(m_prompt[m_turn]);
         break;
@@ -489,11 +557,11 @@ static void printMoveResult(GameOfChess &goc, ChessResult result)
       break;
 
     case Checkmate:
-      cout  << "Player " << goc.m_player[eLoser]
+      cout  << "Player " << goc.m_players[eLoser]
             << " playing " << nameOfColor(eLoser)
             << " has been checkmated."
             << endl
-            << goc.m_player[eWinner]
+            << goc.m_players[eWinner]
             << " playing " << nameOfColor(eWinner)
             << " wins the game."
             << endl;
@@ -504,22 +572,22 @@ static void printMoveResult(GameOfChess &goc, ChessResult result)
       break;
 
     case Resign:
-      cout  << "Player " << goc.m_player[eLoser]
+      cout  << "Player " << goc.m_players[eLoser]
             << " playing " << nameOfColor(eLoser)
             << " has resigned."
             << endl
-            << goc.m_player[eWinner]
+            << goc.m_players[eWinner]
             << " playing " << nameOfColor(eWinner)
             << " is the winner."
             << endl;
       break;
 
     case Disqualified:
-      cout  << "Player " << goc.m_player[eLoser]
+      cout  << "Player " << goc.m_players[eLoser]
             << " playing " << nameOfColor(eLoser)
             << " has been disqualified."
             << endl
-            << goc.m_player[eWinner]
+            << goc.m_players[eWinner]
             << " playing " << nameOfColor(eWinner)
             << " wins."
             << endl;
@@ -535,8 +603,45 @@ static void printMoveResult(GameOfChess &goc, ChessResult result)
   }
 }
 
-static void printGameResult(GameOfChess &goc, ChessResult result)
+static string gameOutcome(GameOfChess &goc,
+                          ChessColor  winner,
+                          ChessResult result)
 {
+  ChessColor    loser = opponent(winner);
+  stringstream  ss;
+
+  switch( result )
+  {
+    case OutOfTurn:
+    case BadMove:
+    case Ok:
+      ss << nameOfResult(result) << ": Not an end-of-game result";
+      break;
+
+    case Checkmate:
+      ss << nameOfColor(winner) << " checkmated " << nameOfColor(loser);
+      break;
+
+    case Draw:
+      ss << "Game is a draw";
+      break;
+
+    case Resign:
+      ss  << nameOfColor(loser) << " resigned";
+      break;
+
+    case Disqualified:
+      ss  << nameOfColor(loser) << " was disqualified";
+      break;
+
+    case Aborted:
+    case GameFatal:
+    default:
+      ss << "Game was aborted";
+      break;
+  }
+
+  return ss.str();
 }
 
 static int showHistory(GameOfChess &goc, const string &cmd)
@@ -700,16 +805,7 @@ static int showResult(GameOfChess  &goc, const string &cmd)
   //
   if( goc.m_chess.isPlayingAGame() )
   {
-    string    strTurn;
-
-    if( goc.m_chess.whoseTurn() != NoColor )
-    {
-      strTurn = nameOfColor(goc.m_chess.whoseTurn());
-    }
-    else
-    {
-      strTurn = "?noplayer?";
-    }
+    string strTurn(nameOfColor(goc.m_turn));
 
     cout << "Game in progress." << endl;
     cout << indent << setw(20) << std::left << "whose turn: " << strTurn
@@ -834,37 +930,54 @@ static int execAbout(CommandLine &cli, const CmdExtArgVec &argv)
  */
 static int execNewGame(CommandLine &cli, const CmdExtArgVec &argv)
 {
-  GameOfChess &goc = gocds(cli);  // game of chess data section
+  size_t      argc = argv.size();   // number of arguments
+  GameOfChess &goc = gocds(cli);    // game of chess data section
+  string      nameidWhite("white"); // default white player's name
+  string      nameidBlack("black"); // default black player's name
+  int         rc;
 
-  if( argv[1].s() == "white" )
+  // white player's name/id specified
+  if( argc > 1 )
   {
-    goc.markNewGame(cli, White);
+    nameidWhite = argv[1].s();
   }
-  else if( argv[1].s() == "black" )
+
+  // black player's name/id specified
+  if( argc > 2 )
   {
-    goc.markNewGame(cli, Black);
+    nameidBlack = argv[2].s();
   }
-  else if( argv[1].s() == "ogle" )
+
+  // get players from pool
+  ChessPlayer &white = goc.getPlayer(nameidWhite);
+  ChessPlayer &black = goc.getPlayer(nameidBlack);
+
+  // white player is not in the pool of players
+  if( white.isNoPlayer() )
   {
-    goc.markNewGame(cli, NoColor);
-  }
-  else
-  {
-    PCMDERROR(argv[0].s(), "Bug: Unknown argument value '"
-        << argv[1].s() << "'.");
+    PCMDERROR(argv[0].s(), "Player '" << nameidWhite << "' not found.");
     return RC_ERROR;
   }
 
-  int rc = goc.m_chess.startNewGame(goc.m_player[White], goc.m_player[Black]);
+  // black player is not in the pool of players
+  if( black.isNoPlayer() )
+  {
+    PCMDERROR(argv[0].s(), "Player '" << nameidBlack << "' not found.");
+    return RC_ERROR;
+  }
 
-  if( rc != CE_OK )
+  // start the game
+  if( (rc = goc.m_chess.startNewGame(&white, &black)) != CE_OK )
   {
     PCMDERROR(argv[0].s(), "Failed to start new game: "
         << chess_engine::strecode(rc) << ".");
-    goc.markNoGame(cli);
     return RC_ERROR;
   }
 
+  // mark new game state
+  goc.markNewGame(cli, white.name(), black.name());
+
+  // autoshow board
   if( goc.m_autoshow )
   {
     cout << goc.m_chess.getBoard() << endl;
@@ -891,19 +1004,13 @@ static int execResign(CommandLine &cli, const CmdExtArgVec &argv)
     return RC_ERROR;
   }
 
-  else if( goc.m_you == NoColor )
-  {
-    cout << "Lady, you're just watching." << endl;
-    return RC_ERROR;
-  }
-
-  else if( goc.m_chess.whoseTurn() != goc.m_you )
+  else if( !goc.m_canMove )
   {
     cout << "Hey mac, resign on your turn." << endl;
     return RC_ERROR;
   }
 
-  int rc = goc.m_chess.resign(goc.m_you);
+  int rc = goc.m_chess.resign(goc.m_turn);
 
   if( rc != CE_OK )
   {
@@ -937,15 +1044,7 @@ static int execGet(CommandLine &cli, const CmdExtArgVec &argv)
 {
   GameOfChess &goc = gocds(cli);  // game of chess data section
 
-  if( argv[1].s() == "player" )
-  {
-    cout << PlayerNames[IHUMAN] << endl;
-  }
-  else if( argv[1].s() == "engine" )
-  {
-    cout << PlayerNames[IROBOT1] << endl;
-  }
-  else if( argv[1].s() == "display" )
+  if( argv[1].s() == "display" )
   {
     bool on = goc.m_chess.getBoard().getGraphicState();
 
@@ -980,15 +1079,7 @@ static int execSet(CommandLine &cli, const CmdExtArgVec &argv)
 {
   GameOfChess &goc = gocds(cli);  // game of chess data section
 
-  if( argv[1].s() == "player" )
-  {
-    PlayerNames[IHUMAN] = argv[2].s();
-  }
-  else if( argv[1].s() == "engine" )
-  {
-    PlayerNames[IROBOT1] = argv[2].s();
-  }
-  else if( argv[1].s() == "display" )
+  if( argv[1].s() == "display" )
   {
     if( argv[2].s() == "ascii" )
     {
@@ -1065,6 +1156,138 @@ static int execShow(CommandLine &cli, const CmdExtArgVec &argv)
 }
 
 /*!
+ * \brief Player commands
+ *
+ * \param cli   Command line interface.
+ * \param argv  Command line arguments.
+ *
+ * \return OK(0) on success, negative value on failure.
+ */
+static int execPlayer(CommandLine &cli, const CmdExtArgVec &argv)
+{
+  GameOfChess &goc  = gocds(cli);  // game of chess data section
+  int         rc    = OK;
+
+  // player list
+  if( argv[1].s() == "list" )
+  {
+    IdToNameMap::iterator iter;
+
+    cout << " id  name" << endl;
+    //cout << " --  ----" << endl;
+
+    for(iter = goc.m_idToName.begin(); iter != goc.m_idToName.end(); ++iter)
+    {
+      ChessPlayer &player = goc.m_pool[iter->second];
+      cout << setw(3) << player.id() << ". " << player.name() << "" << endl;
+    }
+  }
+
+  // player new <name>
+  else if( argv[1].s() == "add" )
+  {
+    ChessPlayer &player = goc.getPlayer(argv[2].s());
+
+    if( player.id() == NoPlayerId )
+    {
+      goc.addPlayer(argv[2].s(), PlayerTypeRobot);
+    }
+    else
+    {
+      PCMDERROR(argv[0].s(), "Player '" << argv[2].s() << "' already exists.");
+      rc = RC_ERROR;
+    }
+  }
+
+  // player cv <nameid>
+  else if( argv[1].s() == "cv" )
+  {
+    ChessPlayer &player = goc.getPlayer(argv[2].s());
+
+    if( player.id() != NoPlayerId )
+    {
+      cout << player << endl;
+    }
+    else
+    {
+      PCMDERROR(argv[0].s(), "Player '" << argv[2].s() << "' not found.");
+    }
+  }
+
+  // player summary <nameid>
+  else if( argv[1].s() == "summary" )
+  {
+    ChessPlayer &player = goc.getPlayer(argv[2].s());
+
+    if( player.id() != NoPlayerId )
+    {
+      const PlayerSummary &summary = player.summary();
+
+      cout << "Player " << player.name() << endl;
+      cout << "  wins:   " << setw(3) << std::right << summary.wins() << endl;
+      cout << "  losses: " << setw(3) << std::right << summary.losses() << endl;
+      cout << "  draws:  " << setw(3) << std::right << summary.draws() << endl;
+      cout << "  ------- ---" << endl;
+      cout << "  games:  " << setw(3) << std::right << summary.games() << endl;
+    }
+    else
+    {
+      PCMDERROR(argv[0].s(), "Player '" << argv[2].s() << "' not found.");
+    }
+  }
+
+  // player summary <nameid>
+  else if( argv[1].s() == "history" )
+  {
+    ChessPlayer &player = goc.getPlayer(argv[2].s());
+
+    if( player.id() != NoPlayerId )
+    {
+      chronos::Time tstart, tend;
+      string        strWinner;
+
+      cout << "Player " << player.name() << " History" << endl;
+      for(ssize_t i = (ssize_t)player.sizeHistory() - 1; i >= 0; --i)
+      {
+        const GameRecord &rec = player.recordAt(i);
+
+        rec.gameTimes(tstart, tend);
+        if( rec.gameWinner() == NoColor )
+        {
+          strWinner = "no winner";
+        }
+        else
+        {
+          strWinner = nameOfColor(rec.gameWinner());
+        }
+
+        cout << " Game " << i + 1 << endl;
+        cout << "  start:    " << tstart.calendarTime() << endl;
+        cout << "  end:      " << tend.calendarTime() << endl;
+        cout << "  played:   " << nameOfColor(rec.colorPlayed()) << endl;
+        cout << "  opponent: " << rec.opponentInfo().name() << endl;
+        cout << "  winner:   " << strWinner << endl;
+        cout << "  result:   "
+          << gameOutcome(goc, rec.gameWinner(), rec.gameResult()) << endl;
+      }
+      cout << " " << player.sizeHistory() << " records." << endl;
+    }
+    else
+    {
+      PCMDERROR(argv[0].s(), "Player '" << argv[2].s() << "' not found.");
+    }
+  }
+
+  else
+  {
+    PCMDERROR(argv[0].s(), "Bug: Unknown parameter '" << argv[1].s() << "'");
+    rc = RC_ERROR;
+  }
+
+  return OK;
+}
+
+/*!
  * \brief Execute a trace enable/disable command.
  *
  * \param cli   Command line interface.
@@ -1097,21 +1320,15 @@ static int execMakeAMove(CommandLine &cli, const CmdExtArgVec &argv)
     return RC_ERROR;
   }
 
-  else if( goc.m_you == NoColor )
+  else if( !goc.m_canMove )
   {
     cout << "Kibitzer, keep your hands to yourself." << endl;
     return RC_ERROR;
   }
 
-  else if( goc.m_chess.whoseTurn() != goc.m_you )
-  {
-    cout << "Friend, really?." << endl;
-    return RC_ERROR;
-  }
-
   ChessMove move;
 
-  int rc = goc.m_chess.makeAMove(goc.m_you, argv[0].s(), move); 
+  int rc = goc.m_chess.makeAMove(goc.m_turn, argv[0].s(), move); 
 
   if( rc != CE_OK )
   {
@@ -1122,7 +1339,7 @@ static int execMakeAMove(CommandLine &cli, const CmdExtArgVec &argv)
   printMove(goc, move);
   printMoveResult(goc, move.m_eResult);
 
-  goc.markMoveMade(cli, move.m_eResult);
+  goc.markMoveMade(cli, true, move.m_eResult);
 
   if( goc.m_autoshow )
   {
@@ -1172,7 +1389,7 @@ static int execGo(CommandLine &cli, const CmdExtArgVec &argv)
     printMove(goc, move);
     printMoveResult(goc, move.m_eResult);
 
-    goc.markMoveMade(cli, move.m_eResult);
+    goc.markMoveMade(cli, false, move.m_eResult);
 
     if( goc.m_autoshow )
     {
@@ -1207,10 +1424,6 @@ static int execBlankLine(CommandLine &cli)
   {
     return OK;
   }
-  else if( goc.m_turn == goc.m_you )
-  {
-    return OK;
-  }
 
   ChessMove move;
 
@@ -1225,7 +1438,7 @@ static int execBlankLine(CommandLine &cli)
   printMove(goc, move);
   printMoveResult(goc, move.m_eResult);
 
-  goc.markMoveMade(cli, move.m_eResult);
+  goc.markMoveMade(cli, false, move.m_eResult);
 
   if( goc.m_autoshow )
   {
@@ -1256,13 +1469,12 @@ AppCmd Commands[] =
     execAbout
   },
 
-  { { "new",
-      "new {white | black | ogle}",
+  { { "newgame",
+      "newgame [<white:multiword>] [<black:multiword>]",
       "Start a new chess game.",
       "Start a new game of chess where:\n"
-      "  white - you are playing white\n" 
-      "  black - you are playing black\n" 
-      "  ogle  - engine plays against itself", 
+      "  <white> - name or id of player in pool.\n"
+      "  <black> - name or id of player in pool."
     },
     execNewGame
   },
@@ -1298,7 +1510,7 @@ AppCmd Commands[] =
   },
 
   { { "get",
-      "get {autoshow | display | difficulty | engine | player}",
+      "get {autoshow | display | difficulty}",
       "Get a chess environment parameter's value."
     },
     execGet
@@ -1319,14 +1531,13 @@ AppCmd Commands[] =
       "                           [1.0,10.0] with 1 = the easiest level.\n"
       "set display <encode>   - Set how the chess board is displayed.\n"
       "                           ascii    - ASCII UTF-8\n"
-      "                           figurine - Unicode figurines\n"
-      "set engine <name>      - Set the engine's nom de guerre.\n"
-      "set player <name>      - Set the player's nom de guerre."
+      "                           figurine - Unicode figurines"
     },
     execSet
   },
 
   { { "show",
+
       "show {board | history | result}\n"
       "show avail <square:re([a-h][1-8])>\n"
       "show captured {white | black}",
@@ -1341,6 +1552,27 @@ AppCmd Commands[] =
       "show avail <square>    - Show available moves."
     },
     execShow
+  },
+
+  { { "player",
+
+      "player list\n"
+      "player add <name:multiword>\n"
+      "player {cv | summary | history} <nameid:multiword>",
+
+      "Manage chess player pool.",
+
+      "Manage the pool of chess players.\n\n"
+      "player list             - List players in pool.\n"
+      "player add <name>       - Add new player to pool.\n"
+      "player cv <nameid>      - Dump player's full curriculum vitae.\n"
+      "player summary <nameid> - Show player's game summary.\n"
+      "player history <nameid> - Show player's game history.\n"
+      "where:\n"
+      "  <name>   - new player's unique name.\n"
+      "  <nameid> - name or id of player in pool."
+    },
+    execPlayer
   },
 
   { { "trace",

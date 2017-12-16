@@ -21,6 +21,9 @@ find_package(Boost REQUIRED COMPONENTS system)
 # qt packages
 find_package(Qt5Widgets)
 
+set(rnr-sdk_DIR /usr/local/lib/cmake/rnr)
+find_package(rnr-sdk REQUIRED)
+
 # no libs nor headers to export - only the executable
 catkin_package()
 
@@ -89,6 +92,7 @@ qt5_wrap_cpp(QT_MOC_HPP ${QT_MOC})
 include_directories(
   include
   ${CE_ROOT}/include
+  ${rnr-sdk_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
 )
@@ -103,6 +107,7 @@ add_executable(rqt_chess
 target_link_libraries(rqt_chess
   Qt5::Widgets
   chessengine
+  ${rnr-sdk_LIBRARIES}
   ${catkin_LIBRARIES}
 )
 

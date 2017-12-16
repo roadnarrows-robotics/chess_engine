@@ -63,7 +63,9 @@
 #include "boost/assign.hpp"
 
 #include "rnr/color.h"
+
 #include "rnr/appkit/LogStream.h"
+#include "rnr/appkit/Time.h"
 
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceError.h"
@@ -72,6 +74,7 @@
 
 using namespace std;
 using namespace rnr;
+using namespace rnr::chronos;
 using namespace chess_engine;
 
 
@@ -80,7 +83,7 @@ using namespace chess_engine;
 // -----------------------------------------------------------------------------
 
 PlayerInfo::PlayerInfo()
-  : m_id(NoPlayerId), m_eType(PlayerTypeUndef)
+  : m_id(NoPlayerId), m_eType(PlayerTypeAnon)
 {
 }
 
@@ -108,7 +111,7 @@ void PlayerInfo::clear()
 {
   m_id    = NoPlayerId;
   m_strName.clear();
-  m_eType = PlayerTypeUndef;
+  m_eType = PlayerTypeAnon;
 }
 
 ostream &chess_engine::operator<<(ostream &os, const PlayerInfo &obj)
@@ -158,10 +161,10 @@ void PlayerSummary::clear()
 ostream &chess_engine::operator<<(ostream &os, const PlayerSummary &obj)
 {
   os << "{ "
-    << "games = " << obj.m_games << ", "
-    << "wins = " << obj.m_wins << ", "
+    << "games = "  << obj.m_games  << ", "
+    << "wins = "   << obj.m_wins   << ", "
     << "losses = " << obj.m_losses << ", "
-    << "draws = " << (char)obj.m_draws
+    << "draws = "  << obj.m_draws
     << " }";
 
   return os;
@@ -216,11 +219,11 @@ ostream &chess_engine::operator<<(ostream &os, const GameRecord &obj)
 
   os << "  player   = " << obj.m_infoPlayer << endl;
   os << "  opponent = " << obj.m_infoOpponent << endl;
-  os << "  color    = " << nameOfColor(obj.m_eColorPlayed)
+  os << "  played   = " << nameOfColor(obj.m_eColorPlayed)
     << "(" << (char)obj.m_eColorPlayed << ")" << endl;
   os << "  start    = " << obj.m_timeStart.calendarTime() << endl;
   os << "  end      = " << obj.m_timeEnd.calendarTime() << endl;
-  os << "  nummoves = " << obj.m_uNumMoves << endl;
+  os << "  numMoves = " << obj.m_uNumMoves << endl;
   os << "  winner   = " << nameOfColor(obj.m_eWinner)
     << "(" << (char)obj.m_eWinner << ")" << endl;
   os << "  result   = " << nameOfResult(obj.m_eResult)
@@ -235,6 +238,9 @@ ostream &chess_engine::operator<<(ostream &os, const GameRecord &obj)
 // -----------------------------------------------------------------------------
 // Class ChessPlayer
 // -----------------------------------------------------------------------------
+
+/*! "no player" player */
+static ChessPlayer NoPlayer;
 
 ChessPlayer::ChessPlayer()
   : m_eColor(NoColor)
@@ -259,6 +265,8 @@ ChessPlayer::~ChessPlayer()
 
 ChessPlayer &ChessPlayer::operator=(const ChessPlayer &rhs)
 {
+  newPersona(rhs.id(), rhs.name(), rhs.type());
+  return *this;
 }
 
 void ChessPlayer::clear()
@@ -356,4 +364,45 @@ void ChessPlayer::markEndOfGame(const ChessColor  eWinner,
   }
 
   m_eColor = NoColor;
+}
+
+void ChessPlayer::newPersona(const ChessPlayerId   id,
+                             const std::string     strName,
+                             const ChessPlayerType eType)
+{
+  clear();
+
+  m_info.m_id       = id;
+  m_info.m_strName  = strName;
+  m_info.m_eType    = eType;
+}
+
+ChessPlayer &ChessPlayer::noplayer()
+{
+  NoPlayer.clear();   // not constant, so make sure
+
+  return NoPlayer;
+}
+
+ostream &chess_engine::operator<<(ostream &os, const ChessPlayer &obj)
+{
+  os << "{" << endl;
+
+  os << "  info    = " << obj.m_info << endl;
+  os << "  playing = " << nameOfColor(obj.m_eColor)
+    << "(" << (char)obj.m_eColor << ")" << endl;
+  os << "  summary = " << obj.m_summary << endl;
+  os << "  history[" << obj.m_history.size() << "] =" << endl;
+  os << "  {" << endl;
+  for(PlayerHistoryCIter iter = obj.m_history.begin();
+      iter != obj.m_history.end();
+      ++iter)
+  {
+    os << *iter << endl;
+  }
+  os << "  }" << endl;
+
+  os << "}";
+
+  return os;
 }

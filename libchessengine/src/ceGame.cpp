@@ -70,9 +70,8 @@
 #include "chess_engine/ceUtils.h"
 
 using namespace std;
+using namespace rnr::chronos;
 using namespace chess_engine;
-
-static ChessPlayer anonplayer;
 
 
 // -----------------------------------------------------------------------------
@@ -82,16 +81,14 @@ static ChessPlayer anonplayer;
 ChessGame::ChessGame()
   : m_anonWhite(AnonWhitePlayerId, "White", PlayerTypeAnon),
     m_anonBlack(AnonBlackPlayerId, "Black", PlayerTypeAnon),
-    m_playerWhite(m_anonWhite),
-    m_playerBlack(m_anonBlack)
+    m_pPlayerWhite(NULL),
+    m_pPlayerBlack(NULL)
 {
   m_bIsPlaying  = false;
   m_ePlayState  = NoGame;
   m_eWinner     = NoColor;
 
   m_eTurnToMove           = NoColor;
-  m_playerName[White]     = "noplayer";
-  m_playerName[Black]     = "noplayer";
   m_numPromotions[White]  = 0;
   m_numPromotions[Black]  = 0;
 
@@ -102,15 +99,18 @@ ChessGame::~ChessGame()
 {
 }
 
-int ChessGame::startNewGame(ChessPlayer &white = anon(),
-                            ChessPlayer &black = anon())
+int ChessGame::startNewGame(ChessPlayer *pWhite, ChessPlayer *pBlack)
 {
-  m_playerWhite = white;
-  m_playerBlack = black;
+  m_pPlayerWhite = pWhite == NULL? &m_anonWhite: pWhite;
+  m_pPlayerBlack = pBlack == NULL? &m_anonBlack: pBlack;
 
-  Time  t;
-
-  t.markNow();
+  // disallow same player objects
+  if( m_pPlayerWhite == m_pPlayerBlack )
+  {
+    LOGERROR_STREAM("Cannot have the same ChessPlayer object playing both "
+                    "white and black.");
+    return -CE_ECODE_BAD_VAL;
+  }
 
   setupGame();
 
@@ -119,16 +119,31 @@ int ChessGame::startNewGame(ChessPlayer &white = anon(),
   m_eWinner     = NoColor;
 
   m_eTurnToMove           = White;
-  m_playerName[White]     = strWhite.empty()? "Witbier": strWhite;
-  m_playerName[Black]     = strBlack.empty()? "Dunkel":  strBlack;
   m_numPromotions[White]  = 0;
   m_numPromotions[Black]  = 0;
+
+  Time  tstart(now());
+
+  m_pPlayerWhite->markStartOfGame(White, m_pPlayerBlack->info(), tstart);
+  m_pPlayerBlack->markStartOfGame(Black, m_pPlayerWhite->info(), tstart);
 
   return CE_OK;
 }
 
 int ChessGame::endCurrentGame(ChessResult eReason, ChessColor eWinner)
 {
+  size_t  numMoves = getNumOfMovesPlayed();
+  Time    tend(now());
+
+  if( m_pPlayerWhite != NULL )
+  {
+    m_pPlayerWhite->markEndOfGame(eWinner, eReason, numMoves, tend);
+  }
+  if( m_pPlayerBlack != NULL )
+  {
+    m_pPlayerBlack->markEndOfGame(eWinner, eReason, numMoves, tend);
+  }
+
   m_bIsPlaying  = false;
   m_ePlayState  = eReason;
   m_eWinner     = eWinner;
@@ -501,8 +516,8 @@ void ChessGame::setupGame()
 void ChessGame::getPlayerNames(std::string &strWhite,
                                std::string &strBlack) const
 {
-  strWhite = m_playerName.find(White)->second;
-  strBlack = m_playerName.find(Black)->second;
+  strWhite = m_pPlayerWhite != NULL? m_pPlayerWhite->name(): m_anonWhite.name();
+  strBlack = m_pPlayerBlack != NULL? m_pPlayerBlack->name(): m_anonBlack.name();
 }
 
 int ChessGame::getNumOfPliesPlayed() const
@@ -585,8 +600,12 @@ void ChessGame::dropInBoneYard(const ChessColor ePlayer, const ChessPos &pos)
 
 ostream &chess_engine::operator<<(ostream &os, const ChessGame &game)
 {
-  os << "White: " << game.m_playerName.find(White)->second << endl;
-  os << "Black: " << game.m_playerName.find(Black)->second << endl;
+  string  strWhite, strBlack;
+
+  game.getPlayerNames(strWhite, strBlack);
+
+  os << "White: " << strWhite << endl;
+  os << "Black: " << strBlack << endl;
   os << game.getNumOfMovesPlayed() << ".  " << nameOfColor(game.m_eTurnToMove);
   os << endl;
   os << game.m_board;

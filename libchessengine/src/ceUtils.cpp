@@ -240,7 +240,7 @@ namespace chess_engine
     name_iter iter = NamePlayerType.find(type);
 
     return iter != NamePlayerType.end()?  iter->second:
-                                          NamePlayerType.at(PlayerTypeUndef);
+                                          NamePlayerType.at(PlayerTypeAnon);
   }
 
   ChessResult rcToMoveResult(int rc)

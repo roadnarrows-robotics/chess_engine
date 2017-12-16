@@ -81,6 +81,7 @@ namespace chess_engine
     (CE_ECODE_NO_EXEC,            "Cannot execute")
     (CE_ECODE_BUSY,               "Resource busy")
     (CE_ECODE_INTR,               "Execution interrupted")
+    (CE_ECODE_BAD_VAL,            "Bad value")
     (CE_ECODE_CHESS_NO_GAME,      "No active chess game")
     (CE_ECODE_CHESS_BAD_MOVE,     "Invalid chess move")
     (CE_ECODE_CHESS_OUT_OF_TURN,  "Chess move out-of-turn")

@@ -96,14 +96,18 @@ namespace chess_engine
     /*!
      * \brief Start a new game.
      *
+     * The caller provides the two antagonists. If NULL, an anonymous player is
+     * provided.
+     *
      * White moves first.
      *
-     * \param strWhite    White player's nom de guerre.
+     * \param pWhite    Pointer to player playing white.
+     * \param pBlack    Pointer to player playing black.
      * \param strBlack    Black player's nom de guerre.
      *
      * \return Returns CE_OK on success, negative error code on failure.
      */
-    int startNewGame(const std::string &strWhite, const std::string &strBlack);
+    int startNewGame(ChessPlayer *pWhite = NULL, ChessPlayer *pBlack = NULL);
 
     /*!
      * \brief End current game.

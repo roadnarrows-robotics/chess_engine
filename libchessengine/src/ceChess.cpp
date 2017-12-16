@@ -76,6 +76,7 @@
 using namespace std;
 using namespace chess_engine;
 
+
 // ----------------------------------------------------------------------------
 // Class Chess
 // ----------------------------------------------------------------------------
@@ -93,13 +94,13 @@ int Chess::initialize()
   return m_engine.openConnection();
 }
 
-int Chess::startNewGame(const string &strWhite, const string &strBlack)
+int Chess::startNewGame(ChessPlayer *pWhite, ChessPlayer *pBlack)
 {
   int   rc;
 
   if( (rc = m_engine.startNewGame()) == CE_OK )
   {
-    rc = m_game.startNewGame(strWhite, strBlack);
+    rc = m_game.startNewGame(pWhite, pBlack);
   }
 
   return rc;

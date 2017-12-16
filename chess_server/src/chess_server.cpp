@@ -87,6 +87,7 @@
 // chess engine library
 #include "chess_engine/ceTypes.h"
 #include "chess_engine/ceChess.h"
+#include "chess_engine/cePlayer.h"
 #include "chess_engine/ceRosMsgs.h"
 
 // chess_server
@@ -146,7 +147,11 @@ static const int CS_OK = chess_engine::CE_OK; ///< a okay
 
 ChessServer::ChessServer(ros::NodeHandle &nh) :
     m_nh(nh),
-    m_threadTask(m_chess)
+    m_threadTask(m_chess),
+    m_proxyWhite(chess_engine::AnonWhitePlayerId, "White",
+                 chess_engine::PlayerTypeAnon),
+    m_proxyBlack(chess_engine::AnonBlackPlayerId, "Black",
+                 chess_engine::PlayerTypeAnon)
 {
   initPubVars();
 
@@ -260,7 +265,21 @@ bool ChessServer::startNewGame(StartNewGame::Request  &req,
 
   endMoveSvcSeq(true);
 
-  rc = m_chess.startNewGame(req.white_name, req.black_name);
+  if( req.white_name != m_proxyWhite.name() )
+  {
+    m_proxyWhite.newPersona(m_proxyWhite.id(),
+                            req.white_name,
+                            m_proxyWhite.type());
+  }
+
+  if( req.black_name != m_proxyBlack.name() )
+  {
+    m_proxyBlack.newPersona(m_proxyBlack.id(),
+                            req.black_name,
+                            m_proxyBlack.type());
+  }
+
+  rc = m_chess.startNewGame(&m_proxyWhite, &m_proxyBlack);
 
   if( rc == CS_OK )
   {

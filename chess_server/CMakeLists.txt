@@ -19,6 +19,9 @@ find_package(catkin
 
 find_package(Boost REQUIRED COMPONENTS system)
 
+set(rnr-sdk_DIR /usr/local/lib/cmake/rnr)
+find_package(rnr-sdk REQUIRED)
+
 #catkin_python_setup()
 
 add_message_files(
@@ -75,6 +78,7 @@ catkin_package(
 include_directories(
   include 
   ${CE_ROOT}/include
+  ${rnr-sdk_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
 )
@@ -91,6 +95,7 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} 
   chessengine
+  ${rnr-sdk_LIBRARIES}
   ${catkin_LIBRARIES}
 )
 

@@ -167,7 +167,7 @@ namespace chess_engine
 
 
   // ---------------------------------------------------------------------------
-  // Class PlayerHistory
+  // Class PlayerSummary
   // ---------------------------------------------------------------------------
 
   /*!
@@ -371,7 +371,8 @@ namespace chess_engine
      * \param [out] timeStart   Start time (UTC).
      * \param [out] timeEnd     End time (UTC).
      */
-    const void gameTimes(rnr::Time &timeStart, rnr::Time &timeEnd) const
+    const void gameTimes(rnr::chronos::Time &timeStart,
+                         rnr::chronos::Time &timeEnd) const
     {
       timeStart = m_timeStart;
       timeEnd   = m_timeEnd;
@@ -382,7 +383,7 @@ namespace chess_engine
      *
      * \return Number.
      */
-    const size_t gameNumOfMoves() const
+    const size_t numOfGameMoves() const
     {
       return m_uNumMoves;
     }
@@ -420,14 +421,14 @@ namespace chess_engine
     friend class ChessPlayer;
 
   protected:
-    PlayerInfo    m_infoPlayer;   ///< player information
-    PlayerInfo    m_infoOpponent; ///< opponent information
-    ChessColor    m_eColorPlayed; ///< color played
-    rnr::Time     m_timeStart;    ///< time game started (UTC)
-    rnr::Time     m_timeEnd;      ///< time game ended (UTC)
-    size_t        m_uNumMoves;    ///< number of moves in game
-    ChessColor    m_eWinner;      ///< color of winner, if any
-    ChessResult   m_eResult;      ///< game result
+    PlayerInfo          m_infoPlayer;   ///< player information
+    PlayerInfo          m_infoOpponent; ///< opponent information
+    ChessColor          m_eColorPlayed; ///< color played
+    rnr::chronos::Time  m_timeStart;    ///< time game started (UTC)
+    rnr::chronos::Time  m_timeEnd;      ///< time game ended (UTC)
+    size_t              m_uNumMoves;    ///< number of moves in game
+    ChessColor          m_eWinner;      ///< color of winner, if any
+    ChessResult         m_eResult;      ///< game result
   }; // class GameRecord
 
   //
@@ -474,6 +475,8 @@ namespace chess_engine
     /*!
      * \brief Assignment operator.
      *
+     * Only the player information is copied. History is erased.
+     *
      * \param rhs Right-hand side object.
      *
      * \return Reference to this.
@@ -490,9 +493,17 @@ namespace chess_engine
      *
      * \return Number.
      */
-    const ChessPlayerId getPlayerId() const
+    const ChessPlayerId id() const
     {
       return m_info.m_id;
+    }
+
+    /*!
+     * \brief Test if player is the special "no player".
+     */
+    bool isNoPlayer()
+    {
+      return m_info.id() == NoPlayerId;
     }
 
     /*!
@@ -500,7 +511,7 @@ namespace chess_engine
      *
      * \return String.
      */
-    const std::string &getPlayerName() const
+    const std::string &name() const
     {
       return m_info.m_strName;
     }
@@ -510,7 +521,7 @@ namespace chess_engine
      *
      * \return Enum.
      */
-    const ChessPlayerType getPlayerType() const
+    const ChessPlayerType type() const
     {
       return m_info.m_eType;
     }
@@ -520,7 +531,7 @@ namespace chess_engine
      *
      * \return Reference to PlayerInfo.
      */
-    const PlayerInfo &getPlayerInfo() const
+    const PlayerInfo &info() const
     {
       return m_info;
     }
@@ -530,7 +541,7 @@ namespace chess_engine
      *
      * \return Color. NoColor if not playing.
      */
-    const ChessColor getPlayerColor() const
+    const ChessColor color() const
     {
       return m_eColor;
     }
@@ -550,7 +561,7 @@ namespace chess_engine
      *
      * \return Reference to PlayerSummary.
      */
-    const PlayerSummary &getPlayerSummary() const
+    const PlayerSummary &summary() const
     {
       return m_summary;
     }
@@ -562,7 +573,7 @@ namespace chess_engine
      *
      * \return Reference to PlayerHistory.
      */
-    const PlayerHistory &getPlayerHistory() const
+    const PlayerHistory &history() const
     {
       return m_history;
     }
@@ -598,9 +609,9 @@ namespace chess_engine
      * \param infoOpponent  Opponent's information.
      * \param timeStart     Time game started (UTC).
      */
-    void markStartOfGame(const ChessColor &eColor,
-                         const PlayerInfo &infoOpponent,
-                         const rnr::Time  &timeStart);
+    void markStartOfGame(const ChessColor         &eColor,
+                         const PlayerInfo         &infoOpponent,
+                         const rnr::chronos::Time &timeStart);
 
     /*!
      * \brief Mark the end of the current game for the player.
@@ -612,14 +623,35 @@ namespace chess_engine
      * \param uNumMoves Number of moves made in game.
      * \param timeEnd   Time game ended (UTC).
      */
-    void markEndOfGame(const ChessColor  eWinner,
-                       const ChessResult eResult, 
-                       const size_t      uNumMoves,
-                       const rnr::Time   &timeEnd);
+    void markEndOfGame(const ChessColor         eWinner,
+                       const ChessResult        eResult, 
+                       const size_t             uNumMoves,
+                       const rnr::chronos::Time &timeEnd);
 
     //TODO int write(const std::string filename);
 
     //TODO int read(const std::string filename);
+
+    /*!
+     * \brief Create a new persona.
+     *
+     * The player information is updated, but any previous history is erased.
+     * No identity theft here.
+     *
+     * \param id      Player numeric identifier.
+     * \param strName Player's name.
+     * \param eType   Type of player.
+     */
+    void newPersona(const ChessPlayerId   id,
+                    const std::string     strName,
+                    const ChessPlayerType eType);
+
+    /*!
+     * \brief Return "no player" player.
+     *
+     * \return ChessPlayer.
+     */
+    static ChessPlayer &noplayer();
 
     /*!
      * \brief ChessPlayer output stream operator.
